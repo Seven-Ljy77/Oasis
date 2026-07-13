@@ -290,13 +290,13 @@ export interface BootstrapState {
 // Reading Mode
 // -----------------------------------------------------------------------------
 
-export type ReadingMode = "article" | "summary" | "translation" | "digest";
+export type ReadingMode = "reader" | "web" | "dual";
+export type ReaderPanel = "summary" | "translation" | "tagging" | "notes" | "note" | "theme" | null;
 
 // -----------------------------------------------------------------------------
 // Panel identifiers for the reader pane
 // -----------------------------------------------------------------------------
 
-export type ReaderPanel = "note" | "summary" | "translation" | "digest" | null;
 
 // -----------------------------------------------------------------------------
 // Window / Shell command payloads

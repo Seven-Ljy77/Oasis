@@ -3,6 +3,7 @@ import React, { useRef, useEffect } from "react";
 interface ReaderWebViewProps {
   html: string;
   baseURL: string;
+  mode?: "reader" | "web";
   /** Called when user clicks a link — allows custom navigation handling */
   onActionURL?: (url: string) => void;
 }
@@ -17,6 +18,7 @@ interface ReaderWebViewProps {
 const ReaderWebView: React.FC<ReaderWebViewProps> = ({
   html,
   baseURL,
+  mode = "reader",
   onActionURL,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -84,6 +86,18 @@ const ReaderWebView: React.FC<ReaderWebViewProps> = ({
 </body>
 </html>`
     : null;
+
+  // Web mode: load the original URL directly
+  if (mode === "web" && baseURL) {
+    return (
+      <iframe
+        src={baseURL}
+        className="w-full h-full border-0"
+        sandbox="allow-scripts allow-same-origin"
+        title="Web content"
+      />
+    );
+  }
 
   // Placeholder content when no HTML is available
   if (!readerDoc) {

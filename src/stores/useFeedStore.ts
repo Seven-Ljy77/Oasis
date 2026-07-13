@@ -59,7 +59,6 @@ export const useFeedStore = create<FeedState>()((set, get) => ({
   },
 
   addFeed: async (url, title) => {
-    // TODO: optimistic add + rollback on failure
     try {
       const feed = await ipc.addFeed(url, title);
       set((s) => ({ feeds: [...s.feeds, feed] }));
@@ -67,7 +66,7 @@ export const useFeedStore = create<FeedState>()((set, get) => ({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
-      return null;
+      throw err;
     }
   },
 

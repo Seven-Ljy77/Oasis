@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";
@@ -11,7 +11,7 @@ import ReaderNotePanel from "./ReaderNotePanel";
 import Button from "@/components/ui/Button";
 
 const ReaderDetailView: React.FC = () => {
-  const selectedEntryId = useAppStore((s) => s.selectedEntryId);
+  const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const readingMode = useAppStore((s) => s.readingMode);
 
   const entry = useEntryStore((s) =>
@@ -19,12 +19,20 @@ const ReaderDetailView: React.FC = () => {
   );
 
   const readerHTML = useReaderStore((s) => s.readerHTML);
+  const buildReaderHTML = useReaderStore((s) => s.buildReaderHTML);
   const activePanel = useReaderStore((s) => s.activePanel);
   const setActivePanel = useReaderStore((s) => s.setActivePanel);
   const bannerMessage = useReaderStore((s) => s.bannerMessage);
   const bannerType = useReaderStore((s) => s.bannerType);
   const bannerAction = useReaderStore((s) => s.bannerAction);
   const setBanner = useReaderStore((s) => s.setBanner);
+
+  // Build reader HTML when entry selection changes
+  useEffect(() => {
+    if (entry?.url) {
+      buildReaderHTML(entry.url);
+    }
+  }, [selectedEntryId]);
 
   const showPanel = (panel: typeof activePanel) => {
     setActivePanel(activePanel === panel ? null : panel);
@@ -120,11 +128,22 @@ const ReaderDetailView: React.FC = () => {
 
       {/* ---- Reader content ---- */}
       <div className="flex-1 overflow-hidden">
-        {/* TODO: For dual mode, use split pane with original and reader */}
-        <ReaderWebView
-          html={readerHTML ?? ""}
-          baseURL={entry.url ?? "about:blank"}
-        />
+        {readingMode === "dual" ? (
+          <div className="flex h-full">
+            <div className="flex-1 border-r border-border">
+              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="reader" />
+            </div>
+            <div className="flex-1">
+              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="web" />
+            </div>
+          </div>
+        ) : (
+          <ReaderWebView
+            html={readerHTML ?? ""}
+            baseURL={entry.url ?? "about:blank"}
+            mode={readingMode === "web" ? "web" : "reader"}
+          />
+        )}
       </div>
 
       {/* ---- Bottom panels ---- */}

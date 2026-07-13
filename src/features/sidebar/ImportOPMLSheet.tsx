@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
-// TODO: import { importOpml } from "@/lib/ipc";
-// TODO: use Tauri dialog to pick file
+import { useFeedStore } from "@/stores/useFeedStore";
+import * as dialog from "@tauri-apps/plugin-dialog";
 
 interface ImportOPMLSheetProps {
   open: boolean;
@@ -14,22 +14,33 @@ const ImportOPMLSheet: React.FC<ImportOPMLSheetProps> = ({ open, onClose }) => {
   const [forceSiteName, setForceSiteName] = useState(false);
   const [importing, setImporting] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // TODO: Use @tauri-apps/plugin-dialog to pick .opml file
+  const importOpml = useFeedStore((s) => s.importOpml);
+  const loadFeeds = useFeedStore((s) => s.loadFeeds);
+
   const handlePickFile = async () => {
-    // placeholder
-    setSelectedPath("C:/Users/example/feeds.opml");
+    const selected = await dialog.open({
+      filters: [{ name: "OPML Files", extensions: ["opml", "xml"] }],
+      multiple: false,
+    });
+    if (selected && typeof selected === "string") {
+      setSelectedPath(selected);
+      setError(null);
+    }
   };
 
   const handleImport = async () => {
     if (!selectedPath) return;
     setImporting(true);
+    setError(null);
     try {
-      // TODO: await importOpml(selectedPath, replaceExisting, forceSiteName);
-      await new Promise((r) => setTimeout(r, 1000));
+      await importOpml(selectedPath, replaceExisting, forceSiteName);
+      await loadFeeds();
       onClose();
     } catch (err) {
-      console.error("Import failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
     } finally {
       setImporting(false);
     }
@@ -94,6 +105,13 @@ const ImportOPMLSheet: React.FC<ImportOPMLSheetProps> = ({ open, onClose }) => {
             </p>
           </div>
         </label>
+
+        {/* Error message */}
+        {error && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">

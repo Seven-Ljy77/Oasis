@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
-// TODO: import { addFeed } from "@/lib/ipc";
-// TODO: import { useSidebarStore } from "@/stores/useSidebarStore";
+import { useFeedStore } from "@/stores/useFeedStore";
+import { probeFeed } from "@/lib/ipc";
 
 interface FeedEditorSheetProps {
   open: boolean;
   onClose: () => void;
-  /** If provided, editing an existing feed. */
   feedId?: number;
   initialUrl?: string;
   initialTitle?: string;
@@ -26,6 +25,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const { addFeed } = useFeedStore();
   const isEditing = Boolean(feedId);
 
   const handleCheck = async () => {
@@ -36,14 +36,12 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
     setValidating(true);
     setValidationError(null);
     try {
-      // TODO: call backend to validate URL and fetch title
-      // const result = await validateFeedUrl(url);
-      // setTitle(result.title);
-      // placeholder: simulate delay
-      await new Promise((r) => setTimeout(r, 800));
-      if (!title) setTitle("Example Feed Title");
+      const result = await probeFeed(url.trim());
+      if (result.title) {
+        setTitle(result.title);
+      }
     } catch (err) {
-      setValidationError(err instanceof Error ? err.message : "Validation failed");
+      setValidationError(err instanceof Error ? err.message : "Failed to validate feed");
     } finally {
       setValidating(false);
     }
@@ -55,12 +53,14 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
       return;
     }
     setSaving(true);
+    setValidationError(null);
     try {
-      // TODO: if editing, call updateFeed; else call addFeed
-      // await addFeed(url, title || undefined);
+      await addFeed(url.trim(), title.trim() || undefined);
+      setUrl("");
+      setTitle("");
       onClose();
     } catch (err) {
-      setValidationError(err instanceof Error ? err.message : "Save failed");
+      setValidationError(err instanceof Error ? err.message : "Failed to add feed");
     } finally {
       setSaving(false);
     }

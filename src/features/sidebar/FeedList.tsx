@@ -1,10 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSidebarStore } from "@/stores/useSidebarStore";
 import { useAppStore, type SheetKind } from "@/stores/useAppStore";
 import { useEntryListStore } from "@/stores/useEntryListStore";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { useFeedStore } from "@/stores/useFeedStore";
 import ContextMenu, { type ContextMenuItem } from "@/components/ui/ContextMenu";
+import * as dialog from "@tauri-apps/plugin-dialog";
 import type { Feed } from "@/lib/types";
-// TODO: import { getFeeds, syncFeeds, exportOpml, deleteFeed } from "@/lib/ipc";
 
 const FeedList: React.FC = () => {
   const feeds = useSidebarStore((s) => s.feeds);
@@ -20,13 +22,55 @@ const FeedList: React.FC = () => {
   const openSheet = useAppStore((s) => s.openSheet);
   const selectFeedGlobal = useAppStore((s) => s.selectFeed);
   const setEntryLoading = useEntryListStore((s) => s.setLoading);
+  const clearEntries = useEntryStore((s) => s.clearEntries);
 
-  // TODO: Load feeds from backend on mount
+  const feedStoreFeeds = useFeedStore((s) => s.feeds);
+  const loadFeeds = useFeedStore((s) => s.loadFeeds);
+  const deleteFeed = useFeedStore((s) => s.deleteFeed);
+  const exportOpml = useFeedStore((s) => s.exportOpml);
+
+  // More actions dropdown state
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
   useEffect(() => {
-    // Placeholder: load feeds
-    // setFeedsLoading(true);
-    // getFeeds().then(setFeeds).finally(() => setFeedsLoading(false));
+    if (!moreMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [moreMenuOpen]);
+
+  const handleImportOpml = () => {
+    setMoreMenuOpen(false);
+    openSheet("importOPML" as SheetKind);
+  };
+
+  const handleExportOpml = async () => {
+    setMoreMenuOpen(false);
+    const filePath = await dialog.save({
+      filters: [{ name: "OPML Files", extensions: ["opml"] }],
+      defaultPath: "mercury-subscriptions.opml",
+    });
+    if (filePath) {
+      await exportOpml(filePath);
+    }
+  };
+
+  // Load feeds from backend on mount
+  useEffect(() => {
+    setFeedsLoading(true);
+    loadFeeds().finally(() => setFeedsLoading(false));
   }, []);
+
+  // Sync feed store data into sidebar store
+  useEffect(() => {
+    setFeeds(feedStoreFeeds);
+  }, [feedStoreFeeds]);
 
   const handleSelectAllFeeds = () => {
     selectFeed(null);
@@ -47,7 +91,6 @@ const FeedList: React.FC = () => {
     {
       label: "Edit",
       onClick: () => {
-        // TODO: store feed-to-edit in state, then open editor sheet
         openSheet("feedEditor" as SheetKind);
       },
     },
@@ -55,15 +98,13 @@ const FeedList: React.FC = () => {
       label: "Delete",
       danger: true,
       onClick: () => {
-        // TODO: confirm dialog, then deleteFeed(feed.id)
+        if (window.confirm(`Delete "${feed.title || feed.feed_url}"? This will remove all associated entries.`)) {
+          deleteFeed(feed.id);
+          clearEntries();
+          selectFeedGlobal({ type: "all" });
+        }
       },
     },
-  ];
-
-  // Placeholder feeds for UI rendering
-  const placeholderFeeds: Feed[] = feeds.length > 0 ? feeds : [
-    { id: 1, title: "Example Blog", feed_url: "https://example.com/feed", site_url: "https://example.com", unread_count: 12, total_count: 45, last_synced_at: null, error_message: null, is_enabled: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any,
-    { id: 2, title: "Tech News Daily", feed_url: "https://technews.example/feed", site_url: "https://technews.example", unread_count: 3, total_count: 230, last_synced_at: null, error_message: null, is_enabled: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any,
   ];
 
   return (
@@ -83,14 +124,35 @@ const FeedList: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
-          <button
-            className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
-            title="More actions"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
-            </svg>
-          </button>
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setMoreMenuOpen((prev) => !prev)}
+              className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
+              title="More actions"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
+              </svg>
+            </button>
+            {moreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border border-border bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={handleImportOpml}
+                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary transition-colors cursor-pointer"
+                >
+                  Import OPML
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportOpml}
+                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary transition-colors cursor-pointer"
+                >
+                  Export OPML
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -145,8 +207,8 @@ const FeedList: React.FC = () => {
         {/* Divider */}
         <div className="mx-3 my-2 border-t border-border" />
 
-        {/* Placeholder feed rows */}
-        {!feedsLoading && placeholderFeeds.map((feed) => (
+        {/* Feed rows */}
+        {!feedsLoading && feeds.length > 0 && feeds.map((feed) => (
           <ContextMenu key={feed.id} items={getFeedContextMenu(feed)}>
             <button
               onClick={() => handleSelectFeed(feed)}
@@ -156,19 +218,26 @@ const FeedList: React.FC = () => {
                   : "text-slate-700 hover:bg-surface-tertiary"
               }`}
             >
-              {/* Favicon placeholder */}
               <div className="w-4 h-4 rounded bg-slate-300 flex-shrink-0 flex items-center justify-center text-[8px] text-white font-bold">
                 {feed.title?.[0] ?? "?"}
               </div>
               <span className="flex-1 text-left truncate">{feed.title}</span>
-              {(feed as any).unread_count > 0 && (
+              {(feed.unread_count ?? 0) > 0 && (
                 <span className="text-xs text-slate-400 font-medium">
-                  {(feed as any).unread_count > 999 ? "999+" : (feed as any).unread_count}
+                  {(feed.unread_count ?? 0) > 999 ? "999+" : feed.unread_count}
                 </span>
               )}
             </button>
           </ContextMenu>
         ))}
+
+        {/* Empty state */}
+        {!feedsLoading && feeds.length === 0 && (
+          <div className="px-3 py-6 text-center text-sm text-slate-400">
+            <p>No feeds yet</p>
+            <p className="text-xs mt-1">Click + to add your first subscription</p>
+          </div>
+        )}
       </div>
     </div>
   );

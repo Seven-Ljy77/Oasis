@@ -143,7 +143,7 @@ const initialState = {
   selectedFeedSelection: { type: "all" as const },
   selectedEntryId: null as number | null,
 
-  readingMode: "article" as ReadingMode,
+  readingMode: "reader" as ReadingMode,
 
   showUnreadOnly: false,
   searchText: "",

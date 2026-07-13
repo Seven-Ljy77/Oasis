@@ -40,6 +40,7 @@ pub struct EntryListItem {
     pub feed_id: i64,
     pub title: Option<String>,
     pub author: Option<String>,
+    pub url: Option<String>,
     pub published_at: Option<String>,
     pub summary: Option<String>,
     pub is_read: bool,

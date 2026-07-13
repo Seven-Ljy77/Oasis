@@ -14,3 +14,6 @@ pub mod summary_store;
 pub mod tag_batch_store;
 pub mod tag_store;
 pub mod translation_store;
+
+pub use entry_store::SqliteEntryStore;
+pub use feed_store::SqliteFeedStore;

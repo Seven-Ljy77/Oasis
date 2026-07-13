@@ -1,13 +1,19 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::db::manager::DatabaseManager;
-use crate::tasking::task_queue::TaskQueue;
 use crate::agent::runtime::AgentRuntimeEngine;
+use crate::db::entry_store::SqliteEntryStore;
+use crate::db::feed_store::SqliteFeedStore;
+use crate::db::manager::DatabaseManager;
+use crate::feed::sync_service::SyncService;
+use crate::tasking::task_queue::TaskQueue;
 
 /// Global application state managed by Tauri.
 pub struct AppState {
     pub db: Arc<DatabaseManager>,
+    pub feed_store: Arc<SqliteFeedStore>,
+    pub entry_store: Arc<SqliteEntryStore>,
+    pub sync_service: Arc<SyncService>,
     pub task_queue: Arc<TaskQueue>,
     pub agent_runtime: Arc<AgentRuntimeEngine>,
     pub config: Arc<RwLock<AppConfig>>,

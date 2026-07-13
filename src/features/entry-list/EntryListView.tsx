@@ -95,52 +95,6 @@ const EntryListView: React.FC = () => {
 
   const isStarredView = selectedFeedSelection.type === "starred";
 
-  // Placeholder entries for UI rendering when empty
-  const displayEntries: EntryListItem[] =
-    entries.length > 0
-      ? entries
-      : [
-          {
-            id: 1,
-            feed_id: 1,
-            url: null,
-              title: "Getting Started with Rust and Tauri",
-            author: "Jane Doe",
-            published_at: new Date(Date.now() - 3600000).toISOString(),
-            summary: "A comprehensive guide to building desktop apps with Rust and Tauri 2.0.",
-            is_read: false,
-            is_starred: false,
-            feed_title: "Example Blog",
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 2,
-            feed_id: 1,
-            url: null,
-              title: "TypeScript 5.7 Released: What's New",
-            author: null,
-            published_at: new Date(Date.now() - 7200000).toISOString(),
-            summary: "The latest TypeScript release brings improved type inference and new language features.",
-            is_read: true,
-            is_starred: true,
-            feed_title: "Tech News Daily",
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 3,
-            feed_id: 2,
-            url: null,
-              title: "Understanding React Server Components",
-            author: "Alex Chen",
-            published_at: new Date(Date.now() - 86400000).toISOString(),
-            summary: "Deep dive into RSC architecture and how it changes the way we build React apps.",
-            is_read: false,
-            is_starred: false,
-            feed_title: "Tech News Daily",
-            created_at: new Date().toISOString(),
-          },
-        ];
-
   return (
     <div className="flex flex-col h-full">
       {/* ---- Multi-select toolbar ---- */}
@@ -235,7 +189,16 @@ const EntryListView: React.FC = () => {
 
       {/* ---- Entry list ---- */}
       <div className="flex-1 overflow-y-auto">
-        {displayEntries.map((entry) => (
+        {!isLoading && entries.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <svg className="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+            <p className="text-sm">No articles</p>
+            <p className="text-xs mt-1">Select a feed to see its articles</p>
+          </div>
+        )}
+        {entries.map((entry) => (
           <EntryRow
             key={entry.id}
             entry={entry}

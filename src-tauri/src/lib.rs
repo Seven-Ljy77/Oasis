@@ -15,7 +15,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::agent::runtime::AgentRuntimeEngine;
+use crate::db::entry_store::SqliteEntryStore;
+use crate::db::feed_store::SqliteFeedStore;
 use crate::db::manager::DatabaseManager;
+use crate::feed::sync_service::SyncService;
 use crate::state::{AppConfig, AppState};
 use crate::tasking::task_queue::TaskQueue;
 
@@ -29,8 +32,20 @@ fn db_path() -> std::path::PathBuf {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let db = Arc::new(DatabaseManager::new(&db_path()).expect("Failed to initialize database"));
+
+    let feed_store = Arc::new(SqliteFeedStore::new(db.clone()));
+    let entry_store = Arc::new(SqliteEntryStore::new(db.clone()));
+    let sync_service = Arc::new(SyncService::new(
+        feed_store.clone(),
+        entry_store.clone(),
+    ));
+
     let app_state = AppState {
-        db: Arc::new(DatabaseManager::new(&db_path()).expect("Failed to initialize database")),
+        db,
+        feed_store,
+        entry_store,
+        sync_service,
         task_queue: Arc::new(TaskQueue::new()),
         agent_runtime: Arc::new(AgentRuntimeEngine::new()),
         config: Arc::new(RwLock::new(AppConfig::default())),
@@ -45,6 +60,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Feed commands
             commands::feed_commands::add_feed,
+            commands::feed_commands::probe_feed,
+            commands::feed_commands::get_feeds,
             commands::feed_commands::update_feed,
             commands::feed_commands::delete_feed,
             commands::feed_commands::sync_feeds,

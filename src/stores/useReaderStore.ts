@@ -83,7 +83,7 @@ export interface ReaderState {
   setContentWidth: (width: number) => void;
   resetTheme: () => void;
 
-  buildReaderHTML: (entryId: number) => Promise<void>;
+  buildReaderHTML: (entryUrl: string) => Promise<void>;
 
   setReadingMode: (mode: ReadingMode) => void;
 
@@ -137,7 +137,7 @@ const initialState = {
 
   readerHTML: null as string | null,
   entryTitle: null as string | null,
-  readingMode: "article" as ReadingMode,
+  readingMode: "reader" as ReadingMode,
 
   bannerMessage: null as string | null,
   bannerType: "info" as "info" | "success" | "warning" | "error",
@@ -201,10 +201,10 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   }),
 
   // Content
-  buildReaderHTML: async (entryId) => {
+  buildReaderHTML: async (entryUrl) => {
     try {
-      const html = await ipc.buildReaderHTML(entryId, get().themePreset, get().themeMode);
-      set({ readerHTML: html });
+      const result = await ipc.buildReaderHTML(entryUrl);
+      set({ readerHTML: result.html });
     } catch (err) { console.error("buildReaderHTML:", err); }
   },
   setReadingMode: (mode) => set({ readingMode: mode }),
@@ -268,7 +268,7 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   },
 
   resetReaderState: () => set({
-    readerHTML: null, entryTitle: null, readingMode: "article",
+    readerHTML: null, entryTitle: null, readingMode: "reader",
     summaryResult: null, summaryText: "", translationSegments: [],
     noteText: "", openPanel: null, activePanel: null,
     bannerMessage: null, bannerAction: null,

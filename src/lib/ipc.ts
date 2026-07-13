@@ -37,6 +37,9 @@ import type {
 export const addFeed = (url: string, title?: string): Promise<Feed> =>
   invoke<Feed>("add_feed", { url, title });
 
+export const probeFeed = (url: string): Promise<{ title: string | null; site_url: string | null; entry_count: number }> =>
+  invoke("probe_feed", { url });
+
 export const updateFeed = (
   id: number,
   url: string,
@@ -100,12 +103,8 @@ export const getEntryContent = (
 // Reader commands
 // ---------------------------------------------------------------------------
 
-export const buildReaderHTML = (
-  entryId: number,
-  preset: ThemePreset,
-  mode: ThemeMode,
-): Promise<string> =>
-  invoke<string>("build_reader_html", { entryId, preset, mode });
+export const buildReaderHTML = (entryUrl: string): Promise<{ html: string; theme_fingerprint: string }> =>
+  invoke("build_reader_html", { entryUrl });
 
 export const getThemeTokens = (preset: ThemePreset): Promise<ThemeTokens> =>
   invoke<ThemeTokens>("get_theme_tokens", { preset });
