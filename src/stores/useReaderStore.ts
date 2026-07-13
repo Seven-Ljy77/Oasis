@@ -1,0 +1,276 @@
+// =============================================================================
+// Mercury — Reader Store
+// =============================================================================
+
+import { create } from "zustand";
+import type {
+  ThemePreset,
+  ThemeMode,
+  ThemeTokens,
+  ReadingMode,
+  ReaderPanel,
+  SummaryResult,
+  TranslationSegmentData,
+} from "@/lib/types";
+import { DEFAULT_THEME_PRESET, DEFAULT_THEME_TOKENS } from "@/lib/constants";
+import * as ipc from "@/lib/ipc";
+
+// ---------------------------------------------------------------------------
+// State shape
+// ---------------------------------------------------------------------------
+
+export interface ReaderState {
+  // Theme
+  themePreset: ThemePreset;
+  themeMode: ThemeMode;
+  effectiveTheme: "light" | "dark";
+  themeTokens: ThemeTokens;
+  quickStyle: string;
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  contentWidth: number;
+
+  // Content
+  readerHTML: string | null;
+  entryTitle: string | null;
+  readingMode: ReadingMode;
+
+  // Banner
+  bannerMessage: string | null;
+  bannerType: "info" | "success" | "warning" | "error";
+  bannerAction: { label: string; onClick: () => void } | null;
+
+  // Summary panel
+  activePanel: ReaderPanel;
+  summaryOpen: boolean;
+  summaryResult: SummaryResult | null;
+  summaryText: string;
+  summaryTargetLanguage: string;
+  summaryDetailLevel: string;
+  summaryAutoEnabled: boolean;
+  summaryLoading: boolean;
+  summaryError: string | null;
+
+  // Translation panel
+  translationEnabled: boolean;
+  translationBilingual: boolean;
+  translationTargetLang: string;
+  translationTargetLanguage: string;
+  translationConcurrency: number;
+  translationPromptStrategy: string;
+  translationProgress: { completed: number; total: number } | null;
+  translationSegments: TranslationSegmentData[];
+  translationLoading: boolean;
+  translationError: string | null;
+
+  // Note panel
+  noteText: string;
+  noteSaveState: "idle" | "saving" | "saved" | "error";
+
+  // Panel state
+  openPanel: ReaderPanel;
+
+  // Theme Actions
+  setThemePreset: (preset: ThemePreset) => void;
+  setThemeMode: (mode: ThemeMode) => void;
+  setEffectiveTheme: (theme: "light" | "dark") => void;
+  setThemeTokens: (tokens: ThemeTokens) => void;
+  setQuickStyle: (style: string) => void;
+  setFontFamily: (font: string) => void;
+  setFontSize: (size: number) => void;
+  setLineHeight: (lh: number) => void;
+  setContentWidth: (width: number) => void;
+  resetTheme: () => void;
+
+  buildReaderHTML: (entryId: number) => Promise<void>;
+
+  setReadingMode: (mode: ReadingMode) => void;
+
+  // Banner
+  setBanner: (message: string | null, type?: string, action?: { label: string; onClick: () => void } | null) => void;
+
+  // Panel
+  setActivePanel: (panel: ReaderPanel) => void;
+  togglePanel: (panel: ReaderPanel) => void;
+  closePanel: () => void;
+
+  // Summary
+  setSummaryOpen: (open: boolean) => void;
+  setSummaryTargetLanguage: (lang: string) => void;
+  setSummaryDetailLevel: (level: string) => void;
+  setSummaryAutoEnabled: (enabled: boolean) => void;
+  setSummaryText: (text: string) => void;
+  setSummaryLoading: (loading: boolean) => void;
+  loadSummary: (entryId: number, detailLevel?: string) => Promise<void>;
+
+  // Translation
+  setTranslationEnabled: (enabled: boolean) => void;
+  setTranslationBilingual: (bilingual: boolean) => void;
+  setTranslationTargetLanguage: (lang: string) => void;
+  setTranslationConcurrency: (n: number) => void;
+  setTranslationPromptStrategy: (strategy: string) => void;
+  setTranslationProgress: (progress: { completed: number; total: number } | null) => void;
+  loadTranslationSegments: (entryId: number, targetLanguage: string) => Promise<void>;
+
+  // Notes
+  setNoteText: (text: string) => void;
+  saveNote: (entryId: number) => Promise<void>;
+
+  resetReaderState: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Initial state
+// ---------------------------------------------------------------------------
+
+const initialState = {
+  themePreset: DEFAULT_THEME_PRESET,
+  themeMode: "auto" as ThemeMode,
+  effectiveTheme: "light" as "light" | "dark",
+  themeTokens: DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET],
+  quickStyle: "none" as string,
+  fontFamily: "Georgia, serif" as string,
+  fontSize: 16 as number,
+  lineHeight: 1.8 as number,
+  contentWidth: 720 as number,
+
+  readerHTML: null as string | null,
+  entryTitle: null as string | null,
+  readingMode: "article" as ReadingMode,
+
+  bannerMessage: null as string | null,
+  bannerType: "info" as "info" | "success" | "warning" | "error",
+  bannerAction: null as { label: string; onClick: () => void } | null,
+
+  activePanel: null as ReaderPanel,
+  summaryOpen: false as boolean,
+  summaryResult: null as SummaryResult | null,
+  summaryText: "" as string,
+  summaryTargetLanguage: "zh-CN" as string,
+  summaryDetailLevel: "medium" as string,
+  summaryAutoEnabled: false as boolean,
+  summaryLoading: false,
+  summaryError: null as string | null,
+
+  translationEnabled: false as boolean,
+  translationBilingual: false as boolean,
+  translationTargetLang: "zh-CN",
+  translationTargetLanguage: "zh-CN" as string,
+  translationConcurrency: 3 as number,
+  translationPromptStrategy: "standard" as string,
+  translationProgress: null as { completed: number; total: number } | null,
+  translationSegments: [] as TranslationSegmentData[],
+  translationLoading: false,
+  translationError: null as string | null,
+
+  noteText: "",
+  noteSaveState: "idle" as "idle" | "saving" | "saved" | "error",
+
+  openPanel: null as ReaderPanel,
+};
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
+
+export const useReaderStore = create<ReaderState>()((set, get) => ({
+  ...initialState,
+
+  // Theme
+  setThemePreset: (preset) => {
+    const tokens = DEFAULT_THEME_TOKENS[preset];
+    set({ themePreset: preset, themeTokens: tokens });
+  },
+  setThemeMode: (mode) => set({ themeMode: mode }),
+  setEffectiveTheme: (theme) => set({ effectiveTheme: theme }),
+  setThemeTokens: (tokens) => set({ themeTokens: tokens }),
+  setQuickStyle: (style) => set({ quickStyle: style }),
+  setFontFamily: (font) => set({ fontFamily: font }),
+  setFontSize: (size) => set({ fontSize: size }),
+  setLineHeight: (lh) => set({ lineHeight: lh }),
+  setContentWidth: (width) => set({ contentWidth: width }),
+  resetTheme: () => set({
+    themePreset: DEFAULT_THEME_PRESET,
+    themeTokens: DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET],
+    quickStyle: "none",
+    fontFamily: "Georgia, serif",
+    fontSize: 16,
+    lineHeight: 1.8,
+    contentWidth: 720,
+  }),
+
+  // Content
+  buildReaderHTML: async (entryId) => {
+    try {
+      const html = await ipc.buildReaderHTML(entryId, get().themePreset, get().themeMode);
+      set({ readerHTML: html });
+    } catch (err) { console.error("buildReaderHTML:", err); }
+  },
+  setReadingMode: (mode) => set({ readingMode: mode }),
+
+  // Banner
+  setBanner: (message, type, action) => set({
+    bannerMessage: message,
+    bannerType: (type ?? "info") as "info",
+    bannerAction: action ?? null,
+  }),
+
+  // Panels
+  setActivePanel: (panel) => set({ activePanel: panel, openPanel: panel }),
+  togglePanel: (panel) => set((s) => ({
+    activePanel: s.activePanel === panel ? null : panel,
+    openPanel: s.openPanel === panel ? null : panel,
+  })),
+  closePanel: () => set({ openPanel: null, activePanel: null }),
+
+  // Summary
+  setSummaryOpen: (open) => set({ summaryOpen: open }),
+  setSummaryTargetLanguage: (lang) => set({ summaryTargetLanguage: lang }),
+  setSummaryDetailLevel: (level) => set({ summaryDetailLevel: level }),
+  setSummaryAutoEnabled: (enabled) => set({ summaryAutoEnabled: enabled }),
+  setSummaryText: (text) => set({ summaryText: text }),
+  setSummaryLoading: (loading) => set({ summaryLoading: loading }),
+  loadSummary: async (entryId, detailLevel) => {
+    set({ summaryLoading: true, summaryError: null });
+    try {
+      const result = await ipc.getSummary(entryId);
+      if (!result) await ipc.generateSummary(entryId, detailLevel);
+      set({ summaryResult: result, summaryText: result?.text ?? "", summaryLoading: false });
+    } catch (err) {
+      set({ summaryError: String(err), summaryLoading: false });
+    }
+  },
+
+  // Translation
+  setTranslationEnabled: (enabled) => set({ translationEnabled: enabled }),
+  setTranslationBilingual: (bilingual) => set({ translationBilingual: bilingual }),
+  setTranslationTargetLanguage: (lang) => set({ translationTargetLanguage: lang, translationTargetLang: lang }),
+  setTranslationConcurrency: (n) => set({ translationConcurrency: n }),
+  setTranslationPromptStrategy: (strategy) => set({ translationPromptStrategy: strategy }),
+  setTranslationProgress: (progress) => set({ translationProgress: progress }),
+  loadTranslationSegments: async (entryId, targetLanguage) => {
+    set({ translationLoading: true, translationError: null });
+    try {
+      const segments = await ipc.getTranslationSegments(entryId, targetLanguage);
+      set({ translationSegments: segments, translationTargetLang: targetLanguage, translationLoading: false });
+    } catch (err) {
+      set({ translationError: String(err), translationLoading: false });
+    }
+  },
+
+  // Notes
+  setNoteText: (text) => set({ noteText: text }),
+  saveNote: async (entryId) => {
+    set({ noteSaveState: "saving" });
+    try { await ipc.saveNote(entryId, get().noteText); set({ noteSaveState: "saved" }); }
+    catch (err) { set({ noteSaveState: "error" }); }
+  },
+
+  resetReaderState: () => set({
+    readerHTML: null, entryTitle: null, readingMode: "article",
+    summaryResult: null, summaryText: "", translationSegments: [],
+    noteText: "", openPanel: null, activePanel: null,
+    bannerMessage: null, bannerAction: null,
+  }),
+}));

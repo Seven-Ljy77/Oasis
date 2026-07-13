@@ -1,0 +1,189 @@
+// =============================================================================
+// Mercury — Root App component (three-column layout)
+// =============================================================================
+
+import React, { useEffect } from "react";
+import { useAppStore } from "@/stores/useAppStore";
+import { useFeedStore } from "@/stores/useFeedStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useTagStore } from "@/stores/useTagStore";
+import { useReaderStore } from "@/stores/useReaderStore";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import SidebarView from "@/features/sidebar/SidebarView";
+import EntryListView from "@/features/entry-list/EntryListView";
+import ReaderDetailView from "@/features/reader/ReaderDetailView";
+import AppSettingsView from "@/features/settings/AppSettingsView";
+import FeedEditorSheet from "@/features/sidebar/FeedEditorSheet";
+import ImportOPMLSheet from "@/features/sidebar/ImportOPMLSheet";
+import TagLibrarySheet from "@/features/tags/TagLibrarySheet";
+import BatchTaggingSheet from "@/features/tags/BatchTaggingSheet";
+import ShareDigestSheet from "@/features/digest/ShareDigestSheet";
+import ExportDigestSheet from "@/features/digest/ExportDigestSheet";
+import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestSheet";
+import SplitPane from "@/components/ui/SplitPane";
+
+export const App: React.FC = () => {
+  // ---- Bootstrap ----
+  const bootstrap = useAppStore((s) => s.bootstrap);
+  const isReady = useAppStore((s) => s.isReady);
+  const loadFeeds = useFeedStore((s) => s.loadFeeds);
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+  const loadTags = useTagStore((s) => s.loadTags);
+
+  useEffect(() => {
+    const doBootstrap = async () => {
+      try {
+        await loadSettings();
+        await Promise.all([loadFeeds(), loadTags()]);
+        bootstrap();
+      } catch (err) {
+        console.error("Bootstrap failed:", err);
+      }
+    };
+    doBootstrap();
+  }, []);
+
+  // ---- Global keyboard shortcuts ----
+  useKeyboardShortcuts();
+
+  // ---- Sheet management ----
+  const activeSheet = useAppStore((s) => s.activeSheet);
+  const closeSheet = useAppStore((s) => s.closeSheet);
+
+  // ---- Font scaling ----
+  const fontScale = useAppStore((s) => s.fontScale);
+
+  // ---- Search ----
+  const searchOpen = useAppStore((s) => s.searchOpen);
+  const searchText = useAppStore((s) => s.searchText);
+  const setSearchText = useAppStore((s) => s.setSearchText);
+  const setSearchOpen = useAppStore((s) => s.setSearchOpen);
+
+  // ---- Status bar info ----
+  const sidebarSection = useAppStore((s) => s.sidebarSection);
+  const selectedEntryId = useAppStore((s) => s.selectedEntryId);
+
+  const renderSheet = () => {
+    switch (activeSheet) {
+      case "appSettings":
+        return <AppSettingsView open onClose={closeSheet} />;
+      case "feedEditor":
+        return <FeedEditorSheet open onClose={closeSheet} />;
+      case "importOPML":
+        return <ImportOPMLSheet open onClose={closeSheet} />;
+      case "tagLibrary":
+        return <TagLibrarySheet open onClose={closeSheet} />;
+      case "batchTagging":
+        return <BatchTaggingSheet open onClose={closeSheet} />;
+      case "shareDigest":
+        return <ShareDigestSheet open onClose={closeSheet} />;
+      case "exportDigest":
+        return <ExportDigestSheet open onClose={closeSheet} />;
+      case "exportMultipleDigest":
+        return <ExportMultipleDigestSheet open onClose={closeSheet} />;
+      default:
+        return null;
+    }
+  };
+
+  if (!isReady) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-surface text-slate-500">
+        <div className="flex flex-col items-center gap-3">
+          <svg
+            className="animate-spin h-8 w-8 text-accent"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <span className="text-sm">Loading Mercury...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-col h-screen w-screen bg-surface text-slate-900 overflow-hidden"
+      style={{ fontSize: `${fontScale * 100}%` }}
+    >
+      {/* ---- Search overlay ---- */}
+      {searchOpen && (
+        <div className="absolute top-0 left-0 right-0 z-40 bg-surface border-b border-border shadow-md px-4 py-3 flex items-center gap-3">
+          <svg
+            className="w-4 h-4 text-slate-400 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search entries by title or summary..."
+            className="flex-1 bg-transparent border-none outline-none text-sm text-slate-900 placeholder-slate-400"
+            autoFocus
+          />
+          <button
+            onClick={() => setSearchOpen(false)}
+            className="text-slate-400 hover:text-slate-600 text-xs px-2 py-0.5 rounded border border-border"
+          >
+            Esc
+          </button>
+        </div>
+      )}
+
+      {/* ---- Three-column layout ---- */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: sidebar (280px) */}
+        <aside className="w-[280px] flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden">
+          <SidebarView />
+        </aside>
+
+        {/* Center + Right: split pane */}
+        <SplitPane minLeft={280} minRight={300} defaultLeftWidth={400}>
+          <div className="h-full overflow-hidden border-r border-border">
+            <EntryListView />
+          </div>
+          <div className="h-full overflow-hidden">
+            <ReaderDetailView />
+          </div>
+        </SplitPane>
+      </div>
+
+      {/* ---- Status bar ---- */}
+      <footer className="h-7 flex-shrink-0 border-t border-border bg-surface-secondary px-3 flex items-center text-xs text-slate-500 gap-3">
+        <span>
+          {sidebarSection === "feeds" ? "Feeds" : "Tags"}
+          {selectedEntryId ? ` | Article #${selectedEntryId}` : " | No selection"}
+        </span>
+        <span className="flex-1" />
+        <span>Mercury v0.1.0</span>
+      </footer>
+
+      {/* ---- Overlay sheets ---- */}
+      {renderSheet()}
+    </div>
+  );
+};
