@@ -14,6 +14,7 @@ const ReaderTaggingPanel: React.FC = () => {
   const entryTags = useTagStore((s) =>
     selectedEntryId ? s.tagUsageMap[selectedEntryId] : undefined,
   );
+  const loadTags = useTagStore((s) => s.loadTags);
   const loadTagsForEntry = useTagStore((s) => s.loadTagsForEntry);
   const assignTag = useTagStore((s) => s.assignTag);
   const removeTag = useTagStore((s) => s.removeTag);
@@ -72,22 +73,26 @@ const ReaderTaggingPanel: React.FC = () => {
     }
 
     await assignTag(selectedEntryId, resolvedTagId);
-    // Refresh entry tags
+    // Refresh entry tags and global tag counts
     loadTagsForEntry(selectedEntryId);
+    loadTags();
   };
 
   const handleRemoveTag = async (tagId: number) => {
     if (!selectedEntryId) return;
     await removeTag(selectedEntryId, tagId);
     loadTagsForEntry(selectedEntryId);
+    loadTags();
   };
 
-  const handleAddTagFromInput = () => {
+  const handleAddTagFromInput = async () => {
     const names = tagInput
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    names.forEach((name) => handleApplyTag(name));
+    for (const name of names) {
+      await handleApplyTag(name);
+    }
     setTagInput("");
   };
 

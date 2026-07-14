@@ -18,7 +18,7 @@ use crate::agent::runtime::AgentRuntimeEngine;
 use crate::db::entry_store::SqliteEntryStore;
 use crate::db::feed_store::SqliteFeedStore;
 use crate::db::manager::DatabaseManager;
-use crate::db::tag_store::SqliteTagStore;
+use crate::db::tag_store::{SqliteTagStore, TagStore};
 use crate::feed::sync_service::SyncService;
 use crate::state::{AppConfig, AppState};
 use crate::tasking::task_queue::TaskQueue;
@@ -99,6 +99,11 @@ pub fn run() {
             commands::tag_commands::suggest_tags,
             commands::tag_commands::add_alias,
             commands::tag_commands::delete_alias,
+            commands::tag_commands::cleanup_empty_tags,
+            commands::tag_commands::debug_dump_tags,
+            commands::tag_commands::delete_tags_batch,
+            commands::tag_commands::delete_unused_tags,
+            commands::tag_commands::recalculate_tag_counts,
             // Digest commands
             commands::digest_commands::save_note,
             commands::digest_commands::load_note,

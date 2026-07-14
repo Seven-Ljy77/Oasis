@@ -18,8 +18,3 @@ pub fn normalize_tag(name: &str) -> String {
     let words: Vec<&str> = normalized.split_whitespace().collect();
     words.join(" ")
 }
-
-/// Check whether two tag names normalize to the same value.
-pub fn tags_are_equal(a: &str, b: &str) -> bool {
-    normalize_tag(a) == normalize_tag(b)
-}

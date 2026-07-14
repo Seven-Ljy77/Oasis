@@ -21,6 +21,8 @@ import BatchTaggingSheet from "@/features/tags/BatchTaggingSheet";
 import ShareDigestSheet from "@/features/digest/ShareDigestSheet";
 import ExportDigestSheet from "@/features/digest/ExportDigestSheet";
 import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestSheet";
+import TagRenameSheet from "@/features/tags/TagRenameSheet";
+import TagMergeSheet from "@/features/tags/TagMergeSheet";
 import SplitPane from "@/components/ui/SplitPane";
 
 export const App: React.FC = () => {
@@ -30,6 +32,7 @@ export const App: React.FC = () => {
   const loadFeeds = useFeedStore((s) => s.loadFeeds);
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const loadTags = useTagStore((s) => s.loadTags);
+  const tagStoreTags = useTagStore((s) => s.tags);
 
   useEffect(() => {
     const doBootstrap = async () => {
@@ -64,6 +67,14 @@ export const App: React.FC = () => {
   const sidebarSection = useAppStore((s) => s.sidebarSection);
   const selectedEntryId = useAppStore((s) => s.selectedEntryId);
 
+  // ---- Tag rename sheet props ----
+  const renameTargetTagId = useAppStore((s) => s.renameTargetTagId);
+  const renameTargetTagName = useAppStore((s) => s.renameTargetTagName);
+
+  // ---- Tag merge sheet props ----
+  const mergeSourceTagId = useAppStore((s) => s.mergeSourceTagId);
+  const mergeSourceTagName = useAppStore((s) => s.mergeSourceTagName);
+
   const renderSheet = () => {
     switch (activeSheet) {
       case "appSettings":
@@ -82,6 +93,25 @@ export const App: React.FC = () => {
         return <ExportDigestSheet open onClose={closeSheet} />;
       case "exportMultipleDigest":
         return <ExportMultipleDigestSheet open onClose={closeSheet} />;
+      case "tagRename":
+        return (
+          <TagRenameSheet
+            open
+            onClose={closeSheet}
+            tagId={renameTargetTagId ?? 0}
+            currentName={renameTargetTagName ?? ""}
+          />
+        );
+      case "tagMerge":
+        return (
+          <TagMergeSheet
+            open
+            onClose={closeSheet}
+            sourceTagId={mergeSourceTagId}
+            sourceTagName={mergeSourceTagName ?? ""}
+            tags={tagStoreTags}
+          />
+        );
       default:
         return null;
     }

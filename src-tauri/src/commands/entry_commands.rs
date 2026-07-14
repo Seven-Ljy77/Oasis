@@ -2,6 +2,7 @@ use tauri::State;
 
 use crate::db::entry_store::{EntryStore, SearchScope};
 use crate::db::models::EntryListItem;
+use crate::db::tag_store::TagStore;
 use crate::db::query_builder::{EntryListQuery, PageCursor, TagMatchMode};
 use crate::error::AppError;
 use crate::state::AppState;
@@ -97,7 +98,8 @@ pub async fn delete_entry(
     state: State<'_, AppState>,
     entry_id: i64,
 ) -> Result<(), AppError> {
-    state.entry_store.delete_entry(entry_id).await
+    state.entry_store.delete_entry(entry_id).await?;
+    state.tag_store.recalculate_counts().await
 }
 
 #[tauri::command]

@@ -5,9 +5,11 @@ import ReadingModePicker from "./ReadingModePicker";
 import type { ReaderPanel } from "@/lib/types";
 
 interface ReaderToolbarProps {
+  // Reserved for future use (AI actions, share, tooltips)
   entryTitle: string;
-  entryUrl: string;
+  // Reserved for future use (AI agent requests, translation, etc.)
   entryId: number | null;
+  entryUrl: string;
   isStarred: boolean;
   hasNote: boolean;
   onTogglePanel: (panel: ReaderPanel) => void;
@@ -16,9 +18,9 @@ interface ReaderToolbarProps {
 }
 
 const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
-  entryTitle,
+  entryTitle, // reserved for future use
   entryUrl,
-  entryId,
+  entryId, // reserved for future use
   isStarred,
   hasNote,
   onTogglePanel,
@@ -86,6 +88,7 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
 
       {/* Clear translation */}
       <button
+        onClick={() => console.log("TODO: Clear translation")}
         className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
         title="Clear translation"
       >
@@ -129,6 +132,7 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
 
       {/* Theme button */}
       <button
+        onClick={() => console.log("TODO: Open theme panel")}
         className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
         title="Reader theme"
       >

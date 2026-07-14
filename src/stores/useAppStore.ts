@@ -23,6 +23,7 @@ export type SheetKind =
   | "exportDigest"
   | "exportMultipleDigest"
   | "tagRename"
+  | "tagMerge"
   | null;
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,18 @@ export interface AppState {
   activeSheet: SheetKind;
   openSheet: (sheet: SheetKind) => void;
   closeSheet: () => void;
+
+  // Tag rename target (set before opening tagRename sheet)
+  renameTargetTagId: number | null;
+  renameTargetTagName: string | null;
+  setRenameTargetTagId: (id: number | null) => void;
+  setRenameTargetTagName: (name: string | null) => void;
+
+  // Tag merge target (set before opening tagMerge sheet)
+  mergeSourceTagId: number | null;
+  mergeSourceTagName: string | null;
+  setMergeSourceTagId: (id: number | null) => void;
+  setMergeSourceTagName: (name: string | null) => void;
 
   // Multi-select
   multiSelectMode: boolean;
@@ -166,6 +179,18 @@ const initialState = {
   openSheet: () => {},     // placeholder — replaced in create()
   closeSheet: () => {},    // placeholder — replaced in create()
 
+  // Tag rename target
+  renameTargetTagId: null as number | null,
+  renameTargetTagName: null as string | null,
+  setRenameTargetTagId: () => {},   // placeholder
+  setRenameTargetTagName: () => {}, // placeholder
+
+  // Tag merge target
+  mergeSourceTagId: null as number | null,
+  mergeSourceTagName: null as string | null,
+  setMergeSourceTagId: () => {},    // placeholder
+  setMergeSourceTagName: () => {},  // placeholder
+
   // Multi-select
   multiSelectMode: false,
   selectedEntryIds: new Set<number>(),
@@ -251,6 +276,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
   // Sheets
   openSheet: (sheet) => set({ activeSheet: sheet }),
   closeSheet: () => set({ activeSheet: null }),
+
+  // Tag rename target
+  setRenameTargetTagId: (id) => set({ renameTargetTagId: id }),
+  setRenameTargetTagName: (name) => set({ renameTargetTagName: name }),
+
+  // Tag merge target
+  setMergeSourceTagId: (id) => set({ mergeSourceTagId: id }),
+  setMergeSourceTagName: (name) => set({ mergeSourceTagName: name }),
 
   // Multi-select
   toggleSelectEntry: (id) =>

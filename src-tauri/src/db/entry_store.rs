@@ -352,8 +352,15 @@ impl EntryStore for SqliteEntryStore {
                 let mut count = 0usize;
 
                 let mut stmt = conn.prepare(
-                    "INSERT OR IGNORE INTO entry (feed_id, guid, url, title, author, published_at, summary, is_read, is_starred, is_deleted, created_at) \
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, 0, ?8)",
+                    "INSERT INTO entry (feed_id, guid, url, title, author, published_at, summary, is_read, is_starred, is_deleted, created_at) \
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, 0, ?8) \
+                     ON CONFLICT(feed_id, guid) DO UPDATE SET \
+                        url = excluded.url, \
+                        title = excluded.title, \
+                        author = excluded.author, \
+                        published_at = excluded.published_at, \
+                        summary = excluded.summary, \
+                        is_deleted = 0",
                 )?;
 
                 for entry in &entries {

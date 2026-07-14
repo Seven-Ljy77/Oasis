@@ -282,6 +282,18 @@ export const mergeTag = (
 export const deleteTag = (tagId: number): Promise<void> =>
   invoke<void>("delete_tag", { tagId });
 
+export const cleanupEmptyTags = (): Promise<number> =>
+  invoke<number>("cleanup_empty_tags");
+
+export const deleteTagsBatch = (tagIds: number[]): Promise<number> =>
+  invoke<number>("delete_tags_batch", { tagIds });
+
+export const deleteUnusedTags = (): Promise<number> =>
+  invoke<number>("delete_unused_tags");
+
+export const recalculateTagCounts = (): Promise<void> =>
+  invoke("recalculate_tag_counts");
+
 export const suggestTags = (entryId: number): Promise<TagSuggestion[]> =>
   invoke<TagSuggestion[]>("suggest_tags", { entryId });
 

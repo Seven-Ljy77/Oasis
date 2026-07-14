@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagWithAliases {
+    #[serde(flatten)]
     pub tag: Tag,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub aliases: Vec<String>,
 }
 
@@ -51,28 +53,13 @@ pub async fn get_tags(
 pub async fn create_tag(
     state: State<'_, AppState>,
     name: String,
-    is_provisional: Option<bool>,
+    _is_provisional: Option<bool>,
 ) -> Result<Tag, AppError> {
-    let mut tag = state.tag_store.create(&name).await?;
-
-    // If the caller explicitly wants a non-provisional tag, promote it
-    if is_provisional == Some(false) {
-        let db = state.db.clone();
-        let tag_id = tag.id;
-        tokio::task::spawn_blocking(move || {
-            db.write(|conn| {
-                conn.execute(
-                    "UPDATE tag SET is_provisional = 0 WHERE id = ?1",
-                    rusqlite::params![tag_id],
-                )?;
-                Ok(())
-            })
-        })
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))??;
-        tag.is_provisional = false;
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::InvalidInput("Tag name cannot be empty".into()));
     }
-
+    let tag = state.tag_store.create(trimmed).await?;
     Ok(tag)
 }
 
@@ -134,7 +121,13 @@ pub async fn get_tags_for_entry(
     for et in entry_tags {
         match state.tag_store.load_by_id(et.tag_id).await {
             Ok(tag) => result.push(tag),
-            Err(_) => continue, // skip orphaned references
+            Err(e) => {
+                // Tag may have been deleted since assignment. Skip it.
+                if matches!(e, AppError::NotFound(_)) {
+                    continue;
+                }
+                return Err(e);
+            }
         }
     }
     Ok(result)
@@ -195,4 +188,112 @@ pub async fn suggest_tags(
         })
         .collect();
     Ok(suggestions)
+}
+
+/// Delete tags with empty or whitespace-only names (cleanup from buggy sessions).
+#[tauri::command]
+pub async fn cleanup_empty_tags(
+    state: State<'_, AppState>,
+) -> Result<usize, AppError> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        db.write(|conn| {
+            // First dump all tags for diagnosis
+            let mut stmt = conn.prepare("SELECT id, name, hex(name), hex(normalized_name), LENGTH(name) FROM tag ORDER BY id")?;
+            let rows = stmt.query_map([], |row| {
+                Ok(format!("id={} name=[{}] hex={} hex_norm={} len={}",
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i32>(4)?
+                ))
+            })?.collect::<Result<Vec<_>, _>>()?;
+            for r in &rows {
+                println!("TAG_DEBUG: {}", r);
+            }
+
+            // Delete with multiple strategies
+            let c1 = conn.execute("DELETE FROM tag WHERE name = ''", [])?;
+            let c2 = conn.execute("DELETE FROM tag WHERE normalized_name = ''", [])?;
+            let c3 = conn.execute("DELETE FROM tag WHERE LENGTH(TRIM(name)) = 0", [])?;
+            let c4 = conn.execute("DELETE FROM tag WHERE LENGTH(TRIM(normalized_name)) = 0", [])?;
+            let total = c1 + c2 + c3 + c4;
+            println!("TAG_CLEANUP: deleted {} tags (c1={} c2={} c3={} c4={})", total, c1, c2, c3, c4);
+            Ok(total)
+        })
+    })
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+}
+
+/// Debug: dump all tags with their raw name bytes for diagnosis.
+#[tauri::command]
+pub async fn debug_dump_tags(
+    state: State<'_, AppState>,
+) -> Result<Vec<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        db.read(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, name, normalized_name, hex(name), hex(normalized_name), LENGTH(name), is_provisional, usage_count FROM tag ORDER BY id"
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, i64>(0)?,
+                    "name": row.get::<_, String>(1)?,
+                    "normalized_name": row.get::<_, String>(2)?,
+                    "hex_name": row.get::<_, String>(3)?,
+                    "hex_norm": row.get::<_, String>(4)?,
+                    "len": row.get::<_, i32>(5)?,
+                    "provisional": row.get::<_, i32>(6)?,
+                    "count": row.get::<_, i32>(7)?
+                }))
+            })?.collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    })
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+}
+
+/// Delete multiple tags by their IDs.
+#[tauri::command]
+pub async fn delete_tags_batch(
+    state: State<'_, AppState>,
+    tag_ids: Vec<i64>,
+) -> Result<usize, AppError> {
+    let mut count = 0usize;
+    for id in tag_ids {
+        state.tag_store.delete(id).await?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+/// Delete all tags that have usage_count = 0.
+#[tauri::command]
+pub async fn delete_unused_tags(
+    state: State<'_, AppState>,
+) -> Result<usize, AppError> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        db.write(|conn| {
+            let count = conn.execute(
+                "DELETE FROM tag WHERE usage_count = 0",
+                [],
+            )?;
+            Ok(count)
+        })
+    })
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+}
+
+/// Recalculate all tag usage counts based on non-deleted entries.
+#[tauri::command]
+pub async fn recalculate_tag_counts(
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    state.tag_store.recalculate_counts().await
 }

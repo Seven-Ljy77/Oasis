@@ -32,18 +32,43 @@ const FeedList: React.FC = () => {
 
   // More actions dropdown state
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [moreMenuPinned, setMoreMenuPinned] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Close dropdown on outside click
+  // Show dropdown on hover (cancel any pending hide)
+  const handleMouseEnter = () => {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+    setMoreMenuOpen(true);
+  };
+  // Hide on mouse leave unless pinned (with delay to let mouse reach the menu)
+  const handleMouseLeave = () => {
+    if (moreMenuPinned) return;
+    hideTimerRef.current = setTimeout(() => setMoreMenuOpen(false), 250);
+  };
+  // Click toggles pin
+  const handleClick = () => {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+    if (moreMenuPinned) {
+      setMoreMenuPinned(false);
+      setMoreMenuOpen(false);
+    } else {
+      setMoreMenuPinned(true);
+      setMoreMenuOpen(true);
+    }
+  };
+
+  // Close dropdown on outside click (unpins too)
   useEffect(() => {
     if (!moreMenuOpen) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
         setMoreMenuOpen(false);
+        setMoreMenuPinned(false);
       }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [moreMenuOpen]);
 
   const handleImportOpml = () => {
@@ -98,9 +123,9 @@ const FeedList: React.FC = () => {
     {
       label: "Delete",
       danger: true,
-      onClick: () => {
+      onClick: async () => {
         if (window.confirm(`Delete "${feed.title || feed.feed_url}"? This will remove all associated entries.`)) {
-          deleteFeed(feed.id);
+          await deleteFeed(feed.id);
           clearEntries();
           selectFeedGlobal({ type: "all" });
         }
@@ -125,9 +150,14 @@ const FeedList: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
-          <div className="relative" ref={moreMenuRef}>
+          <div
+            className="relative"
+            ref={moreMenuRef}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
             <button
-              onClick={() => setMoreMenuOpen((prev) => !prev)}
+              onClick={handleClick}
               className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
               title="More actions"
             >
@@ -169,7 +199,7 @@ const FeedList: React.FC = () => {
         <button
           onClick={handleSelectAllFeeds}
           className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-            selectedFeedId === null
+            selectedFeedSelectionType === "all"
               ? "bg-accent-muted text-accent font-medium"
               : "text-slate-700 hover:bg-surface-tertiary"
           }`}

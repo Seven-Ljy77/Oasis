@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";

@@ -82,6 +82,8 @@ export const useTagStore = create<TagState>()((set, get) => ({
   loadTags: async () => {
     set({ isLoading: true, error: null });
     try {
+      // One-time cleanup: remove empty tags from previous buggy sessions
+      await ipc.cleanupEmptyTags();
       const tags = await ipc.getTags();
       set({ tags, isLoading: false });
     } catch (err) {

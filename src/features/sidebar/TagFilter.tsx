@@ -3,19 +3,25 @@ import { useSidebarStore } from "@/stores/useSidebarStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { useTagStore } from "@/stores/useTagStore";
 import ContextMenu, { type ContextMenuItem } from "@/components/ui/ContextMenu";
+import { deleteTagsBatch, deleteUnusedTags } from "@/lib/ipc";
 import type { TagInfo } from "@/lib/types";
 
 const TagFilter: React.FC = () => {
   const tags = useTagStore((s) => s.tags);
   const isLoading = useTagStore((s) => s.isLoading);
   const deleteTag = useTagStore((s) => s.deleteTag);
+  const loadTags = useTagStore((s) => s.loadTags);
   const openSheet = useAppStore((s) => s.openSheet);
+  const setRenameTargetTagId = useAppStore((s) => s.setRenameTargetTagId);
+  const setRenameTargetTagName = useAppStore((s) => s.setRenameTargetTagName);
+  const setMergeSourceTagId = useAppStore((s) => s.setMergeSourceTagId);
+  const setMergeSourceTagName = useAppStore((s) => s.setMergeSourceTagName);
 
   // Sidebar store for local tag filter selection
   const selectedTagIds = useSidebarStore((s) => s.selectedTagIds);
   const toggleTag = useSidebarStore((s) => s.toggleTag);
-  const tagMatchMode = useSidebarStore((s) => s.tagMatchMode);
-  const setTagMatchMode = useSidebarStore((s) => s.setTagMatchMode);
+  const tagMatchMode = useAppStore((s) => s.tagMatchMode);
+  const setTagMatchMode = useAppStore((s) => s.setTagMatchMode);
   const tagSearchText = useSidebarStore((s) => s.tagSearchText);
   const setTagSearchText = useSidebarStore((s) => s.setTagSearchText);
   const clearTags = useSidebarStore((s) => s.clearTags);
@@ -31,8 +37,17 @@ const TagFilter: React.FC = () => {
     {
       label: "Rename",
       onClick: () => {
+        setRenameTargetTagId(tag.id);
+        setRenameTargetTagName(tag.name);
         openSheet("tagRename");
-        // The rename sheet will need to know which tag — store the target id in tag store
+      },
+    },
+    {
+      label: "Merge Into...",
+      onClick: () => {
+        setMergeSourceTagId(tag.id);
+        setMergeSourceTagName(tag.name);
+        openSheet("tagMerge");
       },
     },
     {
@@ -104,13 +119,40 @@ const TagFilter: React.FC = () => {
 
         {/* Clear all */}
         {selectedTagIds.size > 0 && (
-          <button
-            onClick={handleClearAll}
-            className="mt-2 text-xs text-accent hover:text-accent-hover transition-colors"
-          >
-            Clear all ({selectedTagIds.size} selected)
-          </button>
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              onClick={handleClearAll}
+              className="text-xs text-accent hover:text-accent-hover transition-colors"
+            >
+              Clear ({selectedTagIds.size} selected)
+            </button>
+            <button
+              onClick={async () => {
+                const ids = Array.from(selectedTagIds);
+                if (window.confirm(`Delete ${ids.length} selected tag(s)?`)) {
+                  await deleteTagsBatch(ids);
+                  clearTags();
+                  setSelectedTagIds([]);
+                  await loadTags();
+                }
+              }}
+              className="text-xs text-red-500 hover:text-red-600 transition-colors"
+            >
+              Delete selected
+            </button>
+          </div>
         )}
+        <button
+          onClick={async () => {
+            if (window.confirm("Delete all unused tags (usage count = 0)?")) {
+              await deleteUnusedTags();
+              await loadTags();
+            }
+          }}
+          className="mt-1 text-xs text-red-400 hover:text-red-500 transition-colors"
+        >
+          Delete unused
+        </button>
       </div>
 
       {/* ---- Tag list ---- */}

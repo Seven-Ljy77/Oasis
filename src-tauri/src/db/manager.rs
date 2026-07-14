@@ -28,6 +28,22 @@ impl DatabaseManager {
         // Apply schema migrations.
         manager.run_migrations()?;
 
+        // Undelete entries that were soft-deleted by Delete All (prevents
+        // feed re-import from being silently ignored due to existing GUIDs).
+        {
+            let conn = manager.conn.lock().map_err(|e| AppError::Database(e.to_string()))?;
+            conn.execute("UPDATE entry SET is_deleted = 0 WHERE is_deleted = 1", [])?;
+            // Recalculate tag counts based on non-deleted entries
+            conn.execute(
+                "UPDATE tag SET usage_count = (
+                    SELECT COUNT(*) FROM entry_tag et
+                    JOIN entry e ON et.entry_id = e.id
+                    WHERE et.tag_id = tag.id AND e.is_deleted = 0
+                )",
+                [],
+            )?;
+        }
+
         Ok(manager)
     }
 

@@ -55,6 +55,12 @@ pub trait TagStore: Send + Sync {
 
     /// Load a single tag by id.
     async fn load_by_id(&self, id: i64) -> Result<Tag, AppError>;
+
+    /// Delete tags with empty names (cleanup from previous buggy sessions).
+    async fn delete_empty(&self) -> Result<usize, AppError>;
+
+    /// Recalculate all tag usage counts based on non-deleted entries only.
+    async fn recalculate_counts(&self) -> Result<(), AppError>;
 }
 
 /// Helper: try to fetch a single row and return None if no row matches.
@@ -357,7 +363,12 @@ impl TagStore for SqliteTagStore {
             db.write(|conn| {
                 // Verify the tag exists
                 conn.query_row("SELECT id FROM tag WHERE id = ?1", params![tag_id], |_row| Ok(()))
-                    .map_err(|_| AppError::NotFound("Tag not found".into()))?;
+                    .map_err(|e| match e {
+                        rusqlite::Error::QueryReturnedNoRows => {
+                            AppError::NotFound("Tag not found".into())
+                        }
+                        other => AppError::Database(other.to_string()),
+                    })?;
 
                 // Check for duplicate alias
                 let existing = query_optional(
@@ -451,6 +462,40 @@ impl TagStore for SqliteTagStore {
                     })?
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(aliases)
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn delete_empty(&self) -> Result<usize, AppError> {
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.write(|conn| {
+                let count = conn.execute(
+                    "DELETE FROM tag WHERE name = '' OR normalized_name = ''",
+                    [],
+                )?;
+                Ok(count)
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn recalculate_counts(&self) -> Result<(), AppError> {
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.write(|conn| {
+                conn.execute(
+                    "UPDATE tag SET usage_count = (
+                        SELECT COUNT(*) FROM entry_tag et
+                        JOIN entry e ON et.entry_id = e.id
+                        WHERE et.tag_id = tag.id AND e.is_deleted = 0
+                    )",
+                    [],
+                )?;
+                Ok(())
             })
         })
         .await

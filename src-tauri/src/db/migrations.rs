@@ -34,6 +34,8 @@ impl MigrationRunner {
             ("013_create_translation_tables", include_str!("../../migrations/013_create_translation_tables.sql")),
             ("014_create_tag_batch_tables", include_str!("../../migrations/014_create_tag_batch_tables.sql")),
             ("015_create_indexes", include_str!("../../migrations/015_create_indexes.sql")),
+            ("016_cleanup_empty_tags", include_str!("../../migrations/016_cleanup_empty_tags.sql")),
+            ("017_undelete_entries", include_str!("../../migrations/017_undelete_entries.sql")),
         ];
 
         for (name, sql) in migrations {

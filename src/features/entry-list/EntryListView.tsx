@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useFeedStore } from "@/stores/useFeedStore";
+import { useTagStore } from "@/stores/useTagStore";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { recalculateTagCounts } from "@/lib/ipc";
 import EntryRow from "./EntryRow";
 import MultiSelectToolbar from "./MultiSelectToolbar";
 import Button from "@/components/ui/Button";
@@ -18,6 +21,7 @@ const EntryListView: React.FC = () => {
   const selectedEntryIds = useAppStore((s) => s.selectedEntryIds);
   const toggleSelectEntry = useAppStore((s) => s.toggleSelectEntry);
   const openSheet = useAppStore((s) => s.openSheet);
+  const selectFeedGlobal = useAppStore((s) => s.selectFeed);
 
   const entries = useEntryStore((s) => s.entries);
   const isLoading = useEntryStore((s) => s.isLoading);
@@ -29,6 +33,7 @@ const EntryListView: React.FC = () => {
   const loadNextPage = useEntryStore((s) => s.loadNextPage);
   const markRead = useEntryStore((s) => s.markRead);
   const markStarred = useEntryStore((s) => s.markStarred);
+  const deleteEntry = useEntryStore((s) => s.deleteEntry);
   const clearEntries = useEntryStore((s) => s.clearEntries);
 
   // Load entries when filter changes
@@ -88,9 +93,32 @@ const EntryListView: React.FC = () => {
     markRead(ids, false);
   };
 
-  const handleDeleteSelected = () => {
-    // TODO: batch delete
-    console.log("Delete selected:", [...selectedEntryIds]);
+  const deleteFeedFromStore = useFeedStore((s) => s.deleteFeed);
+  const loadTags = useTagStore((s) => s.loadTags);
+
+  const allFeeds = useFeedStore((s) => s.feeds);
+
+  const handleDeleteSelected = async () => {
+    if (!window.confirm("Delete ALL feeds and ALL articles? This cannot be undone.")) return;
+
+    // Delete all feeds (cascades to entries)
+    for (const feed of allFeeds) {
+      await deleteFeedFromStore(feed.id);
+    }
+
+    // Recalculate tag counts and clear
+    await recalculateTagCounts();
+    await loadTags();
+    clearEntries();
+    selectFeedGlobal({ type: "all" });
+    loadFirstPage({
+      feed_id: undefined,
+      unread_only: showUnreadOnly,
+      tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      tag_match_mode: tagMatchMode,
+      search_text: searchText || undefined,
+      limit: 50,
+    });
   };
 
   const isStarredView = selectedFeedSelection.type === "starred";
