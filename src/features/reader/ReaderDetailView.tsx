@@ -26,6 +26,7 @@ const ReaderDetailView: React.FC = () => {
   const bannerType = useReaderStore((s) => s.bannerType);
   const bannerAction = useReaderStore((s) => s.bannerAction);
   const setBanner = useReaderStore((s) => s.setBanner);
+  const markStarred = useEntryStore((s) => s.markStarred);
 
   // Build reader HTML when entry selection changes
   useEffect(() => {
@@ -71,9 +72,12 @@ const ReaderDetailView: React.FC = () => {
       <ReaderToolbar
         entryTitle={entry.title ?? "Untitled"}
         entryUrl={entry.url ?? ""}
+        entryId={entry.id}
+        isStarred={entry.is_starred}
         hasNote={false} // TODO: check if note exists for this entry
         onTogglePanel={showPanel}
         activePanel={activePanel}
+        onStar={() => markStarred(entry.id, !entry.is_starred)}
       />
 
       {/* ---- Banner area ---- */}

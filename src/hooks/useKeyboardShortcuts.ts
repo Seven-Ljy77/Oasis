@@ -1,11 +1,16 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { useEntryStore } from "@/stores/useEntryStore";
 
 export function useKeyboardShortcuts() {
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const increaseFontScale = useAppStore((s) => s.increaseFontScale);
   const decreaseFontScale = useAppStore((s) => s.decreaseFontScale);
   const fontScale = useAppStore((s) => s.fontScale);
+
+  const entries = useEntryStore((s) => s.entries);
+  const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
+  const markStarred = useEntryStore((s) => s.markStarred);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -15,6 +20,17 @@ export function useKeyboardShortcuts() {
       if (mod && e.key === "f") {
         e.preventDefault();
         setSearchOpen(true);
+      }
+
+      // Ctrl+D / Cmd+D: Toggle star on selected entry
+      if (mod && e.key === "d") {
+        e.preventDefault();
+        if (selectedEntryId !== null) {
+          const entry = entries.find((en) => en.id === selectedEntryId);
+          if (entry) {
+            markStarred(entry.id, !entry.is_starred);
+          }
+        }
       }
 
       // Ctrl+= / Ctrl+-: Font scale
@@ -36,5 +52,5 @@ export function useKeyboardShortcuts() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [setSearchOpen, increaseFontScale, decreaseFontScale, fontScale]);
+  }, [setSearchOpen, increaseFontScale, decreaseFontScale, fontScale, entries, selectedEntryId, markStarred]);
 }

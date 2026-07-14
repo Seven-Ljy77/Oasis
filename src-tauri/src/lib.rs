@@ -18,6 +18,7 @@ use crate::agent::runtime::AgentRuntimeEngine;
 use crate::db::entry_store::SqliteEntryStore;
 use crate::db::feed_store::SqliteFeedStore;
 use crate::db::manager::DatabaseManager;
+use crate::db::tag_store::SqliteTagStore;
 use crate::feed::sync_service::SyncService;
 use crate::state::{AppConfig, AppState};
 use crate::tasking::task_queue::TaskQueue;
@@ -36,6 +37,7 @@ pub fn run() {
 
     let feed_store = Arc::new(SqliteFeedStore::new(db.clone()));
     let entry_store = Arc::new(SqliteEntryStore::new(db.clone()));
+    let tag_store = Arc::new(SqliteTagStore::new(db.clone()));
     let sync_service = Arc::new(SyncService::new(
         feed_store.clone(),
         entry_store.clone(),
@@ -45,6 +47,7 @@ pub fn run() {
         db,
         feed_store,
         entry_store,
+        tag_store,
         sync_service,
         task_queue: Arc::new(TaskQueue::new()),
         agent_runtime: Arc::new(AgentRuntimeEngine::new()),
@@ -84,14 +87,18 @@ pub fn run() {
             commands::agent_commands::cancel_agent,
             commands::agent_commands::start_batch_tagging,
             // Tag commands
-            commands::tag_commands::load_tags,
+            commands::tag_commands::get_tags,
+            commands::tag_commands::get_tag_library,
             commands::tag_commands::create_tag,
             commands::tag_commands::rename_tag,
             commands::tag_commands::delete_tag,
-            commands::tag_commands::merge_tags,
+            commands::tag_commands::merge_tag,
+            commands::tag_commands::assign_tag,
+            commands::tag_commands::remove_tag,
+            commands::tag_commands::get_tags_for_entry,
+            commands::tag_commands::suggest_tags,
             commands::tag_commands::add_alias,
             commands::tag_commands::delete_alias,
-            commands::tag_commands::load_tag_library,
             // Digest commands
             commands::digest_commands::save_note,
             commands::digest_commands::load_note,

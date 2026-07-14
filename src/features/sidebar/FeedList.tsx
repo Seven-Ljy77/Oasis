@@ -21,6 +21,7 @@ const FeedList: React.FC = () => {
 
   const openSheet = useAppStore((s) => s.openSheet);
   const selectFeedGlobal = useAppStore((s) => s.selectFeed);
+  const selectedFeedSelectionType = useAppStore((s) => s.selectedFeedSelection.type);
   const setEntryLoading = useEntryListStore((s) => s.setLoading);
   const clearEntries = useEntryStore((s) => s.clearEntries);
 
@@ -188,7 +189,7 @@ const FeedList: React.FC = () => {
         <button
           onClick={handleSelectStarred}
           className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-            false
+            selectedFeedSelectionType === "starred"
               ? "bg-accent-muted text-accent font-medium"
               : "text-slate-700 hover:bg-surface-tertiary"
           }`}

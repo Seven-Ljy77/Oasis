@@ -17,3 +17,4 @@ pub mod translation_store;
 
 pub use entry_store::SqliteEntryStore;
 pub use feed_store::SqliteFeedStore;
+pub use tag_store::SqliteTagStore;
