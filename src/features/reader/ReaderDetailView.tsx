@@ -19,6 +19,7 @@ const ReaderDetailView: React.FC = () => {
   );
 
   const readerHTML = useReaderStore((s) => s.readerHTML);
+  const readerLoading = useReaderStore((s) => s.readerLoading);
   const buildReaderHTML = useReaderStore((s) => s.buildReaderHTML);
   const activePanel = useReaderStore((s) => s.activePanel);
   const setActivePanel = useReaderStore((s) => s.setActivePanel);
@@ -135,10 +136,10 @@ const ReaderDetailView: React.FC = () => {
         {readingMode === "dual" ? (
           <div className="flex h-full">
             <div className="flex-1 border-r border-border">
-              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="reader" />
+              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="reader" loading={readerLoading} />
             </div>
             <div className="flex-1">
-              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="web" />
+              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="web" loading={readerLoading} />
             </div>
           </div>
         ) : (
@@ -146,6 +147,7 @@ const ReaderDetailView: React.FC = () => {
             html={readerHTML ?? ""}
             baseURL={entry.url ?? "about:blank"}
             mode={readingMode === "web" ? "web" : "reader"}
+            loading={readerLoading}
           />
         )}
       </div>

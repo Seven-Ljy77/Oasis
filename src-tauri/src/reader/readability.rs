@@ -6,22 +6,28 @@
 // pass executed inside a WebView; here we return the source HTML directly.
 // =============================================================================
 
+use std::sync::LazyLock;
 use crate::error::AppError;
 
-/// Fetch the HTML source of an article by URL.
-///
-/// Uses a browser-like User-Agent to avoid being blocked by most sites.
-pub async fn fetch_article_html(url: &str) -> Result<String, AppError> {
-    let client = reqwest::Client::builder()
+/// Shared HTTP client with connection pooling, reused across all requests.
+static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
         .user_agent(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
              (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         )
         .timeout(std::time::Duration::from_secs(30))
+        .pool_idle_timeout(std::time::Duration::from_secs(90))
         .build()
-        .map_err(|e| AppError::Network(format!("Failed to create HTTP client: {}", e)))?;
+        .expect("Failed to create HTTP client")
+});
 
-    let response = client
+/// Fetch the HTML source of an article by URL.
+///
+/// Uses a shared client with connection pooling to avoid repeated TLS
+/// handshakes. The browser-like User-Agent helps avoid being blocked.
+pub async fn fetch_article_html(url: &str) -> Result<String, AppError> {
+    let response = CLIENT
         .get(url)
         .send()
         .await

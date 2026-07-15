@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useFeedStore } from "@/stores/useFeedStore";
@@ -74,6 +74,46 @@ const EntryListView: React.FC = () => {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, isLoadingMore, loadNextPage]);
+
+  // More actions dropdown state
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [moreMenuPinned, setMoreMenuPinned] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMoreMouseEnter = () => {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+    setMoreMenuOpen(true);
+  };
+
+  const handleMoreMouseLeave = () => {
+    if (moreMenuPinned) return;
+    hideTimerRef.current = setTimeout(() => setMoreMenuOpen(false), 250);
+  };
+
+  const handleMoreClick = () => {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+    if (moreMenuPinned) {
+      setMoreMenuPinned(false);
+      setMoreMenuOpen(false);
+    } else {
+      setMoreMenuPinned(true);
+      setMoreMenuOpen(true);
+    }
+  };
+
+  // Close dropdown on outside click (unpins too)
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+        setMoreMenuPinned(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreMenuOpen]);
 
   const handleEntryClick = (entry: EntryListItem) => {
     if (multiSelectMode) {
@@ -172,8 +212,17 @@ const EntryListView: React.FC = () => {
           </button>
 
           {/* Action menu */}
-          <div className="relative group">
-            <button className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors">
+          <div
+            className="relative"
+            ref={moreMenuRef}
+            onMouseEnter={handleMoreMouseEnter}
+            onMouseLeave={handleMoreMouseLeave}
+          >
+            <button
+              onClick={handleMoreClick}
+              className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
+              title="More actions"
+            >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -183,34 +232,36 @@ const EntryListView: React.FC = () => {
                 />
               </svg>
             </button>
-            <div className="absolute right-0 top-full mt-1 w-48 bg-surface border border-border rounded-lg shadow-lg py-1 z-30 hidden group-hover:block">
-              <button
-                onClick={handleMarkAllRead}
-                className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
-              >
-                Mark All Read
-              </button>
-              <button
-                onClick={handleMarkAllUnread}
-                className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
-              >
-                Mark All Unread
-              </button>
-              <div className="border-t border-border my-1" />
-              <button
-                onClick={handleDeleteSelected}
-                className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-              >
-                Delete All
-              </button>
-              <div className="border-t border-border my-1" />
-              <button
-                onClick={() => openSheet("exportMultipleDigest")}
-                className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
-              >
-                Export Multiple Digest
-              </button>
-            </div>
+            {moreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-surface border border-border rounded-lg shadow-lg py-1 z-30">
+                <button
+                  onClick={() => { handleMarkAllRead(); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+                >
+                  Mark All Read
+                </button>
+                <button
+                  onClick={() => { handleMarkAllUnread(); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+                >
+                  Mark All Unread
+                </button>
+                <div className="border-t border-border my-1" />
+                <button
+                  onClick={() => { handleDeleteSelected(); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  Delete All
+                </button>
+                <div className="border-t border-border my-1" />
+                <button
+                  onClick={() => { openSheet("exportMultipleDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+                >
+                  Export Multiple Digest
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

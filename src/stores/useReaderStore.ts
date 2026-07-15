@@ -33,8 +33,10 @@ export interface ReaderState {
 
   // Content
   readerHTML: string | null;
+  readerLoading: boolean;
   entryTitle: string | null;
   readingMode: ReadingMode;
+  readerCache: Map<string, string>;  // URL -> rendered HTML, max 30 entries
 
   // Banner
   bannerMessage: string | null;
@@ -136,8 +138,10 @@ const initialState = {
   contentWidth: 720 as number,
 
   readerHTML: null as string | null,
+  readerLoading: false,
   entryTitle: null as string | null,
   readingMode: "reader" as ReadingMode,
+  readerCache: new Map<string, string>(),
 
   bannerMessage: null as string | null,
   bannerType: "info" as "info" | "success" | "warning" | "error",
@@ -202,10 +206,31 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
 
   // Content
   buildReaderHTML: async (entryUrl) => {
+    // Check cache first — instant for recently viewed articles
+    const cache = get().readerCache;
+    const cached = cache.get(entryUrl);
+    if (cached) {
+      set({ readerHTML: cached, readerLoading: false });
+      return;
+    }
+
+    set({ readerLoading: true });
     try {
       const result = await ipc.buildReaderHTML(entryUrl);
-      set({ readerHTML: result.html });
-    } catch (err) { console.error("buildReaderHTML:", err); }
+      set({ readerHTML: result.html, readerLoading: false });
+
+      // Cache the result (LRU: evict oldest if over 30 entries)
+      const next = new Map(cache);
+      next.set(entryUrl, result.html);
+      while (next.size > 30) {
+        const oldest = next.keys().next().value;
+        if (oldest) next.delete(oldest);
+      }
+      set({ readerCache: next });
+    } catch (err) {
+      console.error("buildReaderHTML:", err);
+      set({ readerLoading: false });
+    }
   },
   setReadingMode: (mode) => set({ readingMode: mode }),
 
@@ -268,7 +293,7 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   },
 
   resetReaderState: () => set({
-    readerHTML: null, entryTitle: null, readingMode: "reader",
+    readerHTML: null, readerLoading: false, entryTitle: null, readingMode: "reader",
     summaryResult: null, summaryText: "", translationSegments: [],
     noteText: "", openPanel: null, activePanel: null,
     bannerMessage: null, bannerAction: null,

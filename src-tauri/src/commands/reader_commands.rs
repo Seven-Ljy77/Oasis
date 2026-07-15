@@ -14,11 +14,11 @@ use crate::state::AppState;
 #[tauri::command]
 pub async fn build_reader_html(
     _state: State<'_, AppState>,
-    entryUrl: String,
+    entry_url: String,
 ) -> Result<ReaderHTML, AppError> {
     let theme = ThemeTokens::default();
     let pipeline = DefaultReaderPipeline;
-    pipeline.build_html(&entryUrl, &theme).await
+    pipeline.build_html(&entry_url, &theme).await
 }
 
 #[tauri::command]
