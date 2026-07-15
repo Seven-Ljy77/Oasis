@@ -42,6 +42,9 @@ pub enum AppError {
     #[error("Network error: {0}")]
     Network(String),
 
+    #[error("Shell error: {0}")]
+    Shell(String),
+
     #[error("Timeout: {0}")]
     Timeout(String),
 

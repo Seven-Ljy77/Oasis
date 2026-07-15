@@ -169,6 +169,7 @@ pub fn run() {
             commands::window_commands::open_file_dialog,
             commands::window_commands::save_file_dialog,
             commands::window_commands::pick_export_folder,
+            commands::window_commands::open_in_browser,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mercury");
