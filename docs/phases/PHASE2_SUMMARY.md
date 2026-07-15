@@ -12,7 +12,7 @@ Phase 2 实现了**标签系统（完整 CRUD + 筛选 + 合并 + 批量操作�
 
 | 贡献者 | 内容 |
 |--------|------|
-| 组员 | 标签系统初始实现（TagStore、Tag 命令、TagFilter UI、ReaderTaggingPanel、星标标记） |
+| Sly | 标签系统初始实现（TagStore、Tag 命令、TagFilter UI、ReaderTaggingPanel、星标标记） |
 | Ljy | 代码 Review（21 个问题发现）、标签系统全面修复、标签合并、批量删除、Delete All、UI 交互优化、数据库修复 |
 
 ---
