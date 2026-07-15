@@ -14,8 +14,8 @@ The macOS reference codebase lives on the `mac` branch. The `windows` branch is 
 
 | File | Content |
 |------|---------|
-| `ARCHITECTURE.md` | Full architecture plan (tech stack, directory layout, DB schema, IPC API, phases) |
-| `MERCURY_FEATURES.md` | Complete feature inventory of the macOS version (~162 features) |
+| `docs/ARCHITECTURE.md` | Full architecture plan (tech stack, directory layout, DB schema, IPC API, phases) |
+| `docs/MERCURY_FEATURES.md` | Complete feature inventory of the macOS version (~162 features) |
 
 ---
 
@@ -168,7 +168,7 @@ cargo tauri build              # Production build → .msi/.exe
 
 ### Schema parity with macOS
 
-The database schema intentionally mirrors the macOS version. See `ARCHITECTURE.md` Section 3 for the full DDL. Key tables:
+The database schema intentionally mirrors the macOS version. See `docs/ARCHITECTURE.md` Section 3 for the full DDL. Key tables:
 
 | Table | Purpose |
 |------|---------|
@@ -191,7 +191,7 @@ Frontend communicates with the Rust backend exclusively through Tauri commands (
 
 ### Commands (Frontend → Backend)
 
-All commands are async and return `Result<T, AppError>`. See `ARCHITECTURE.md` Section 4.3 for the full API.
+All commands are async and return `Result<T, AppError>`. See `docs/ARCHITECTURE.md` Section 4.3 for the full API.
 
 ```typescript
 // Example: lib/ipc.ts

@@ -360,7 +360,7 @@ resources/templates/
 
 ---
 
-## 九、开发阶段（来自 ARCHITECTURE.md）
+## 九、开发阶段（来自 docs/ARCHITECTURE.md）
 
 | 阶段 | 范围 | 状态 |
 |------|------|------|
