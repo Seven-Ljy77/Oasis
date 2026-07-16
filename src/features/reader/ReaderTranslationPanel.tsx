@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
-import { startTranslation, getTranslationSegments } from "@/lib/ipc";
-import { listen } from "@tauri-apps/api/event";
+import { startTranslation, getTranslationSegments, buildTranslationHTML } from "@/lib/ipc";
 import Button from "@/components/ui/Button";
 
 const ReaderTranslationPanel: React.FC = () => {
@@ -19,56 +18,9 @@ const ReaderTranslationPanel: React.FC = () => {
   const setTranslationPromptStrategy = useReaderStore((s) => s.setTranslationPromptStrategy);
   const translationProgress = useReaderStore((s) => s.translationProgress);
   const setTranslationProgress = useReaderStore((s) => s.setTranslationProgress);
-  const translationLoading = useReaderStore((s) => s.translationLoading);
-  const translationSegments = useReaderStore((s) => s.translationSegments);
-  const loadTranslationSegments = useReaderStore((s) => s.loadTranslationSegments);
 
-  const [segmentCount, setSegmentCount] = useState(0);
-
-  // Listen for translation segment events from backend
-  useEffect(() => {
-    const unlisten = listen<{
-      entry_id: number;
-      segment_id: string;
-      text: string;
-      status: string;
-      total?: number;
-      error?: string;
-    }>("translation-segment", (event) => {
-      const { status, total } = event.payload;
-      if (status === "started") {
-        useReaderStore.setState({ translationLoading: true });
-        setSegmentCount(0);
-      } else if (status === "completed") {
-        setSegmentCount((c) => c + 1);
-        setTranslationProgress({
-          completed: 0,
-          total: total ?? 0,
-        });
-      } else if (status === "done") {
-        useReaderStore.setState({ translationLoading: false });
-        if (selectedEntryId) {
-          loadTranslationSegments(selectedEntryId, translationTargetLanguage);
-        }
-      } else if (status === "error") {
-        useReaderStore.setState({ translationLoading: false });
-      }
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  }, [selectedEntryId, translationTargetLanguage]);
-
-  // Start translation when enabled
-  const handleEnableToggle = async (checked: boolean) => {
-    setTranslationEnabled(checked);
-    if (checked && selectedEntryId) {
-      try {
-        await startTranslation(selectedEntryId, translationTargetLanguage);
-      } catch (e) {
-        console.error("Translation start failed:", e);
-        setTranslationEnabled(false);
-      }
-    }
-  };
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const languages = [
     { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -85,32 +37,35 @@ const ReaderTranslationPanel: React.FC = () => {
     { value: "vi", label: "Vietnamese" },
   ];
 
-  const handleResume = async () => {
-    if (selectedEntryId) {
-      try {
-        const cached = await getTranslationSegments(selectedEntryId, translationTargetLanguage);
-        if (cached.length > 0) {
-          useReaderStore.getState().loadTranslationSegments(selectedEntryId, translationTargetLanguage);
-          setTranslationProgress({ completed: cached.length, total: cached.length });
-        } else {
-          await startTranslation(selectedEntryId, translationTargetLanguage);
-        }
-      } catch (e) {
-        console.error("Resume failed:", e);
+  const handleStart = async () => {
+    if (!selectedEntryId) return;
+    setError(null);
+    setTranslationLoading(true);
+
+    try {
+      const result: any = await startTranslation(selectedEntryId, translationTargetLanguage);
+      const total = result?.total_segments ?? 0;
+      useReaderStore.setState({ translationSegments: result?.segments ?? [] });
+      setTranslationProgress({ completed: total, total });
+      if (total > 0) {
+        try {
+          const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage);
+          useReaderStore.setState({ translationHTML: html });
+        } catch { /* ok if HTML build fails */ }
+      } else {
+        setError("Translation produced 0 segments — article content may be too short or LLM call failed");
       }
+    } catch (e: any) {
+      setError(typeof e === "string" ? e : e?.message || e?.error || String(e));
+    } finally {
+      setTranslationLoading(false);
     }
   };
 
   const getStatusText = () => {
-    if (translationLoading) {
-      return `Translating: ${segmentCount} segments completed...`;
-    }
-    if (translationProgress) {
-      return `Translation complete: ${translationSegments.length} segments`;
-    }
-    if (translationEnabled) {
-      return "Translation ready — loading...";
-    }
+    if (translationLoading) return "Translating...";
+    if (translationProgress) return `Translation complete: ${translationProgress.total} segments`;
+    if (translationEnabled) return "Translation ready — click Start to begin";
     return "Translation disabled";
   };
 
@@ -118,38 +73,28 @@ const ReaderTranslationPanel: React.FC = () => {
     <div className="border-t border-border bg-surface p-4 space-y-3">
       <h3 className="text-sm font-semibold text-slate-700">Translation</h3>
 
-      {/* Enable toggle */}
-      <label className="flex items-center gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={translationEnabled}
-          onChange={(e) => handleEnableToggle(e.target.checked)}
-          className="rounded border-slate-300 text-accent w-3.5 h-3.5"
-        />
+      <div className="flex items-center gap-3">
         <span className="text-sm text-slate-600">
-          {translationBilingual ? "Bilingual mode" : "Show translation"}
+          {translationBilingual ? "Bilingual mode" : "Translation"}
         </span>
-      </label>
+        <Button variant="primary" size="sm" onClick={handleStart} disabled={!selectedEntryId || translationLoading}>
+          {translationLoading ? "Translating..." : "Start Translation"}
+        </Button>
+      </div>
 
-      {/* Target language */}
       <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">
-          Target Language
-        </label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">Target Language</label>
         <select
           value={translationTargetLanguage}
           onChange={(e) => setTranslationTargetLanguage(e.target.value)}
           className="w-full h-8 px-2 text-xs rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
         >
           {languages.map((l) => (
-            <option key={l.value} value={l.value}>
-              {l.label}
-            </option>
+            <option key={l.value} value={l.value}>{l.label}</option>
           ))}
         </select>
       </div>
 
-      {/* Bilingual toggle */}
       <label className="flex items-center gap-3 cursor-pointer">
         <input
           type="checkbox"
@@ -160,66 +105,37 @@ const ReaderTranslationPanel: React.FC = () => {
         <span className="text-sm text-slate-600">Bilingual (show original + translation)</span>
       </label>
 
-      {/* Concurrency slider */}
       <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">
-          Concurrency: {translationConcurrency}
-        </label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">Concurrency: {translationConcurrency}</label>
         <input
-          type="range"
-          min="1"
-          max="5"
-          step="1"
+          type="range" min="1" max="5" step="1"
           value={translationConcurrency}
           onChange={(e) => setTranslationConcurrency(parseInt(e.target.value))}
           className="w-full h-1.5 bg-surface-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
         />
-        <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-          <span>1 (slow)</span>
-          <span>5 (fast)</span>
-        </div>
       </div>
 
-      {/* Prompt strategy */}
       <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">
-          Prompt Strategy
-        </label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">Prompt Strategy</label>
         <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5">
           <button
             onClick={() => setTranslationPromptStrategy("standard")}
             className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
-              translationPromptStrategy === "standard"
-                ? "bg-surface text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Standard
-          </button>
+              translationPromptStrategy === "standard" ? "bg-surface text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}>Standard</button>
           <button
             onClick={() => setTranslationPromptStrategy("hy_mt_optimized")}
             className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
-              translationPromptStrategy === "hy_mt_optimized"
-                ? "bg-surface text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            HY-MT Opt
-          </button>
+              translationPromptStrategy === "hy_mt_optimized" ? "bg-surface text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}>HY-MT Opt</button>
         </div>
       </div>
 
-      {/* Resume button */}
-      <div>
-        <Button variant="secondary" size="sm" onClick={handleResume}>
-          Resume from checkpoint
-        </Button>
-      </div>
+      <div className="text-xs text-slate-400 pt-1 border-t border-border/50">{getStatusText()}</div>
 
-      {/* Status */}
-      <div className="text-xs text-slate-400 pt-1 border-t border-border/50">
-        {getStatusText()}
-      </div>
+      {error && (
+        <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+      )}
     </div>
   );
 };

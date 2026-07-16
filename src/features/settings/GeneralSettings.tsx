@@ -2,7 +2,8 @@
 // Mercury — GeneralSettings (general app settings)
 // =============================================================================
 
-import React from "react";
+import React, { useEffect } from "react";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 export interface GeneralSettingsProps {
   className?: string;
@@ -19,12 +20,22 @@ const languages = [
 ];
 
 const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => {
-  // TODO: import useSettingsStore and use real state
+  const settings = useSettingsStore((s) => s.settings);
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+  const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const saveSettingsFn = useSettingsStore((s) => s.saveSettings);
 
-  const [language, setLanguage] = React.useState("en");
-  const [syncConcurrency, setSyncConcurrency] = React.useState(4);
-  const [usageRetentionMonths, setUsageRetentionMonths] = React.useState<number | null>(12);
-  const [aiTaggingEnabled, setAiTaggingEnabled] = React.useState(false);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
+
+  const save = () => {
+    const s = useSettingsStore.getState().settings;
+    saveSettingsFn(s);
+  };
+
+  const language = settings.language ?? "en";
+  const syncConcurrency = settings.sync_concurrency ?? 4;
+  const usageRetentionMonths = settings.usage_retention_months ?? null;
+  const aiTaggingEnabled = settings.ai_tagging_enabled ?? false;
 
   return (
     <div
@@ -38,7 +49,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
         </label>
         <select
           value={language}
-          onChange={(e) => setLanguage(e.target.value)}
+          onChange={(e) => { updateSetting("language", e.target.value); save(); }}
           className="w-full h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent-muted"
         >
           {languages.map((l) => (
@@ -63,7 +74,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
           max="16"
           step="1"
           value={syncConcurrency}
-          onChange={(e) => setSyncConcurrency(parseInt(e.target.value))}
+          onChange={(e) => { updateSetting("sync_concurrency", parseInt(e.target.value)); save(); }}
           className="w-full h-1.5 bg-surface-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
         />
         <div className="flex justify-between text-[11px] text-slate-400 mt-0.5">
@@ -85,7 +96,9 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
             value={usageRetentionMonths === null ? "forever" : String(usageRetentionMonths)}
             onChange={(e) => {
               const val = e.target.value;
-              setUsageRetentionMonths(val === "forever" ? null : parseInt(val));
+              const v = val === "forever" ? null : parseInt(val);
+              updateSetting("usage_retention_months", v);
+              save();
             }}
             className="h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
           >
@@ -108,7 +121,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
           <input
             type="checkbox"
             checked={aiTaggingEnabled}
-            onChange={(e) => setAiTaggingEnabled(e.target.checked)}
+            onChange={(e) => { updateSetting("ai_tagging_enabled", e.target.checked); save(); }}
             className="rounded border-slate-300 text-accent w-4 h-4"
           />
           <span className="text-sm font-medium text-slate-700">

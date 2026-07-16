@@ -65,25 +65,31 @@ impl TranslationStore for SqliteTranslationStore {
         tokio::task::spawn_blocking(move || {
             db.write(|conn| {
                 // Upsert translation_result
-                conn.execute(
-                    "INSERT INTO translation_result \
-                     (entry_id, target_language, source_content_hash, segmenter_version, \
-                      run_status, task_run_id, created_at) \
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now')) \
-                     ON CONFLICT(entry_id, target_language) DO UPDATE SET \
-                        source_content_hash = excluded.source_content_hash, \
-                        segmenter_version = excluded.segmenter_version, \
-                        run_status = excluded.run_status, \
-                        task_run_id = excluded.task_run_id",
+                // Try UPDATE first, then INSERT if no row affected
+                let rows = conn.execute(
+                    "UPDATE translation_result SET \
+                        source_content_hash = ?3, segmenter_version = ?4, \
+                        run_status = ?5, task_run_id = ?6 \
+                     WHERE entry_id = ?1 AND target_language = ?2",
                     params![
-                        r.entry_id,
-                        r.target_language,
-                        r.source_content_hash,
-                        r.segmenter_version,
-                        r.run_status,
-                        r.task_run_id,
+                        r.entry_id, r.target_language,
+                        r.source_content_hash, r.segmenter_version,
+                        r.run_status, r.task_run_id,
                     ],
                 )?;
+                if rows == 0 {
+                    conn.execute(
+                        "INSERT INTO translation_result \
+                         (entry_id, target_language, source_content_hash, segmenter_version, \
+                          run_status, task_run_id, created_at) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
+                        params![
+                            r.entry_id, r.target_language,
+                            r.source_content_hash, r.segmenter_version,
+                            r.run_status, r.task_run_id,
+                        ],
+                    )?;
+                }
                 let result_id: i64 = if r.id != 0 {
                     r.id
                 } else {

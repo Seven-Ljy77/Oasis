@@ -132,21 +132,27 @@ impl OpenAIProvider {
     ///
     /// For local development (`api_key_ref == "local"`), the key "local" is
     /// returned directly — local LLM endpoints typically accept any value.
-    /// For production use, keyring / Windows Credential Manager integration
-    /// will be wired here (TODO).
+    /// For other keys, tries Windows Credential Manager via the keyring crate,
+    /// falling back to the raw `api_key_ref` value itself (for inline keys).
     async fn resolve_api_key(&self) -> Result<String, AppError> {
         if self.api_key_ref == "local" {
             return Ok("local".to_string());
         }
-        // TODO: use keyring crate for Windows Credential Manager lookup
-        // let entry = keyring::Entry::new("Mercury", &self.api_key_ref)
-        //     .map_err(|e| AppError::Agent(format!("keyring error: {e}")))?;
-        // entry.get_password()
-        //     .map_err(|e| AppError::Unauthorized(format!("cannot resolve API key: {e}")))
-        Err(AppError::Unauthorized(format!(
-            "API key not found in credential store: {}",
-            self.api_key_ref
-        )))
+        // Try Windows Credential Manager via keyring
+        match keyring::Entry::new("Mercury", &self.api_key_ref) {
+            Ok(entry) => match entry.get_password() {
+                Ok(key) => {
+                    if !key.is_empty() {
+                        return Ok(key);
+                    }
+                }
+                Err(keyring::Error::NoEntry) => { /* not found, fall through */ }
+                Err(_e) => { /* keyring unavailable, fall through */ }
+            },
+            Err(_e) => { /* keyring unavailable, fall through */ }
+        }
+        // Fallback: use the api_key_ref itself as the key (supports inline keys)
+        Ok(self.api_key_ref.clone())
     }
 
     /// Build the full chat completions endpoint URL.

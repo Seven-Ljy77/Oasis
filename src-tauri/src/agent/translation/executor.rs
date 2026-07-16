@@ -69,6 +69,7 @@ impl TranslationExecutor {
         on_event: impl Fn(TranslationRunEvent) + Send + Sync + 'static,
     ) -> Result<(), AppError> {
         let on_event = Arc::new(on_event);
+
         // 1. Extract segments
         let mut segments = SegmentExtractor::extract(&request.content)?;
 
@@ -215,18 +216,30 @@ impl TranslationExecutor {
 
         // 6. Collect results
         let mut results: Vec<(String, String)> = Vec::new();
+        let mut first_error: Option<String> = None;
         for handle in handles {
             match handle.await {
                 Ok(Ok((seg_id, translated_text))) => {
                     results.push((seg_id, translated_text));
                 }
-                Ok(Err(_e)) => {
-                    // Individual segment failed — continue with others
+                Ok(Err(e)) => {
+                    if first_error.is_none() {
+                        first_error = Some(format!("Segment failed: {e}"));
+                    }
                 }
-                Err(_) => {
-                    // Tokio join error — continue
+                Err(e) => {
+                    if first_error.is_none() {
+                        first_error = Some(format!("Task panicked: {e}"));
+                    }
                 }
             }
+        }
+
+        if results.is_empty() {
+            if let Some(err) = first_error {
+                return Err(AppError::Agent(err));
+            }
+            return Err(AppError::Agent("All translation segments failed".to_string()));
         }
 
         // 7. Save checkpoint

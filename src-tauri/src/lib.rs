@@ -125,6 +125,7 @@ pub fn run() {
             commands::agent_commands::get_summary,
             commands::agent_commands::generate_summary,
             commands::agent_commands::get_translation_segments,
+            commands::agent_commands::build_translation_html,
             // Tag commands
             commands::tag_commands::get_tags,
             commands::tag_commands::get_tag_library,

@@ -34,6 +34,7 @@ export interface ReaderState {
   // Content
   readerHTML: string | null;
   readerLoading: boolean;
+  translationHTML: string | null;
   entryTitle: string | null;
   readingMode: ReadingMode;
   readerCache: Map<string, string>;  // URL -> rendered HTML, max 30 entries
@@ -86,6 +87,8 @@ export interface ReaderState {
   resetTheme: () => void;
 
   buildReaderHTML: (entryUrl: string) => Promise<void>;
+  buildTranslationHTML: (entryId: number, targetLang: string) => Promise<void>;
+  setTranslationHTML: (html: string | null) => void;
 
   setReadingMode: (mode: ReadingMode) => void;
 
@@ -139,6 +142,7 @@ const initialState = {
 
   readerHTML: null as string | null,
   readerLoading: false,
+  translationHTML: null as string | null,
   entryTitle: null as string | null,
   readingMode: "reader" as ReadingMode,
   readerCache: new Map<string, string>(),
@@ -232,6 +236,13 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
       set({ readerLoading: false });
     }
   },
+  buildTranslationHTML: async (entryId, targetLang) => {
+    try {
+      const html = await ipc.buildTranslationHTML(entryId, targetLang);
+      set({ translationHTML: html });
+    } catch (err) { console.error("buildTranslationHTML:", err); }
+  },
+  setTranslationHTML: (html) => set({ translationHTML: html }),
   setReadingMode: (mode) => set({ readingMode: mode }),
 
   // Banner

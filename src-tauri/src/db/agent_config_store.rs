@@ -127,28 +127,29 @@ impl AgentConfigStore for SqliteAgentConfigStore {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             db.write(|conn| {
-                conn.execute(
-                    "INSERT INTO agent_provider_profile \
-                     (name, base_url, api_key_ref, test_model, is_default, is_enabled, is_archived) \
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
-                     ON CONFLICT(name) DO UPDATE SET \
-                        base_url = excluded.base_url, \
-                        api_key_ref = excluded.api_key_ref, \
-                        test_model = excluded.test_model, \
-                        is_default = excluded.is_default, \
-                        is_enabled = excluded.is_enabled, \
-                        is_archived = excluded.is_archived",
-                    params![
-                        p.name,
-                        p.base_url,
-                        p.api_key_ref,
-                        p.test_model,
-                        p.is_default,
-                        p.is_enabled,
-                        p.is_archived,
-                    ],
-                )?;
-                let id = conn.last_insert_rowid();
+                if p.id != 0 {
+                    conn.execute(
+                        "UPDATE agent_provider_profile SET \
+                            name = ?1, base_url = ?2, api_key_ref = ?3, test_model = ?4, \
+                            is_default = ?5, is_enabled = ?6, is_archived = ?7 \
+                         WHERE id = ?8",
+                        params![
+                            p.name, p.base_url, p.api_key_ref, p.test_model,
+                            p.is_default, p.is_enabled, p.is_archived, p.id,
+                        ],
+                    )?;
+                } else {
+                    conn.execute(
+                        "INSERT INTO agent_provider_profile \
+                         (name, base_url, api_key_ref, test_model, is_default, is_enabled, is_archived) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        params![
+                            p.name, p.base_url, p.api_key_ref, p.test_model,
+                            p.is_default, p.is_enabled, p.is_archived,
+                        ],
+                    )?;
+                }
+                let id = if p.id != 0 { p.id } else { conn.last_insert_rowid() };
                 Ok(AgentProviderProfile { id, ..p })
             })
         })
@@ -243,39 +244,34 @@ impl AgentConfigStore for SqliteAgentConfigStore {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             db.write(|conn| {
-                conn.execute(
-                    "INSERT INTO agent_model_profile \
-                     (provider_profile_id, model_name, temperature, top_p, max_tokens, \
-                      is_streaming, supports_summary, supports_translation, supports_tagging, \
-                      is_default, is_enabled, is_archived) \
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
-                     ON CONFLICT(provider_profile_id, model_name) DO UPDATE SET \
-                        temperature = excluded.temperature, \
-                        top_p = excluded.top_p, \
-                        max_tokens = excluded.max_tokens, \
-                        is_streaming = excluded.is_streaming, \
-                        supports_summary = excluded.supports_summary, \
-                        supports_translation = excluded.supports_translation, \
-                        supports_tagging = excluded.supports_tagging, \
-                        is_default = excluded.is_default, \
-                        is_enabled = excluded.is_enabled, \
-                        is_archived = excluded.is_archived",
-                    params![
-                        m.provider_profile_id,
-                        m.model_name,
-                        m.temperature,
-                        m.top_p,
-                        m.max_tokens,
-                        m.is_streaming,
-                        m.supports_summary,
-                        m.supports_translation,
-                        m.supports_tagging,
-                        m.is_default,
-                        m.is_enabled,
-                        m.is_archived,
-                    ],
-                )?;
-                let id = conn.last_insert_rowid();
+                if m.id != 0 {
+                    conn.execute(
+                        "UPDATE agent_model_profile SET \
+                            model_name = ?2, temperature = ?3, top_p = ?4, max_tokens = ?5, \
+                            is_streaming = ?6, supports_summary = ?7, supports_translation = ?8, \
+                            supports_tagging = ?9, is_default = ?10, is_enabled = ?11, is_archived = ?12 \
+                         WHERE id = ?1",
+                        params![
+                            m.id, m.model_name, m.temperature, m.top_p, m.max_tokens,
+                            m.is_streaming, m.supports_summary, m.supports_translation,
+                            m.supports_tagging, m.is_default, m.is_enabled, m.is_archived,
+                        ],
+                    )?;
+                } else {
+                    conn.execute(
+                        "INSERT INTO agent_model_profile \
+                         (provider_profile_id, model_name, temperature, top_p, max_tokens, \
+                          is_streaming, supports_summary, supports_translation, supports_tagging, \
+                          is_default, is_enabled, is_archived) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                        params![
+                            m.provider_profile_id, m.model_name, m.temperature, m.top_p, m.max_tokens,
+                            m.is_streaming, m.supports_summary, m.supports_translation,
+                            m.supports_tagging, m.is_default, m.is_enabled, m.is_archived,
+                        ],
+                    )?;
+                }
+                let id = if m.id != 0 { m.id } else { conn.last_insert_rowid() };
                 Ok(AgentModelProfile { id, ..m })
             })
         })

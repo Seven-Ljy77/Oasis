@@ -248,6 +248,12 @@ export const startTranslation = (
 ): Promise<{ task_id: string }> =>
   invoke<{ task_id: string }>("start_translation", { entryId, targetLanguage });
 
+export const buildTranslationHTML = (
+  entryId: number,
+  targetLanguage: string,
+): Promise<string> =>
+  invoke<string>("build_translation_html", { entryId, targetLanguage });
+
 // ---------------------------------------------------------------------------
 // Tag commands
 // ---------------------------------------------------------------------------

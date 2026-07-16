@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use rusqlite::params;
+use rusqlite::OptionalExtension;
 
 use crate::db::manager::DatabaseManager;
 use crate::db::models::EntryListItem;
@@ -25,6 +26,9 @@ pub trait EntryStore: Send + Sync {
 
     /// Soft-delete an entry (sets is_deleted = true).
     async fn delete_entry(&self, id: i64) -> Result<(), AppError>;
+
+    /// Load a single entry by its id.
+    async fn load_by_id(&self, id: i64) -> Result<Option<EntryListItem>, AppError>;
 
     /// Full-text search across entry titles and summaries.
     async fn search(&self, text: &str, scope: SearchScope) -> Result<Vec<EntryListItem>, AppError>;
@@ -284,6 +288,41 @@ impl EntryStore for SqliteEntryStore {
                     params![id],
                 )?;
                 Ok(())
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn load_by_id(&self, id: i64) -> Result<Option<EntryListItem>, AppError> {
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.read(|conn| {
+                let sql = format!(
+                    "SELECT {} {} WHERE e.id = ?1 AND e.is_deleted = 0",
+                    ENTRY_LIST_COLS, ENTRY_FROM,
+                );
+                let result = conn
+                    .query_row(&sql, params![id], |row| {
+                        Ok(EntryListItem {
+                            id: row.get(0)?,
+                            feed_id: row.get(1)?,
+                            title: row.get(2)?,
+                            author: row.get(3)?,
+                            url: row.get(4)?,
+                            published_at: row.get(5)?,
+                            summary: row.get(6)?,
+                            is_read: row.get(7)?,
+                            is_starred: row.get(8)?,
+                            feed_title: row.get(9)?,
+                            created_at: row.get(10)?,
+                        })
+                    })
+                    .optional();
+                match result {
+                    Ok(opt) => Ok(opt),
+                    Err(e) => Err(AppError::Database(e.to_string())),
+                }
             })
         })
         .await

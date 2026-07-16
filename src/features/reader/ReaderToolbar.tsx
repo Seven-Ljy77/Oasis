@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import ReadingModePicker from "./ReadingModePicker";
@@ -33,9 +33,15 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
   const translationEnabled = useReaderStore((s) => s.translationEnabled);
   const setTranslationEnabled = useReaderStore((s) => s.setTranslationEnabled);
 
-  const handleShare = () => {
-    // TODO: implement share menu (system share, copy link, open in browser)
-    navigator.clipboard.writeText(entryUrl);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const handleShare = (action: "copy" | "browser") => {
+    setShareOpen(false);
+    if (action === "copy") {
+      navigator.clipboard.writeText(entryUrl);
+    } else {
+      window.open(entryUrl, "_blank");
+    }
   };
 
   return (
@@ -150,15 +156,33 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
       </button>
 
       {/* Share menu */}
-      <button
-        onClick={handleShare}
-        className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
-        title="Share"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-        </svg>
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setShareOpen(!shareOpen)}
+          className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
+          title="Share"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+        </button>
+        {shareOpen && (
+          <div className="absolute right-0 top-full mt-1 w-40 bg-surface border border-border rounded-lg shadow-lg py-1 z-50">
+            <button
+              onClick={() => handleShare("copy")}
+              className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+            >
+              Copy Link
+            </button>
+            <button
+              onClick={() => handleShare("browser")}
+              className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+            >
+              Open in Browser
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

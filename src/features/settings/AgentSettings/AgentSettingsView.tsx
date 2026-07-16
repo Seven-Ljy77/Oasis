@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { Button } from "@/components/ui/Button";
 import type { AgentProviderProfile, AgentModelProfile } from "@/lib/types";
@@ -168,9 +168,20 @@ const ModelTab: React.FC = () => {
   const providers = useSettingsStore((s) => s.providers);
   const models = useSettingsStore((s) => s.models);
   const loadModels = useSettingsStore((s) => s.loadModels);
+  const addModel = useSettingsStore((s) => s.addModel);
+  const deleteModel = useSettingsStore((s) => s.deleteModel);
   const [selectedProviderId, setSelectedProviderId] = useState<number | null>(
     providers[0]?.id ?? null,
   );
+
+  // Add model form state
+  const [showAdd, setShowAdd] = useState(false);
+  const [newModelName, setNewModelName] = useState("");
+  const [newTemp, setNewTemp] = useState("0.7");
+  const [newMaxTokens, setNewMaxTokens] = useState("4096");
+  const [newSupportsSummary, setNewSupportsSummary] = useState(true);
+  const [newSupportsTrans, setNewSupportsTrans] = useState(true);
+  const [newSupportsTag, setNewSupportsTag] = useState(true);
 
   React.useEffect(() => {
     if (selectedProviderId) {
@@ -180,12 +191,68 @@ const ModelTab: React.FC = () => {
 
   const displayModels = models[selectedProviderId ?? 0] ?? [];
 
+  const handleAddModel = async () => {
+    if (!selectedProviderId || !newModelName.trim()) return;
+    await addModel(selectedProviderId, {
+      model_name: newModelName.trim(),
+      temperature: parseFloat(newTemp) || 0.7,
+      max_tokens: parseInt(newMaxTokens) || 4096,
+      is_streaming: true,
+      supports_summary: newSupportsSummary,
+      supports_translation: newSupportsTrans,
+      supports_tagging: newSupportsTag,
+    } as AgentModelProfile);
+    setShowAdd(false);
+    setNewModelName("");
+    loadModels(selectedProviderId);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-medium text-slate-700">Models</h4>
-        <Button variant="secondary" size="sm">Add Model</Button>
+        <Button variant="secondary" size="sm" onClick={() => setShowAdd(!showAdd)}>
+          Add Model
+        </Button>
       </div>
+
+      {showAdd && selectedProviderId && (
+        <div className="mb-3 p-3 border border-border rounded-lg space-y-2 bg-surface-secondary">
+          <input
+            placeholder="Model name (e.g. qwen3)"
+            value={newModelName}
+            onChange={(e) => setNewModelName(e.target.value)}
+            className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <input
+              placeholder="Temperature"
+              value={newTemp}
+              onChange={(e) => setNewTemp(e.target.value)}
+              className="w-24 h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
+            />
+            <input
+              placeholder="Max Tokens"
+              value={newMaxTokens}
+              onChange={(e) => setNewMaxTokens(e.target.value)}
+              className="w-24 h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
+            />
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <input type="checkbox" checked={newSupportsSummary} onChange={(e) => setNewSupportsSummary(e.target.checked)} className="w-3 h-3" /> Summary
+            </label>
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <input type="checkbox" checked={newSupportsTrans} onChange={(e) => setNewSupportsTrans(e.target.checked)} className="w-3 h-3" /> Trans
+            </label>
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <input type="checkbox" checked={newSupportsTag} onChange={(e) => setNewSupportsTag(e.target.checked)} className="w-3 h-3" /> Tag
+            </label>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={handleAddModel}>Save</Button>
+          </div>
+        </div>
+      )}
 
       {providers.length > 0 && (
         <select
@@ -201,7 +268,12 @@ const ModelTab: React.FC = () => {
         </select>
       )}
 
+      {displayModels.length === 0 && (
+        <p className="text-xs text-slate-400 py-4">No models configured for this provider.</p>
+      )}
+
       <table className="w-full text-sm">
+        {displayModels.length > 0 && (
         <thead>
           <tr className="border-b border-border text-left text-xs text-slate-500">
             <th className="py-2 pr-4 font-medium">Model</th>
@@ -212,6 +284,7 @@ const ModelTab: React.FC = () => {
             <th className="py-2 pr-4 font-medium">Actions</th>
           </tr>
         </thead>
+        )}
         <tbody>
           {displayModels.map((m) => (
             <tr key={m.id} className="border-b border-border/50">
@@ -246,10 +319,7 @@ const ModelTab: React.FC = () => {
               </td>
               <td className="py-2">
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                  <Button variant="ghost" size="sm">Test Chat</Button>
-                  <Button variant="ghost" size="sm">Set Default</Button>
-                  <Button variant="ghost" size="sm">Delete</Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteModel(m.id)}>Delete</Button>
                 </div>
               </td>
             </tr>
@@ -263,15 +333,73 @@ const ModelTab: React.FC = () => {
 // ---- Agent Tab ----
 
 const AgentTab: React.FC = () => {
+  const providers = useSettingsStore((s) => s.providers);
+  const models = useSettingsStore((s) => s.models);
+  const loadModels = useSettingsStore((s) => s.loadModels);
+  const agentProfiles = useSettingsStore((s) => s.agentProfiles);
+  const loadAgentProfile = useSettingsStore((s) => s.loadAgentProfile);
+  const setAgentProfile = useSettingsStore((s) => s.setAgentProfile);
+
+  // Collect all models from all providers
+  const allModels = React.useMemo(() => {
+    const result: Array<{ id: number; name: string; providerName: string }> = [];
+    for (const [providerIdStr, modelList] of Object.entries(models)) {
+      const providerId = Number(providerIdStr);
+      const provider = providers.find((p) => p.id === providerId);
+      for (const m of modelList) {
+        result.push({
+          id: m.id,
+          name: m.model_name,
+          providerName: provider?.name ?? "",
+        });
+      }
+    }
+    return result;
+  }, [models, providers]);
+
+  // Load models for all providers
+  React.useEffect(() => {
+    providers.forEach((p) => loadModels(p.id));
+  }, [providers.length > 0 ? providers[0]?.id : null, loadModels]);
+
+  React.useEffect(() => {
+    ["summary", "translation", "tagging"].forEach(loadAgentProfile);
+  }, [loadAgentProfile]);
+
   const agentTypes = [
     { type: "summary", label: "Summary Agent", description: "Generates article summaries" },
     { type: "translation", label: "Translation Agent", description: "Translates article content" },
     { type: "tagging", label: "Tagging Agent", description: "Auto-tags articles with relevant labels" },
   ];
 
+  const handleSaveProfile = (agentType: string, primaryId: number | null, fallbackId: number | null) => {
+    setAgentProfile({
+      agent_type: agentType,
+      primary_model_profile_id: primaryId,
+      fallback_model_profile_id: fallbackId,
+    });
+  };
+
+  const [selections, setSelections] = useState<Record<string, { primary: number | null; fallback: number | null }>>({});
+
+  // Sync selections from loaded profiles
+  React.useEffect(() => {
+    const sync: Record<string, { primary: number | null; fallback: number | null }> = {};
+    for (const [type, profile] of Object.entries(agentProfiles)) {
+      sync[type] = {
+        primary: profile.primary_model_profile_id ?? null,
+        fallback: profile.fallback_model_profile_id ?? null,
+      };
+    }
+    setSelections((prev) => ({ ...prev, ...sync }));
+  }, [agentProfiles]);
+
   return (
     <div className="space-y-6">
-      {agentTypes.map((agent) => (
+      {agentTypes.map((agent) => {
+        const sel = selections[agent.type] ?? { primary: null, fallback: null };
+
+        return (
         <div key={agent.type} className="border border-border rounded-lg p-4 space-y-3">
           <div>
             <h4 className="text-sm font-medium text-slate-700">{agent.label}</h4>
@@ -279,87 +407,43 @@ const AgentTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Primary Model
-            </label>
-            <select className="w-48 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none">
+            <label className="block text-xs font-medium text-slate-600 mb-1">Primary Model</label>
+            <select
+              value={sel.primary ?? ""}
+              onChange={(e) => {
+                const v = Number(e.target.value) || null;
+                setSelections((prev) => ({ ...prev, [agent.type]: { ...prev[agent.type], primary: v } }));
+                handleSaveProfile(agent.type, v, sel.fallback);
+              }}
+              className="w-56 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none"
+            >
               <option value="">Select a model...</option>
-              <option value="1">qwen3</option>
-              <option value="2">qwen3-thinking</option>
+              {allModels.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} ({m.providerName})</option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Fallback Model (optional)
-            </label>
-            <select className="w-48 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none">
+            <label className="block text-xs font-medium text-slate-600 mb-1">Fallback Model (optional)</label>
+            <select
+              value={sel.fallback ?? ""}
+              onChange={(e) => {
+                const v = Number(e.target.value) || null;
+                setSelections((prev) => ({ ...prev, [agent.type]: { ...prev[agent.type], fallback: v } }));
+                handleSaveProfile(agent.type, sel.primary, v);
+              }}
+              className="w-56 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none"
+            >
               <option value="">None</option>
-              <option value="1">qwen3</option>
-              <option value="2">qwen3-thinking</option>
+              {allModels.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} ({m.providerName})</option>
+              ))}
             </select>
           </div>
-
-          {/* Agent-specific config */}
-          {agent.type === "summary" && (
-            <div className="space-y-2 pt-1 border-t border-border/50">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-                  Default Target Language
-                </label>
-                <select className="w-48 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none">
-                  <option value="zh-CN">Chinese (Simplified)</option>
-                  <option value="en">English</option>
-                  <option value="ja">Japanese</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-                  Default Detail Level
-                </label>
-                <select className="w-48 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none">
-                  <option value="short">Short</option>
-                  <option value="medium">Medium</option>
-                  <option value="detailed">Detailed</option>
-                </select>
-              </div>
-              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                <input type="checkbox" className="rounded border-slate-300 text-accent w-3 h-3" />
-                Auto-summary on article open
-              </label>
-            </div>
-          )}
-
-          {agent.type === "translation" && (
-            <div className="space-y-2 pt-1 border-t border-border/50">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-                  Default Target Language
-                </label>
-                <select className="w-48 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none">
-                  <option value="zh-CN">Chinese (Simplified)</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-                  Default Prompt Strategy
-                </label>
-                <select className="w-48 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none">
-                  <option value="standard">Standard</option>
-                  <option value="hy_mt_optimized">HY-MT Optimized</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          <div className="pt-1 border-t border-border/50">
-            <Button variant="ghost" size="sm">
-              Custom Prompt...
-            </Button>
-          </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

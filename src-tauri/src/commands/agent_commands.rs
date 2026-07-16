@@ -6,7 +6,6 @@ use crate::agent::route::RouteResolver;
 use crate::agent::summary::executor::{SummaryExecutor, SummaryRunEvent, SummaryRunRequest};
 use crate::agent::tagging::batch::{BatchTaggingConfig, BatchTaggingExecutor};
 use crate::agent::tagging::executor::TagSuggestion;
-use crate::agent::translation::executor::TranslationRunEvent;
 use crate::agent::AgentTaskKind;
 use crate::db::agent_config_store::AgentConfigStore;
 use crate::db::entry_store::EntryStore;
@@ -116,11 +115,35 @@ pub async fn get_agent_models(
 pub async fn add_agent_model(
     state: State<'_, AppState>,
     provider_profile_id: i64,
-    model: AgentModelProfile,
+    model: serde_json::Value,
 ) -> Result<AgentModelProfile, AppError> {
-    let mut m = model;
-    m.id = 0;
-    m.provider_profile_id = provider_profile_id;
+    let name = model["model_name"].as_str().unwrap_or("").to_string();
+    let temp = model["temperature"].as_f64();
+    let top_p = model["top_p"].as_f64();
+    let max_tokens = model["max_tokens"].as_i64().map(|v| v as i32);
+    let streaming = model["is_streaming"].as_bool().unwrap_or(true);
+    let s_sum = model["supports_summary"].as_bool().unwrap_or(true);
+    let s_trans = model["supports_translation"].as_bool().unwrap_or(true);
+    let s_tag = model["supports_tagging"].as_bool().unwrap_or(true);
+
+    let m = AgentModelProfile {
+        id: 0,
+        provider_profile_id,
+        model_name: name,
+        temperature: temp,
+        top_p,
+        max_tokens,
+        is_streaming: streaming,
+        supports_summary: s_sum,
+        supports_translation: s_trans,
+        supports_tagging: s_tag,
+        is_default: false,
+        is_enabled: true,
+        is_archived: false,
+        archived_at: None,
+        last_tested_at: None,
+        created_at: String::new(),
+    };
     state.agent_config_store.upsert_model(&m).await
 }
 
@@ -245,13 +268,28 @@ pub async fn start_summary(
     language: String,
     detail: String,
 ) -> Result<(), AppError> {
-    let entries = state
-        .entry_store
-        .search(&entry_id.to_string(), crate::db::entry_store::SearchScope::TitleOnly)
-        .await?;
-    let entry = entries.iter().find(|e| e.id == entry_id);
-    let title = entry.and_then(|e| e.title.clone()).unwrap_or_default();
-    let content = entry.and_then(|e| e.summary.clone()).unwrap_or_default();
+    let entry = state.entry_store.load_by_id(entry_id).await?;
+    let title = entry.as_ref().and_then(|e| e.title.clone()).unwrap_or_default();
+    // Prefer full article markdown from content table, fall back to RSS summary
+    let content = {
+        let db = state.db.clone();
+        let eid = entry_id;
+        tokio::task::spawn_blocking(move || {
+            let conn = db.conn();
+            conn.query_row(
+                "SELECT markdown FROM content WHERE entry_id = ?1",
+                rusqlite::params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    };
+    let content = content
+        .or_else(|| entry.as_ref().and_then(|e| e.summary.clone()))
+        .unwrap_or_default();
 
     let resolver = RouteResolver::new(state.agent_config_store.clone());
     let routes = resolver
@@ -313,11 +351,11 @@ pub async fn start_summary(
 
 #[tauri::command]
 pub async fn start_translation(
-    app_handle: AppHandle,
+    _app_handle: AppHandle,
     state: State<'_, AppState>,
     entry_id: i64,
-    language: String,
-) -> Result<(), AppError> {
+    target_language: String,
+) -> Result<serde_json::Value, AppError> {
     let resolver = RouteResolver::new(state.agent_config_store.clone());
     let routes = resolver
         .resolve_route(&AgentTaskKind::Translation, None, None)
@@ -338,64 +376,51 @@ pub async fn start_translation(
         translation_store,
     );
 
-    let all_entries = state
-        .entry_store
-        .search(&entry_id.to_string(), crate::db::entry_store::SearchScope::TitleOnly)
-        .await?;
-    let entry = all_entries.iter().find(|e| e.id == entry_id);
-    let title = entry.and_then(|e| e.title.clone());
-    let content = entry.and_then(|e| e.summary.clone()).unwrap_or_default();
+    let entry = state.entry_store.load_by_id(entry_id).await?;
+    let title = entry.as_ref().and_then(|e| e.title.clone());
+    let summary_text = entry.as_ref().and_then(|e| e.summary.clone()).unwrap_or_default();
+    // Try content table markdown for richer translation source
+    let content = {
+        let db = state.db.clone();
+        let eid = entry_id;
+        tokio::task::spawn_blocking(move || {
+            let conn = db.conn();
+            conn.query_row(
+                "SELECT markdown FROM content WHERE entry_id = ?1",
+                rusqlite::params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+    .unwrap_or(summary_text);
 
     let request = crate::agent::translation::executor::TranslationRunRequest {
         entry_id,
-        target_language: language,
+        target_language: target_language.clone(),
         content,
         title,
         concurrency: 3,
     };
 
-    let handle = app_handle.clone();
-    executor
-        .execute(&request, move |event| {
-            let h = handle.clone();
-            match event {
-                TranslationRunEvent::Started { entry_id: eid } => {
-                    let _ = h.emit("translation-segment", serde_json::json!({
-                        "entry_id": eid,
-                        "segment_id": "",
-                        "text": "",
-                        "status": "started",
-                    }));
-                }
-                TranslationRunEvent::SegmentCompleted { entry_id: eid, segment_id, translated_text } => {
-                    let _ = h.emit("translation-segment", serde_json::json!({
-                        "entry_id": eid,
-                        "segment_id": segment_id,
-                        "text": translated_text,
-                        "status": "completed",
-                    }));
-                }
-                TranslationRunEvent::Completed { entry_id: eid, total_segments } => {
-                    let _ = h.emit("translation-segment", serde_json::json!({
-                        "entry_id": eid,
-                        "segment_id": "",
-                        "text": "",
-                        "status": "done",
-                        "total": total_segments,
-                    }));
-                }
-                TranslationRunEvent::Failed { entry_id: eid, error } => {
-                    let _ = h.emit("translation-segment", serde_json::json!({
-                        "entry_id": eid,
-                        "segment_id": "",
-                        "text": "",
-                        "status": "error",
-                        "error": error,
-                    }));
-                }
-            }
-        })
-        .await
+    let result = executor.execute(&request, |_event| {}).await;
+
+    // Return segment count + any error directly to frontend
+    match result {
+        Ok(()) => {
+            let segments = state.translation_store.load(entry_id, &target_language).await?
+                .map(|(_, segs)| segs)
+                .unwrap_or_default();
+            Ok(serde_json::json!({
+                "total_segments": segments.len(),
+                "segments": segments,
+            }))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 #[tauri::command]
@@ -422,13 +447,9 @@ pub async fn start_tagging_panel(
         tag_store,
     );
 
-    let all_entries = state
-        .entry_store
-        .search(&entry_id.to_string(), crate::db::entry_store::SearchScope::TitleOnly)
-        .await?;
-    let entry = all_entries.iter().find(|e| e.id == entry_id);
-    let title = entry.and_then(|e| e.title.clone()).unwrap_or_default();
-    let content = entry.and_then(|e| e.summary.clone()).unwrap_or_default();
+    let entry = state.entry_store.load_by_id(entry_id).await?;
+    let title = entry.as_ref().and_then(|e| e.title.clone()).unwrap_or_default();
+    let content = entry.as_ref().and_then(|e| e.summary.clone()).unwrap_or_default();
 
     executor
         .execute_for_entry(entry_id, &title, &content)
@@ -523,6 +544,33 @@ pub async fn check_agent_availability(
 // =============================================================================
 // Summary / Translation getters
 // =============================================================================
+
+#[tauri::command]
+pub async fn build_translation_html(
+    state: State<'_, AppState>,
+    entry_id: i64,
+    target_language: String,
+) -> Result<String, AppError> {
+    use crate::agent::translation::bilingual::{BilingualComposer, BilingualSegment};
+    use crate::db::translation_store::TranslationStore;
+
+    let result = state.translation_store.load(entry_id, &target_language).await?;
+    match result {
+        Some((_, segments)) if !segments.is_empty() => {
+            let bilingual: Vec<BilingualSegment> = segments
+                .into_iter()
+                .map(|s| BilingualSegment {
+                    segment_id: s.segment_id,
+                    source_text: s.source_text,
+                    translated_text: s.translated_text,
+                    order_index: s.order_index as usize,
+                })
+                .collect();
+            BilingualComposer::compose_interleaved(&bilingual)
+        }
+        _ => Err(AppError::NotFound("No translation found".to_string())),
+    }
+}
 
 #[tauri::command]
 pub async fn get_summary(
