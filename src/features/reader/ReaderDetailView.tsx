@@ -7,6 +7,7 @@ import ReaderWebView from "./ReaderWebView";
 import ReaderSummaryPanel from "./ReaderSummaryPanel";
 import ReaderTranslationPanel from "./ReaderTranslationPanel";
 import ReaderTaggingPanel from "./ReaderTaggingPanel";
+import ReaderThemePanel from "./ReaderThemePanel";
 import ReaderNotePanel from "./ReaderNotePanel";
 import Button from "@/components/ui/Button";
 
@@ -157,8 +158,8 @@ const ReaderDetailView: React.FC = () => {
       {activePanel === "translation" && <ReaderTranslationPanel />}
 
       {/* ---- Popover panels (rendered as overlays from toolbar buttons) ---- */}
-      {/* These are triggered by toolbar buttons via showPanel or dedicated state */}
       <ReaderTaggingPanel />
+      {activePanel === "theme" && <ReaderThemePanel />}
       <ReaderNotePanel />
     </div>
   );

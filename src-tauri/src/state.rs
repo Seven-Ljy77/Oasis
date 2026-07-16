@@ -1,11 +1,17 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::agent::prompt_template::PromptTemplateStore;
 use crate::agent::runtime::AgentRuntimeEngine;
+use crate::db::agent_config_store::SqliteAgentConfigStore;
+use crate::db::agent_task_store::SqliteAgentTaskStore;
 use crate::db::entry_store::SqliteEntryStore;
 use crate::db::feed_store::SqliteFeedStore;
+use crate::db::llm_usage_store::SqliteLLMUsageStore;
 use crate::db::manager::DatabaseManager;
+use crate::db::summary_store::SqliteSummaryStore;
 use crate::db::tag_store::SqliteTagStore;
+use crate::db::translation_store::SqliteTranslationStore;
 use crate::feed::sync_service::SyncService;
 use crate::tasking::task_queue::TaskQueue;
 
@@ -15,6 +21,12 @@ pub struct AppState {
     pub feed_store: Arc<SqliteFeedStore>,
     pub entry_store: Arc<SqliteEntryStore>,
     pub tag_store: Arc<SqliteTagStore>,
+    pub agent_config_store: Arc<SqliteAgentConfigStore>,
+    pub agent_task_store: Arc<SqliteAgentTaskStore>,
+    pub llm_usage_store: Arc<SqliteLLMUsageStore>,
+    pub summary_store: Arc<SqliteSummaryStore>,
+    pub translation_store: Arc<SqliteTranslationStore>,
+    pub prompt_template_store: Arc<std::sync::Mutex<PromptTemplateStore>>,
     pub sync_service: Arc<SyncService>,
     pub task_queue: Arc<TaskQueue>,
     pub agent_runtime: Arc<AgentRuntimeEngine>,

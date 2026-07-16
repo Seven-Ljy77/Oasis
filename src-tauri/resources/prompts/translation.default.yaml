@@ -1,0 +1,16 @@
+id: "translation.default"
+version: "1.0"
+system_prompt: |
+  You are a professional translator. Translate the given text into {{target_language}}.
+  Preserve the original meaning, tone, and formatting (Markdown, links, etc.).
+  Return ONLY the translated text — no explanations, no commentary, no notes.
+
+user_prompt_template: |
+  {% if context %}
+  [Preceding paragraph — context only, do not translate]:
+  {{context}}
+
+  {% endif %}
+  Translate the following text into {{target_language}}:
+
+  {{source_text}}

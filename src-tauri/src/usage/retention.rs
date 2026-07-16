@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::db::llm_usage_store::LLMUsageStore;
 use crate::error::AppError;
 
 /// Retention policy for usage data.
@@ -16,11 +19,25 @@ impl Default for RetentionPolicy {
 }
 
 /// Purge usage events that have expired according to the retention policy.
-pub async fn purge_expired(_policy: &RetentionPolicy) -> Result<usize, AppError> {
-    todo!()
+pub async fn purge_expired(
+    store: &Arc<dyn LLMUsageStore>,
+    policy: &RetentionPolicy,
+) -> Result<(), AppError> {
+    if let Some(cutoff) = cutoff_date(policy) {
+        let cutoff_str = cutoff.format("%Y-%m-%d").to_string();
+        store.purge_expired(&cutoff_str).await?;
+    }
+    Ok(())
 }
 
 /// Calculate the cutoff date for the retention policy.
-pub fn cutoff_date(_policy: &RetentionPolicy) -> Option<chrono::NaiveDate> {
-    todo!()
+pub fn cutoff_date(policy: &RetentionPolicy) -> Option<chrono::NaiveDate> {
+    match policy {
+        RetentionPolicy::Forever => None,
+        RetentionPolicy::Months(n) => {
+            let today = chrono::Local::now().date_naive();
+            let cutoff = today - chrono::Duration::days((n * 30) as i64);
+            Some(cutoff)
+        }
+    }
 }

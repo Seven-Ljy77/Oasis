@@ -88,7 +88,11 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
 
       {/* Clear translation */}
       <button
-        onClick={() => console.log("TODO: Clear translation")}
+        onClick={() => {
+          const store = useReaderStore.getState();
+          store.setTranslationEnabled(false);
+          store.loadTranslationSegments(0, "");
+        }}
         className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
         title="Clear translation"
       >
@@ -132,8 +136,12 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
 
       {/* Theme button */}
       <button
-        onClick={() => console.log("TODO: Open theme panel")}
-        className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
+        onClick={() => onTogglePanel("theme")}
+        className={`p-1.5 rounded transition-colors ${
+          activePanel === "theme"
+            ? "bg-accent-muted text-accent"
+            : "text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary"
+        }`}
         title="Reader theme"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

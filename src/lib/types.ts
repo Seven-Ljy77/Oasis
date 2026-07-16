@@ -224,10 +224,33 @@ export interface ThemeTokens {
 // -----------------------------------------------------------------------------
 
 export interface UsageReportSnapshot {
-  daily_buckets: DailyBucket[];
-  summary: UsageSummary;
-  quality: QualityMetrics;
-  period_comparison: PeriodComparison | null;
+  total_requests: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  successful_requests: number;
+  failed_requests: number;
+  by_provider: ProviderBreakdown[];
+  by_model: ModelBreakdown[];
+  by_agent_kind: AgentKindBreakdown[];
+}
+
+export interface ProviderBreakdown {
+  provider_name: string;
+  requests: number;
+  tokens: number;
+}
+
+export interface ModelBreakdown {
+  model_name: string;
+  requests: number;
+  tokens: number;
+}
+
+export interface AgentKindBreakdown {
+  agent_kind: string;
+  requests: number;
+  tokens: number;
 }
 
 export interface DailyBucket {

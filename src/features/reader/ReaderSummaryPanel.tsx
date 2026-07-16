@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { listen } from "@tauri-apps/api/event";
 import Button from "@/components/ui/Button";
 
 const ReaderSummaryPanel: React.FC = () => {
@@ -16,16 +18,35 @@ const ReaderSummaryPanel: React.FC = () => {
   const summaryLoading = useReaderStore((s) => s.summaryLoading);
   const setSummaryLoading = useReaderStore((s) => s.setSummaryLoading);
 
+  const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
+  const loadSummary = useReaderStore((s) => s.loadSummary);
+
   const [streamingDots, setStreamingDots] = useState("");
 
   // Simulated streaming animation
-  React.useEffect(() => {
+  useEffect(() => {
     if (!summaryLoading) return;
     const interval = setInterval(() => {
       setStreamingDots((prev) => (prev.length >= 3 ? "" : prev + "."));
     }, 500);
     return () => clearInterval(interval);
   }, [summaryLoading]);
+
+  // Listen for streaming summary tokens from backend
+  useEffect(() => {
+    const unlisten = listen<{ entry_id: number; token: string; is_complete: boolean }>(
+      "summary-token",
+      (event) => {
+        if (event.payload.is_complete) {
+          setSummaryLoading(false);
+        } else {
+          const current = useReaderStore.getState().summaryText;
+          setSummaryText(current + event.payload.token);
+        }
+      },
+    );
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
 
   const languages = [
     { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -49,17 +70,14 @@ const ReaderSummaryPanel: React.FC = () => {
   ];
 
   const handleGenerate = async () => {
+    if (!selectedEntryId) return;
+    setSummaryText("");
     setSummaryLoading(true);
-    // TODO: call generateSummary IPC and listen for streaming tokens
-    // For now, simulate a delay
-    setTimeout(() => {
-      setSummaryText(
-        "This is a placeholder summary. Lorem ipsum dolor sit amet, consectetur adipiscing elit. " +
-          "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, " +
-          "quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-      );
+    try {
+      await loadSummary(selectedEntryId, summaryDetailLevel);
+    } catch {
       setSummaryLoading(false);
-    }, 2000);
+    }
   };
 
   const handleCopy = () => {

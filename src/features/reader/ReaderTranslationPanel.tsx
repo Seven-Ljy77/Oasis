@@ -1,8 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { startTranslation, getTranslationSegments } from "@/lib/ipc";
+import { listen } from "@tauri-apps/api/event";
 import Button from "@/components/ui/Button";
 
 const ReaderTranslationPanel: React.FC = () => {
+  const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const translationEnabled = useReaderStore((s) => s.translationEnabled);
   const setTranslationEnabled = useReaderStore((s) => s.setTranslationEnabled);
   const translationBilingual = useReaderStore((s) => s.translationBilingual);
@@ -15,6 +19,56 @@ const ReaderTranslationPanel: React.FC = () => {
   const setTranslationPromptStrategy = useReaderStore((s) => s.setTranslationPromptStrategy);
   const translationProgress = useReaderStore((s) => s.translationProgress);
   const setTranslationProgress = useReaderStore((s) => s.setTranslationProgress);
+  const translationLoading = useReaderStore((s) => s.translationLoading);
+  const translationSegments = useReaderStore((s) => s.translationSegments);
+  const loadTranslationSegments = useReaderStore((s) => s.loadTranslationSegments);
+
+  const [segmentCount, setSegmentCount] = useState(0);
+
+  // Listen for translation segment events from backend
+  useEffect(() => {
+    const unlisten = listen<{
+      entry_id: number;
+      segment_id: string;
+      text: string;
+      status: string;
+      total?: number;
+      error?: string;
+    }>("translation-segment", (event) => {
+      const { status, total } = event.payload;
+      if (status === "started") {
+        useReaderStore.setState({ translationLoading: true });
+        setSegmentCount(0);
+      } else if (status === "completed") {
+        setSegmentCount((c) => c + 1);
+        setTranslationProgress({
+          completed: 0,
+          total: total ?? 0,
+        });
+      } else if (status === "done") {
+        useReaderStore.setState({ translationLoading: false });
+        if (selectedEntryId) {
+          loadTranslationSegments(selectedEntryId, translationTargetLanguage);
+        }
+      } else if (status === "error") {
+        useReaderStore.setState({ translationLoading: false });
+      }
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [selectedEntryId, translationTargetLanguage]);
+
+  // Start translation when enabled
+  const handleEnableToggle = async (checked: boolean) => {
+    setTranslationEnabled(checked);
+    if (checked && selectedEntryId) {
+      try {
+        await startTranslation(selectedEntryId, translationTargetLanguage);
+      } catch (e) {
+        console.error("Translation start failed:", e);
+        setTranslationEnabled(false);
+      }
+    }
+  };
 
   const languages = [
     { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -31,17 +85,31 @@ const ReaderTranslationPanel: React.FC = () => {
     { value: "vi", label: "Vietnamese" },
   ];
 
-  const handleResume = () => {
-    // TODO: check for translation checkpoint and resume
-    console.log("Resume translation from checkpoint");
+  const handleResume = async () => {
+    if (selectedEntryId) {
+      try {
+        const cached = await getTranslationSegments(selectedEntryId, translationTargetLanguage);
+        if (cached.length > 0) {
+          useReaderStore.getState().loadTranslationSegments(selectedEntryId, translationTargetLanguage);
+          setTranslationProgress({ completed: cached.length, total: cached.length });
+        } else {
+          await startTranslation(selectedEntryId, translationTargetLanguage);
+        }
+      } catch (e) {
+        console.error("Resume failed:", e);
+      }
+    }
   };
 
   const getStatusText = () => {
+    if (translationLoading) {
+      return `Translating: ${segmentCount} segments completed...`;
+    }
     if (translationProgress) {
-      return `Translating: ${translationProgress.completed}/${translationProgress.total} segments`;
+      return `Translation complete: ${translationSegments.length} segments`;
     }
     if (translationEnabled) {
-      return "Translation ready";
+      return "Translation ready — loading...";
     }
     return "Translation disabled";
   };
@@ -55,7 +123,7 @@ const ReaderTranslationPanel: React.FC = () => {
         <input
           type="checkbox"
           checked={translationEnabled}
-          onChange={(e) => setTranslationEnabled(e.target.checked)}
+          onChange={(e) => handleEnableToggle(e.target.checked)}
           className="rounded border-slate-300 text-accent w-3.5 h-3.5"
         />
         <span className="text-sm text-slate-600">

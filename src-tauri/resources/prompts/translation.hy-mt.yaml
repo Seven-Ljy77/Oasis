@@ -1,0 +1,12 @@
+id: "translation.hy-mt"
+version: "1.0"
+system_prompt: |
+  You are a translation engine optimized for {{target_language_english}}. Translate the
+  given source text accurately and naturally. Return only the translated text.
+
+user_prompt_template: |
+  {% if context %}
+  Context (do not translate): {{context}}
+  {% endif %}
+
+  Translate to {{target_language_english}}: {{source_text}}

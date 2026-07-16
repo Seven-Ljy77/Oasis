@@ -15,6 +15,11 @@ pub mod tag_batch_store;
 pub mod tag_store;
 pub mod translation_store;
 
+pub use agent_config_store::SqliteAgentConfigStore;
+pub use agent_task_store::SqliteAgentTaskStore;
 pub use entry_store::SqliteEntryStore;
 pub use feed_store::SqliteFeedStore;
+pub use llm_usage_store::SqliteLLMUsageStore;
+pub use summary_store::SqliteSummaryStore;
 pub use tag_store::SqliteTagStore;
+pub use translation_store::SqliteTranslationStore;

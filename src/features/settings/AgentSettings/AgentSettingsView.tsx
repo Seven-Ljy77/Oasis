@@ -38,26 +38,18 @@ const AgentSettingsView: React.FC = () => {
 
 const ProviderTab: React.FC = () => {
   const providers = useSettingsStore((s) => s.providers);
+  const loadProviders = useSettingsStore((s) => s.loadProviders);
   const addProvider = useSettingsStore((s) => s.addProvider);
   const deleteProvider = useSettingsStore((s) => s.deleteProvider);
   const archiveProvider = useSettingsStore((s) => s.archiveProvider);
 
+  React.useEffect(() => {
+    loadProviders();
+  }, [loadProviders]);
+
   const displayProviders: AgentProviderProfile[] = providers.length > 0
     ? providers
-    : [
-        {
-          id: 1,
-          name: "Local LLM",
-          base_url: "http://localhost:5810/v1",
-          api_key_ref: "local",
-          test_model: "qwen3",
-          is_default: true,
-          is_enabled: true,
-          is_archived: false,
-          archived_at: null,
-          created_at: new Date().toISOString(),
-        },
-      ];
+    : [];
 
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
@@ -174,48 +166,19 @@ const ProviderTab: React.FC = () => {
 
 const ModelTab: React.FC = () => {
   const providers = useSettingsStore((s) => s.providers);
+  const models = useSettingsStore((s) => s.models);
+  const loadModels = useSettingsStore((s) => s.loadModels);
   const [selectedProviderId, setSelectedProviderId] = useState<number | null>(
     providers[0]?.id ?? null,
   );
 
-  const placeholderModels: AgentModelProfile[] = [
-    {
-      id: 1,
-      provider_profile_id: selectedProviderId ?? 1,
-      model_name: "qwen3",
-      temperature: 0.7,
-      top_p: 1.0,
-      max_tokens: 4096,
-      is_streaming: true,
-      supports_summary: true,
-      supports_translation: true,
-      supports_tagging: true,
-      is_default: true,
-      is_enabled: true,
-      is_archived: false,
-      archived_at: null,
-      last_tested_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      provider_profile_id: selectedProviderId ?? 1,
-      model_name: "qwen3-thinking",
-      temperature: 0.7,
-      top_p: 1.0,
-      max_tokens: 8192,
-      is_streaming: true,
-      supports_summary: true,
-      supports_translation: false,
-      supports_tagging: true,
-      is_default: false,
-      is_enabled: true,
-      is_archived: false,
-      archived_at: null,
-      last_tested_at: null,
-      created_at: new Date().toISOString(),
-    },
-  ];
+  React.useEffect(() => {
+    if (selectedProviderId) {
+      loadModels(selectedProviderId);
+    }
+  }, [selectedProviderId, loadModels]);
+
+  const displayModels = models[selectedProviderId ?? 0] ?? [];
 
   return (
     <div>
@@ -250,7 +213,7 @@ const ModelTab: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {placeholderModels.map((m) => (
+          {displayModels.map((m) => (
             <tr key={m.id} className="border-b border-border/50">
               <td className="py-2 pr-4 text-slate-700">{m.model_name}</td>
               <td className="py-2 pr-4">
