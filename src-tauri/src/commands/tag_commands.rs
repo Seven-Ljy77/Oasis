@@ -1,5 +1,7 @@
 use tauri::State;
 
+use crate::agent::tagging::executor::TagSuggestion;
+use crate::db::entry_store::EntryStore;
 use crate::db::models::Tag;
 use crate::db::tag_store::TagStore;
 use crate::error::AppError;
@@ -13,13 +15,6 @@ pub struct TagWithAliases {
     pub tag: Tag,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub aliases: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TagSuggestion {
-    pub name: String,
-    pub source: String, // "ai" | "nlp" | "existing"
-    pub tag_id: Option<i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -174,19 +169,67 @@ pub async fn get_tag_library(
 #[tauri::command]
 pub async fn suggest_tags(
     state: State<'_, AppState>,
-    _entry_id: i64,
+    entry_id: i64,
 ) -> Result<Vec<TagSuggestion>, AppError> {
-    // For now, return existing tags as suggestions (AI/NLP suggestions
-    // will be added when the agent tagging executors are implemented).
+    let mut suggestions: Vec<TagSuggestion> = Vec::new();
+
+    // 1. Try AI tagging executor
+    {
+        use crate::agent::provider::OpenAIProvider;
+        use crate::agent::route::RouteResolver;
+        use crate::agent::AgentTaskKind;
+        use crate::db::agent_config_store::AgentConfigStore;
+
+        let resolver = RouteResolver::new(state.agent_config_store.clone());
+        if let Ok(routes) = resolver
+            .resolve_route(&AgentTaskKind::Tagging, None, None)
+            .await
+        {
+            if let Some(route) = routes.first() {
+                let providers = state.agent_config_store.load_providers(false).await?;
+                if let Some(provider) = providers.iter().find(|p| p.id == route.provider_profile_id || p.name == route.provider_name) {
+                    let llm = std::sync::Arc::new(OpenAIProvider::new(
+                        provider.name.clone(),
+                        provider.base_url.clone(),
+                        provider.api_key_ref.clone(),
+                    ));
+                    let tag_store: std::sync::Arc<dyn crate::db::tag_store::TagStore> = state.tag_store.clone();
+                    let executor = crate::agent::tagging::executor::TaggingExecutor::new(
+                        llm,
+                        std::sync::Arc::new(resolver),
+                        state.prompt_template_store.clone(),
+                        tag_store,
+                    );
+
+                    // Get entry title + summary for context
+                    let entry = state.entry_store.load_by_id(entry_id).await?;
+                    let title = entry.as_ref().and_then(|e| e.title.clone()).unwrap_or_default();
+                    let content = entry.as_ref().and_then(|e| e.summary.clone()).unwrap_or_default();
+
+                    if let Ok(ai_suggestions) = executor.execute_for_entry(entry_id, &title, &content).await {
+                        suggestions.extend(ai_suggestions);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Add existing tags not already suggested by AI
     let tags = state.tag_store.load_all().await?;
-    let suggestions: Vec<TagSuggestion> = tags
-        .into_iter()
-        .map(|t| TagSuggestion {
-            name: t.name,
-            source: "existing".to_string(),
-            tag_id: Some(t.id),
-        })
+    let ai_names: std::collections::HashSet<String> = suggestions
+        .iter()
+        .map(|s| s.name.to_lowercase())
         .collect();
+    for t in tags {
+        if !ai_names.contains(&t.name.to_lowercase()) && t.usage_count > 0 {
+            suggestions.push(TagSuggestion {
+                name: t.name,
+                source: "existing".to_string(),
+                tag_id: Some(t.id),
+            });
+        }
+    }
+
     Ok(suggestions)
 }
 

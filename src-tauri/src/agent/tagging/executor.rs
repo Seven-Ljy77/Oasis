@@ -14,9 +14,8 @@ use crate::error::AppError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagSuggestion {
     pub name: String,
-    pub is_new: bool,
-    pub confidence: Option<f64>,
-    pub existing_tag_id: Option<i64>,
+    pub source: String,
+    pub tag_id: Option<i64>,
 }
 
 /// Executor for single-entry tagging AI agent tasks.
@@ -126,9 +125,8 @@ impl TaggingExecutor {
             let existing = existing_tags.iter().find(|t| t.normalized_name == normalized);
             suggestions.push(TagSuggestion {
                 name: name.clone(),
-                is_new: existing.is_none(),
-                confidence: None,
-                existing_tag_id: existing.map(|t| t.id),
+                source: "ai".to_string(),
+                tag_id: existing.map(|t| t.id),
             });
         }
 
