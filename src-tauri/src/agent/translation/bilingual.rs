@@ -52,16 +52,17 @@ impl BilingualComposer {
     color: #1a1a1a;
   }}
   .trans {{
-    border-left: 3px solid #10b981;
-    padding-left: 1rem;
-    margin: 0.3em 0 1.2em 0;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin: 0.5em 0 1.2em 0;
     color: #374151;
-    font-style: italic;
   }}
   @media (prefers-color-scheme: dark) {{
     body {{ background: #1a1a1a; color: #e8e6e3; }}
     .orig {{ color: #e8e6e3; }}
-    .trans {{ color: #9ca3af; }}
+    .trans {{ color: #d1d5db; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); }}
   }}
 </style>
 </head>

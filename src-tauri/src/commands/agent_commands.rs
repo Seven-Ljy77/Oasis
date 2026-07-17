@@ -6,6 +6,7 @@ use crate::agent::route::RouteResolver;
 use crate::agent::summary::executor::{SummaryExecutor, SummaryRunEvent, SummaryRunRequest};
 use crate::agent::tagging::batch::{BatchTaggingConfig, BatchTaggingExecutor};
 use crate::agent::tagging::executor::TagSuggestion;
+use crate::agent::translation::executor::TranslationRunEvent;
 use crate::agent::AgentTaskKind;
 use crate::db::agent_config_store::AgentConfigStore;
 use crate::db::entry_store::EntryStore;
@@ -351,10 +352,11 @@ pub async fn start_summary(
 
 #[tauri::command]
 pub async fn start_translation(
-    _app_handle: AppHandle,
+    app_handle: AppHandle,
     state: State<'_, AppState>,
     entry_id: i64,
     target_language: String,
+    concurrency: Option<u32>,
 ) -> Result<serde_json::Value, AppError> {
     let resolver = RouteResolver::new(state.agent_config_store.clone());
     let routes = resolver
@@ -403,24 +405,49 @@ pub async fn start_translation(
         target_language: target_language.clone(),
         content,
         title,
-        concurrency: 3,
+        concurrency: concurrency.unwrap_or(3),
     };
 
-    let result = executor.execute(&request, |_event| {}).await;
+    let handle = app_handle.clone();
+    let handle2 = app_handle.clone();
+    let eid = entry_id;
 
-    // Return segment count + any error directly to frontend
-    match result {
-        Ok(()) => {
-            let segments = state.translation_store.load(entry_id, &target_language).await?
-                .map(|(_, segs)| segs)
-                .unwrap_or_default();
-            Ok(serde_json::json!({
-                "total_segments": segments.len(),
-                "segments": segments,
-            }))
+    // Spawn background task — returns immediately
+    tokio::spawn(async move {
+        let result = executor.execute(&request, move |event| {
+            let h = handle.clone();
+            match event {
+                TranslationRunEvent::Started { .. } => {
+                    let _ = h.emit("translation-segment", serde_json::json!({
+                        "entry_id": eid, "segment_id": "", "text": "", "status": "started",
+                    }));
+                }
+                TranslationRunEvent::SegmentCompleted { segment_id, translated_text, .. } => {
+                    let _ = h.emit("translation-segment", serde_json::json!({
+                        "entry_id": eid, "segment_id": segment_id, "text": translated_text, "status": "completed",
+                    }));
+                }
+                TranslationRunEvent::Completed { total_segments, .. } => {
+                    let _ = h.emit("translation-segment", serde_json::json!({
+                        "entry_id": eid, "segment_id": "", "text": "", "status": "done", "total": total_segments,
+                    }));
+                }
+                TranslationRunEvent::Failed { error, .. } => {
+                    let _ = h.emit("translation-segment", serde_json::json!({
+                        "entry_id": eid, "segment_id": "", "text": "", "status": "error", "error": error,
+                    }));
+                }
+            }
+        }).await;
+
+        if let Err(e) = result {
+            let _ = handle2.emit("translation-segment", serde_json::json!({
+                "entry_id": eid, "segment_id": "", "text": "", "status": "error", "error": format!("{}", e),
+            }));
         }
-        Err(e) => Err(e),
-    }
+    });
+
+    Ok(serde_json::json!({"started": true}))
 }
 
 #[tauri::command]

@@ -160,7 +160,7 @@ const ReaderDetailView: React.FC = () => {
 
       {/* ---- Popover panels (rendered as overlays from toolbar buttons) ---- */}
       <ReaderTaggingPanel />
-      <ReaderNotePanel />
+      {activePanel === "note" && <ReaderNotePanel onClose={() => setActivePanel(null)} />}
     </div>
   );
 };

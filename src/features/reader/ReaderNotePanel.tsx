@@ -3,7 +3,6 @@
 // =============================================================================
 
 import React, { useState, useCallback } from "react";
-import { useResizableHeight } from "@/hooks/useResizableHeight";
 
 export interface ReaderNotePanelProps {
   /** Initial markdown text */
@@ -33,8 +32,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   maxLength = 10000,
   className = "",
 }) => {
-  const { height: panelHeight, dragHandle } = useResizableHeight(200);
-  const [localOpen, setLocalOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(true); // start expanded
   const open = propOpen ?? localOpen;
   const [text, setText] = useState(initialText);
 
@@ -90,9 +88,8 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
     <div
       data-component="ReaderNotePanel"
       className={`border-t border-border bg-surface flex flex-col ${className}`}
-      style={{ height: panelHeight }}
+      style={{ maxHeight: "40vh" }}
     >
-      {dragHandle}
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
         <button onClick={() => { setLocalOpen(false); onClose?.(); }} className="p-0.5 rounded hover:bg-surface-tertiary">
