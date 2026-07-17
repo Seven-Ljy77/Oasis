@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { listen } from "@tauri-apps/api/event";
 import Button from "@/components/ui/Button";
 
 const ReaderSummaryPanel: React.FC = () => {
+  const { height: panelHeight, dragHandle } = useResizableHeight(200);
   const summaryOpen = useReaderStore((s) => s.summaryOpen);
   const setSummaryOpen = useReaderStore((s) => s.setSummaryOpen);
   const summaryTargetLanguage = useReaderStore((s) => s.summaryTargetLanguage);
@@ -14,6 +16,7 @@ const ReaderSummaryPanel: React.FC = () => {
   const summaryAutoEnabled = useReaderStore((s) => s.summaryAutoEnabled);
   const setSummaryAutoEnabled = useReaderStore((s) => s.setSummaryAutoEnabled);
   const summaryText = useReaderStore((s) => s.summaryText);
+  const summaryHTML = useReaderStore((s) => s.summaryHTML);
   const setSummaryText = useReaderStore((s) => s.setSummaryText);
   const summaryLoading = useReaderStore((s) => s.summaryLoading);
   const setSummaryLoading = useReaderStore((s) => s.setSummaryLoading);
@@ -104,7 +107,8 @@ const ReaderSummaryPanel: React.FC = () => {
   }
 
   return (
-    <div className="border-t border-border bg-surface flex flex-col" style={{ maxHeight: "40vh" }}>
+    <div className="border-t border-border bg-surface flex flex-col" style={{ height: panelHeight }}>
+      {dragHandle}
       {/* Header row */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
         <button
@@ -198,8 +202,12 @@ const ReaderSummaryPanel: React.FC = () => {
           </div>
         )}
         {!summaryLoading && summaryText && (
-          <div className="prose prose-sm max-w-none text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
-            {summaryText}
+          <div className="prose prose-sm max-w-none text-slate-700 text-sm leading-relaxed">
+            {summaryHTML ? (
+              <div dangerouslySetInnerHTML={{ __html: summaryHTML }} />
+            ) : (
+              <div className="whitespace-pre-wrap">{summaryText}</div>
+            )}
           </div>
         )}
       </div>

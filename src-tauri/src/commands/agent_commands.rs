@@ -550,6 +550,7 @@ pub async fn build_translation_html(
     state: State<'_, AppState>,
     entry_id: i64,
     target_language: String,
+    bilingual: Option<bool>,
 ) -> Result<String, AppError> {
     use crate::agent::translation::bilingual::{BilingualComposer, BilingualSegment};
     use crate::db::translation_store::TranslationStore;
@@ -557,7 +558,7 @@ pub async fn build_translation_html(
     let result = state.translation_store.load(entry_id, &target_language).await?;
     match result {
         Some((_, segments)) if !segments.is_empty() => {
-            let bilingual: Vec<BilingualSegment> = segments
+            let bilingual_segs: Vec<BilingualSegment> = segments
                 .into_iter()
                 .map(|s| BilingualSegment {
                     segment_id: s.segment_id,
@@ -566,7 +567,12 @@ pub async fn build_translation_html(
                     order_index: s.order_index as usize,
                 })
                 .collect();
-            BilingualComposer::compose_interleaved(&bilingual)
+
+            if bilingual.unwrap_or(true) {
+                BilingualComposer::compose_interleaved(&bilingual_segs)
+            } else {
+                BilingualComposer::translation_only(&bilingual_segs)
+            }
         }
         _ => Err(AppError::NotFound("No translation found".to_string())),
     }
@@ -582,12 +588,91 @@ pub async fn get_summary(
 
 #[tauri::command]
 pub async fn generate_summary(
-    _state: State<'_, AppState>,
-    _entry_id: i64,
-    _detail_level: Option<String>,
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    entry_id: i64,
+    detail_level: Option<String>,
 ) -> Result<serde_json::Value, AppError> {
-    // Delegates to start_summary internally; returns task-like response
-    Ok(serde_json::json!({"task_id": "summary-0"}))
+    let lang = "zh-CN".to_string();
+    let detail = detail_level.unwrap_or_else(|| "medium".to_string());
+
+    // Build and run the summary executor, same as start_summary
+    let entry = state.entry_store.load_by_id(entry_id).await?;
+    let title = entry.as_ref().and_then(|e| e.title.clone()).unwrap_or_default();
+    let content = {
+        let db = state.db.clone();
+        let eid = entry_id;
+        tokio::task::spawn_blocking(move || {
+            let conn = db.conn();
+            conn.query_row(
+                "SELECT markdown FROM content WHERE entry_id = ?1",
+                rusqlite::params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+    .or_else(|| entry.as_ref().and_then(|e| e.summary.clone()))
+    .unwrap_or_default();
+
+    let resolver = RouteResolver::new(state.agent_config_store.clone());
+    let routes = resolver.resolve_route(&AgentTaskKind::Summary, None, None).await?;
+    let route = routes.first()
+        .ok_or_else(|| AppError::Config("No summary model configured".to_string()))?;
+
+    let provider: Arc<dyn LLMProvider> = Arc::new(
+        build_provider(state.agent_config_store.clone() as Arc<dyn AgentConfigStore>, route).await?,
+    );
+    let summary_store: Arc<dyn crate::db::summary_store::SummaryStore> = state.summary_store.clone();
+    let executor = SummaryExecutor::new(
+        provider,
+        Arc::new(resolver),
+        state.prompt_template_store.clone(),
+        summary_store,
+    );
+
+    let request = SummaryRunRequest {
+        entry_id,
+        target_language: lang,
+        detail_level: detail,
+        title,
+        content,
+    };
+
+    let full_text = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let full_text_clone = full_text.clone();
+    let handle = app_handle.clone();
+    executor.execute(&request, move |event| {
+        match event {
+            SummaryRunEvent::Token { entry_id: eid, token } => {
+                full_text_clone.lock().unwrap().push_str(&token);
+                let _ = handle.emit("summary-token", serde_json::json!({
+                    "entry_id": eid, "token": token, "is_complete": false,
+                }));
+            }
+            SummaryRunEvent::Terminal { entry_id: eid, .. } => {
+                let text = full_text_clone.lock().unwrap().clone();
+                let _ = handle.emit("summary-token", serde_json::json!({
+                    "entry_id": eid, "token": text, "is_complete": true,
+                }));
+            }
+            _ => {}
+        }
+    }).await?;
+
+    let text = full_text.lock().unwrap().clone();
+    // Convert Markdown to HTML for frontend rendering
+    let html = {
+        let mut opts = comrak::ComrakOptions::default();
+        opts.extension.table = true;
+        opts.extension.strikethrough = true;
+        opts.extension.autolink = true;
+        comrak::markdown_to_html(&text, &opts)
+    };
+    Ok(serde_json::json!({"task_id": format!("summary-{}", entry_id), "text": text, "html": html}))
 }
 
 #[tauri::command]

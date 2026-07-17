@@ -251,8 +251,9 @@ export const startTranslation = (
 export const buildTranslationHTML = (
   entryId: number,
   targetLanguage: string,
+  bilingual?: boolean,
 ): Promise<string> =>
-  invoke<string>("build_translation_html", { entryId, targetLanguage });
+  invoke<string>("build_translation_html", { entryId, targetLanguage, bilingual });
 
 // ---------------------------------------------------------------------------
 // Tag commands

@@ -118,6 +118,22 @@ impl BilingualComposer {
 
         Ok(html)
     }
+
+    /// Generate a translation-only layout (no original text).
+    pub fn translation_only(
+        segments: &[BilingualSegment],
+    ) -> Result<String, AppError> {
+        let mut html = String::new();
+
+        for seg in segments {
+            html.push_str(&format!(
+                r#"<p class="trans">{}</p>"#,
+                escape_html(&seg.translated_text)
+            ));
+        }
+
+        Ok(html)
+    }
 }
 
 impl Default for BilingualComposer {

@@ -20,6 +20,7 @@ const ReaderDetailView: React.FC = () => {
 
   const readerHTML = useReaderStore((s) => s.readerHTML);
   const readerLoading = useReaderStore((s) => s.readerLoading);
+  const translationHTML = useReaderStore((s) => s.translationHTML);
   const buildReaderHTML = useReaderStore((s) => s.buildReaderHTML);
   const activePanel = useReaderStore((s) => s.activePanel);
   const setActivePanel = useReaderStore((s) => s.setActivePanel);
@@ -31,6 +32,7 @@ const ReaderDetailView: React.FC = () => {
 
   // Build reader HTML when entry selection changes
   useEffect(() => {
+    useReaderStore.setState({ translationHTML: null });
     if (entry?.url) {
       buildReaderHTML(entry.url);
     }
@@ -136,7 +138,7 @@ const ReaderDetailView: React.FC = () => {
         {readingMode === "dual" ? (
           <div className="flex h-full">
             <div className="flex-1 border-r border-border">
-              <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="reader" loading={readerLoading} />
+              <ReaderWebView html={translationHTML ? translationHTML : (readerHTML ?? "")} baseURL={entry.url ?? "about:blank"} mode="reader" loading={readerLoading} />
             </div>
             <div className="flex-1">
               <ReaderWebView html={readerHTML ?? ""} baseURL={entry.url ?? "about:blank"} mode="web" loading={readerLoading} />
@@ -144,7 +146,7 @@ const ReaderDetailView: React.FC = () => {
           </div>
         ) : (
           <ReaderWebView
-            html={readerHTML ?? ""}
+            html={readingMode === "web" ? "" : translationHTML ? translationHTML : (readerHTML ?? "")}
             baseURL={entry.url ?? "about:blank"}
             mode={readingMode === "web" ? "web" : "reader"}
             loading={readerLoading}

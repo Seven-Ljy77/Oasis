@@ -89,9 +89,12 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
 
       {/* Translation toggle */}
       <button
-        onClick={() => setTranslationEnabled(!translationEnabled)}
+        onClick={() => {
+          onTogglePanel("translation");
+          setTranslationEnabled(!translationEnabled);
+        }}
         className={`p-1.5 rounded transition-colors ${
-          translationEnabled
+          activePanel === "translation"
             ? "bg-accent-muted text-accent"
             : "text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary"
         }`}
@@ -110,9 +113,11 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
       {/* Clear translation */}
       <button
         onClick={() => {
-          const store = useReaderStore.getState();
-          store.setTranslationEnabled(false);
-          store.loadTranslationSegments(0, "");
+          useReaderStore.setState({
+            translationEnabled: false,
+            translationHTML: null,
+            translationSegments: [],
+          });
         }}
         className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
         title="Clear translation"
@@ -135,24 +140,6 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
         </svg>
-      </button>
-
-      {/* Note button */}
-      <button
-        onClick={() => onTogglePanel("note")}
-        className={`p-1.5 rounded transition-colors relative ${
-          activePanel === "note"
-            ? "bg-accent-muted text-accent"
-            : "text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary"
-        }`}
-        title="Add note"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
-        {hasNote && (
-          <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-accent rounded-full" />
-        )}
       </button>
 
       {/* Theme button */}

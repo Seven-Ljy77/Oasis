@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { startTranslation, getTranslationSegments, buildTranslationHTML } from "@/lib/ipc";
 import Button from "@/components/ui/Button";
 
 const ReaderTranslationPanel: React.FC = () => {
+  const { height: panelHeight, dragHandle } = useResizableHeight(200);
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const translationEnabled = useReaderStore((s) => s.translationEnabled);
   const setTranslationEnabled = useReaderStore((s) => s.setTranslationEnabled);
@@ -19,8 +21,10 @@ const ReaderTranslationPanel: React.FC = () => {
   const translationProgress = useReaderStore((s) => s.translationProgress);
   const setTranslationProgress = useReaderStore((s) => s.setTranslationProgress);
 
+  const [collapsed, setCollapsed] = useState(true); // start collapsed
   const [translationLoading, setTranslationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const translationHTML = useReaderStore((s) => s.translationHTML);
 
   const languages = [
     { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -49,14 +53,15 @@ const ReaderTranslationPanel: React.FC = () => {
       setTranslationProgress({ completed: total, total });
       if (total > 0) {
         try {
-          const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage);
+          const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage, translationBilingual);
           useReaderStore.setState({ translationHTML: html });
         } catch { /* ok if HTML build fails */ }
       } else {
         setError("Translation produced 0 segments — article content may be too short or LLM call failed");
       }
     } catch (e: any) {
-      setError(typeof e === "string" ? e : e?.message || e?.error || String(e));
+      const msg = typeof e === "string" ? e : e?.message || e?.error || (e && typeof e === "object" ? JSON.stringify(e) : String(e));
+      setError(msg);
     } finally {
       setTranslationLoading(false);
     }
@@ -69,9 +74,36 @@ const ReaderTranslationPanel: React.FC = () => {
     return "Translation disabled";
   };
 
+  // Collapsed toggle bar
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setCollapsed(false)}
+        className="h-10 border-t border-border bg-surface-secondary flex items-center gap-2 px-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-surface-tertiary transition-colors w-full"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+        </svg>
+        <span>Translation</span>
+        {translationProgress && <span className="text-xs text-green-500 ml-auto">{translationProgress.total} segments</span>}
+        {translationLoading && <span className="text-xs text-accent ml-auto">Translating...</span>}
+      </button>
+    );
+  }
+
   return (
-    <div className="border-t border-border bg-surface p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-slate-700">Translation</h3>
+    <div className="border-t border-border bg-surface flex flex-col" style={{ height: panelHeight }}>
+      {dragHandle}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
+        <button onClick={() => setCollapsed(true)} className="p-0.5 rounded hover:bg-surface-tertiary">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <h3 className="text-sm font-semibold text-slate-700">Translation</h3>
+        <div className="flex-1" />
+      </div>
+      <div className="p-4 space-y-3 overflow-y-auto">
 
       <div className="flex items-center gap-3">
         <span className="text-sm text-slate-600">
@@ -99,7 +131,15 @@ const ReaderTranslationPanel: React.FC = () => {
         <input
           type="checkbox"
           checked={translationBilingual}
-          onChange={(e) => setTranslationBilingual(e.target.checked)}
+          onChange={async (e) => {
+            setTranslationBilingual(e.target.checked);
+            if (selectedEntryId && translationProgress) {
+              try {
+                const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage, e.target.checked);
+                useReaderStore.setState({ translationHTML: html });
+              } catch {}
+            }
+          }}
           className="rounded border-slate-300 text-accent w-3.5 h-3.5"
         />
         <span className="text-sm text-slate-600">Bilingual (show original + translation)</span>
@@ -136,6 +176,7 @@ const ReaderTranslationPanel: React.FC = () => {
       {error && (
         <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded p-2">{error}</div>
       )}
+      </div>
     </div>
   );
 };

@@ -49,6 +49,7 @@ export interface ReaderState {
   summaryOpen: boolean;
   summaryResult: SummaryResult | null;
   summaryText: string;
+  summaryHTML: string;
   summaryTargetLanguage: string;
   summaryDetailLevel: string;
   summaryAutoEnabled: boolean;
@@ -155,6 +156,7 @@ const initialState = {
   summaryOpen: false as boolean,
   summaryResult: null as SummaryResult | null,
   summaryText: "" as string,
+  summaryHTML: "" as string,
   summaryTargetLanguage: "zh-CN" as string,
   summaryDetailLevel: "medium" as string,
   summaryAutoEnabled: false as boolean,
@@ -271,8 +273,12 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
     set({ summaryLoading: true, summaryError: null });
     try {
       const result = await ipc.getSummary(entryId);
-      if (!result) await ipc.generateSummary(entryId, detailLevel);
-      set({ summaryResult: result, summaryText: result?.text ?? "", summaryLoading: false });
+      if (!result) {
+        const generated: any = await ipc.generateSummary(entryId, detailLevel);
+        set({ summaryText: generated?.text ?? "", summaryHTML: generated?.html ?? "", summaryLoading: false });
+      } else {
+        set({ summaryResult: result, summaryText: result.text ?? "", summaryLoading: false });
+      }
     } catch (err) {
       set({ summaryError: String(err), summaryLoading: false });
     }
@@ -305,7 +311,7 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
 
   resetReaderState: () => set({
     readerHTML: null, readerLoading: false, entryTitle: null, readingMode: "reader",
-    summaryResult: null, summaryText: "", translationSegments: [],
+    summaryResult: null, summaryText: "", summaryHTML: "", translationSegments: [],
     noteText: "", openPanel: null, activePanel: null,
     bannerMessage: null, bannerAction: null,
   }),

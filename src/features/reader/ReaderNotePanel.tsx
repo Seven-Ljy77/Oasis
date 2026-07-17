@@ -3,6 +3,7 @@
 // =============================================================================
 
 import React, { useState, useCallback } from "react";
+import { useResizableHeight } from "@/hooks/useResizableHeight";
 
 export interface ReaderNotePanelProps {
   /** Initial markdown text */
@@ -28,10 +29,13 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   onSave,
   saveStatus = "idle",
   onClose,
-  open = true,
+  open: propOpen,
   maxLength = 10000,
   className = "",
 }) => {
+  const { height: panelHeight, dragHandle } = useResizableHeight(200);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = propOpen ?? localOpen;
   const [text, setText] = useState(initialText);
 
   const handleChange = useCallback(
@@ -66,29 +70,36 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
     error: "text-red-500",
   }[saveStatus];
 
-  if (!open) return null;
+  // Collapsed toggle bar
+  if (!open) {
+    return (
+      <button
+        onClick={() => { setLocalOpen(true); }}
+        className="h-10 border-t border-border bg-surface-secondary flex items-center gap-2 px-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-surface-tertiary transition-colors w-full"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+        </svg>
+        <span>Article Note</span>
+        {text && <span className="w-2 h-2 rounded-full bg-accent ml-auto" />}
+      </button>
+    );
+  }
 
   return (
     <div
       data-component="ReaderNotePanel"
       className={`border-t border-border bg-surface flex flex-col ${className}`}
-      style={{ maxHeight: "40vh" }}
+      style={{ height: panelHeight }}
     >
+      {dragHandle}
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
-        <svg
-          className="h-4 w-4 text-slate-400 flex-shrink-0"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-          />
-        </svg>
+        <button onClick={() => { setLocalOpen(false); onClose?.(); }} className="p-0.5 rounded hover:bg-surface-tertiary">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
         <h3 className="text-sm font-semibold text-slate-700">Article Note</h3>
 
         <div className="flex-1" />
