@@ -245,9 +245,8 @@ export const getTranslationSegments = (
 export const startTranslation = (
   entryId: number,
   targetLanguage: string,
-  concurrency?: number,
 ): Promise<{ task_id: string }> =>
-  invoke<{ task_id: string }>("start_translation", { entryId, targetLanguage, concurrency });
+  invoke<{ task_id: string }>("start_translation", { entryId, targetLanguage });
 
 export const buildTranslationHTML = (
   entryId: number,
