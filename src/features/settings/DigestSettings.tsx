@@ -3,15 +3,20 @@
 // =============================================================================
 
 import React from "react";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { open } from "@tauri-apps/plugin-dialog";
 
 export interface DigestSettingsProps {
   className?: string;
 }
 
 const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
-  // TODO: import actual settings state
+  const settings = useSettingsStore((s) => s.settings);
+  const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const saveSettingsFn = useSettingsStore((s) => s.saveSettings);
+  const save = () => saveSettingsFn(useSettingsStore.getState().settings);
 
-  const [exportFolder, setExportFolder] = React.useState("~/Documents/Mercury/Digests");
+  const [exportFolder, setExportFolder] = React.useState("");
   const [templateName, setTemplateName] = React.useState("default");
   const [includeAuthor, setIncludeAuthor] = React.useState(true);
   const [includeDate, setIncludeDate] = React.useState(true);
@@ -44,8 +49,9 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
             className="flex-1 h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none truncate"
           />
           <button
-            onClick={() => {
-              // TODO: open native folder picker via Tauri dialog
+            onClick={async () => {
+              const selected = await open({ directory: true, multiple: false });
+              if (selected) setExportFolder(selected as string);
             }}
             className="px-3 py-1 text-xs font-medium rounded border border-border bg-surface hover:bg-surface-secondary text-slate-600 transition-colors whitespace-nowrap"
           >

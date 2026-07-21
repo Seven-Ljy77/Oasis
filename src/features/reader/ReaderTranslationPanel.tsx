@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { startTranslation, getTranslationSegments, buildTranslationHTML } from "@/lib/ipc";
 import Button from "@/components/ui/Button";
 
 const ReaderTranslationPanel: React.FC = () => {
+  const { panelRef, dragHandle } = useResizableHeight("translation", 200);
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const translationEnabled = useReaderStore((s) => s.translationEnabled);
   const setTranslationEnabled = useReaderStore((s) => s.setTranslationEnabled);
@@ -54,6 +56,8 @@ const ReaderTranslationPanel: React.FC = () => {
           const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage, translationBilingual);
           useReaderStore.setState({ translationHTML: html });
         } catch { /* ok if HTML build fails */ }
+      } else if ((result as any)?.error) {
+        setError((result as any).error);
       } else {
         setError("Translation produced 0 segments — article content may be too short or LLM call failed");
       }
@@ -90,7 +94,8 @@ const ReaderTranslationPanel: React.FC = () => {
   }
 
   return (
-    <div className="border-t border-border bg-surface flex flex-col" style={{ maxHeight: "40vh" }}>
+    <div ref={panelRef as any} className="border-t border-border bg-surface flex flex-col" style={{ maxHeight: "40vh" }}>
+      {dragHandle}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
         <button onClick={() => setCollapsed(true)} className="p-0.5 rounded hover:bg-surface-tertiary">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

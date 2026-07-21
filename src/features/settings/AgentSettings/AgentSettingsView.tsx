@@ -40,8 +40,10 @@ const ProviderTab: React.FC = () => {
   const providers = useSettingsStore((s) => s.providers);
   const loadProviders = useSettingsStore((s) => s.loadProviders);
   const addProvider = useSettingsStore((s) => s.addProvider);
+  const updateProvider = useSettingsStore((s) => s.updateProvider);
   const deleteProvider = useSettingsStore((s) => s.deleteProvider);
   const archiveProvider = useSettingsStore((s) => s.archiveProvider);
+  const testModel = useSettingsStore((s) => s.testModel);
 
   React.useEffect(() => {
     loadProviders();
@@ -142,16 +144,25 @@ const ProviderTab: React.FC = () => {
               </td>
               <td className="py-2">
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                  <Button variant="ghost" size="sm">Test Connection</Button>
-                  <Button variant="ghost" size="sm">Set Default</Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteProvider(p.id)}
-                  >
-                    Delete
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    const newName = prompt("New name:", p.name);
+                    if (newName) await updateProvider(p.id, { ...p, name: newName });
+                    loadProviders();
+                  }}>Edit</Button>
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    const models = useSettingsStore.getState().models[p.id] ?? [];
+                    if (models.length > 0) {
+                      const ok = await testModel(models[0].id);
+                      alert(ok ? "Connection successful" : "Connection failed");
+                    } else {
+                      alert("No models configured for this provider");
+                    }
+                  }}>Test Connection</Button>
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    await updateProvider(p.id, { ...p, is_default: true });
+                    loadProviders();
+                  }}>Set Default</Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>Delete</Button>
                 </div>
               </td>
             </tr>

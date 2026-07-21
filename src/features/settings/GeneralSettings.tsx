@@ -4,6 +4,7 @@
 
 import React, { useEffect } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useAppStore } from "@/stores/useAppStore";
 
 export interface GeneralSettingsProps {
   className?: string;
@@ -20,6 +21,7 @@ const languages = [
 ];
 
 const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => {
+  const openSheet = useAppStore((s) => s.openSheet);
   const settings = useSettingsStore((s) => s.settings);
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const updateSetting = useSettingsStore((s) => s.updateSetting);
@@ -137,9 +139,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
       <div className="pt-2 border-t border-border space-y-2">
         <button
           className="w-full py-2 px-3 text-sm font-medium rounded-md border border-border bg-surface hover:bg-surface-secondary transition-colors text-slate-700 text-left flex items-center gap-2"
-          onClick={() => {
-            // TODO: open tag library sheet
-          }}
+          onClick={() => openSheet("tagLibrary")}
         >
           <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -149,9 +149,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
 
         <button
           className="w-full py-2 px-3 text-sm font-medium rounded-md border border-border bg-surface hover:bg-surface-secondary transition-colors text-slate-700 text-left flex items-center gap-2"
-          onClick={() => {
-            // TODO: open batch tagging sheet
-          }}
+          onClick={() => openSheet("batchTagging")}
         >
           <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

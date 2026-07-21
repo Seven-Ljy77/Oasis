@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { listen } from "@tauri-apps/api/event";
 import Button from "@/components/ui/Button";
 
 const ReaderSummaryPanel: React.FC = () => {
+  const { panelRef, dragHandle } = useResizableHeight("summary", 200);
   const summaryOpen = useReaderStore((s) => s.summaryOpen);
   const setSummaryOpen = useReaderStore((s) => s.setSummaryOpen);
 
@@ -108,7 +110,8 @@ const ReaderSummaryPanel: React.FC = () => {
   }
 
   return (
-    <div className="border-t border-border bg-surface flex flex-col" style={{ maxHeight: "40vh" }}>
+    <div ref={panelRef as any} className="border-t border-border bg-surface flex flex-col" style={{ maxHeight: "40vh" }}>
+      {dragHandle}
       {/* Header row */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
         <button

@@ -146,7 +146,7 @@ pub fn run() {
             commands::tag_commands::recalculate_tag_counts,
             // Digest commands
             commands::digest_commands::save_note,
-            commands::digest_commands::load_note,
+            commands::digest_commands::get_note,
             commands::digest_commands::share_digest,
             commands::digest_commands::export_digest,
             commands::digest_commands::export_multiple_digest,

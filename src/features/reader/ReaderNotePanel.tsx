@@ -1,61 +1,94 @@
-// =============================================================================
-// Mercury — ReaderNotePanel (markdown editor for article notes)
-// =============================================================================
-
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { useResizableHeight } from "@/hooks/useResizableHeight";
+import { getNote, saveNote } from "@/lib/ipc";
 
 export interface ReaderNotePanelProps {
-  /** Initial markdown text */
-  initialText?: string;
-  /** Called when note text changes */
-  onChange?: (text: string) => void;
-  /** Called when save is requested */
-  onSave?: (text: string) => void;
-  /** Save status indicator */
-  saveStatus?: "idle" | "saving" | "saved" | "error";
   /** Called when the panel is closed */
   onClose?: () => void;
-  /** Whether the panel is visible */
-  open?: boolean;
+  className?: string;
   /** Maximum character count */
   maxLength?: number;
-  className?: string;
 }
 
 const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
-  initialText = "",
-  onChange,
-  onSave,
-  saveStatus = "idle",
   onClose,
-  open: propOpen,
   maxLength = 10000,
   className = "",
 }) => {
-  const [localOpen, setLocalOpen] = useState(true); // start expanded
-  const open = propOpen ?? localOpen;
-  const [text, setText] = useState(initialText);
+  const { panelRef, dragHandle } = useResizableHeight("note", 200);
+  const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
+  const [text, setText] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [localOpen, setLocalOpen] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaved = useRef("");
+
+  // Load note when panel opens or entry changes
+  useEffect(() => {
+    if (!selectedEntryId) return;
+    getNote(selectedEntryId).then((note) => {
+      const content = note?.text ?? "";
+      setText(content);
+      lastSaved.current = content;
+    }).catch(() => {});
+  }, [selectedEntryId, localOpen]);
+
+  // 5-second auto-save debounce
+  const scheduleSave = useCallback((value: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      if (!selectedEntryId || value === lastSaved.current) return;
+      setSaveStatus("saving");
+      try {
+        await saveNote(selectedEntryId, value);
+        lastSaved.current = value;
+        setSaveStatus("saved");
+      } catch {
+        setSaveStatus("error");
+      }
+    }, 5000);
+  }, [selectedEntryId]);
+
+  // Save on unmount or close
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        // Immediate save on unmount
+        if (selectedEntryId && text !== lastSaved.current) {
+          saveNote(selectedEntryId, text).catch(() => {});
+        }
+      }
+    };
+  }, [selectedEntryId, text]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       if (value.length <= maxLength) {
         setText(value);
-        onChange?.(value);
+        scheduleSave(value);
+        if (saveStatus !== "idle") setSaveStatus("idle");
       }
     },
-    [onChange, maxLength],
+    [scheduleSave, maxLength, saveStatus],
   );
 
-  const handleSave = () => {
-    onSave?.(text);
+  const handleSave = async () => {
+    if (!selectedEntryId) return;
+    setSaveStatus("saving");
+    try {
+      await saveNote(selectedEntryId, text);
+      lastSaved.current = text;
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
   };
 
-  // TODO: implement debounced auto-save
-  // TODO: implement markdown preview toggle
-
   const saveStatusLabel = {
-    idle: "Ready",
+    idle: "Auto-save in 5s",
     saving: "Saving...",
     saved: "Saved",
     error: "Save error",
@@ -69,10 +102,10 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   }[saveStatus];
 
   // Collapsed toggle bar
-  if (!open) {
+  if (!localOpen) {
     return (
       <button
-        onClick={() => { setLocalOpen(true); }}
+        onClick={() => setLocalOpen(true)}
         className="h-10 border-t border-border bg-surface-secondary flex items-center gap-2 px-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-surface-tertiary transition-colors w-full"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,12 +120,14 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   return (
     <div
       data-component="ReaderNotePanel"
+      ref={panelRef as any}
       className={`border-t border-border bg-surface flex flex-col ${className}`}
       style={{ maxHeight: "40vh" }}
     >
+      {dragHandle}
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
-        <button onClick={() => { setLocalOpen(false); onClose?.(); }} className="p-0.5 rounded hover:bg-surface-tertiary">
+        <button onClick={() => setLocalOpen(false)} className="p-0.5 rounded hover:bg-surface-tertiary">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
@@ -101,17 +136,14 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
 
         <div className="flex-1" />
 
-        {/* Character count */}
         <span className="text-[11px] text-slate-400 tabular-nums">
           {text.length} / {maxLength}
         </span>
 
-        {/* Save status */}
         <span className={`text-[11px] font-medium ${saveStatusColor}`}>
           {saveStatusLabel}
         </span>
 
-        {/* Save button */}
         <button
           onClick={handleSave}
           disabled={saveStatus === "saving"}
@@ -120,12 +152,10 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
           Save
         </button>
 
-        {/* Close button */}
         {onClose && (
           <button
             onClick={onClose}
             className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"
-            aria-label="Close note panel"
           >
             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -141,11 +171,9 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
           onChange={handleChange}
           placeholder="Write your notes in Markdown..."
           className="w-full h-full min-h-[120px] resize-none bg-transparent text-sm text-slate-700 placeholder-slate-400 focus:outline-none leading-relaxed"
-          aria-label="Article note text"
         />
       </div>
 
-      {/* Footer hint */}
       <div className="px-3 py-1.5 border-t border-border/50 bg-surface-secondary text-[10px] text-slate-400">
         Supports Markdown formatting
       </div>

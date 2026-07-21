@@ -4,6 +4,8 @@ import { useAppStore, type SheetKind } from "@/stores/useAppStore";
 import { useEntryListStore } from "@/stores/useEntryListStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useFeedStore } from "@/stores/useFeedStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { syncFeeds as ipcSyncFeeds } from "@/lib/ipc";
 import ContextMenu, { type ContextMenuItem } from "@/components/ui/ContextMenu";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import type { Feed } from "@/lib/types";
@@ -141,6 +143,21 @@ const FeedList: React.FC = () => {
           Feeds
         </h3>
         <div className="flex items-center gap-1">
+          <button
+            onClick={async () => {
+              const concurrency = useSettingsStore.getState().settings.sync_concurrency ?? 6;
+              await loadFeeds();
+              await ipcSyncFeeds(concurrency);
+              // Reload feeds after sync to update unread counts
+              loadFeeds();
+            }}
+            className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
+            title="Sync All Feeds"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
           <button
             onClick={() => openSheet("feedEditor" as SheetKind)}
             className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"

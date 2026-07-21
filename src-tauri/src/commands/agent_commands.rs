@@ -6,6 +6,7 @@ use crate::agent::route::RouteResolver;
 use crate::agent::summary::executor::{SummaryExecutor, SummaryRunEvent, SummaryRunRequest};
 use crate::agent::tagging::batch::{BatchTaggingConfig, BatchTaggingExecutor};
 use crate::agent::tagging::executor::TagSuggestion;
+use crate::agent::translation::executor::TranslationRunEvent;
 use crate::agent::AgentTaskKind;
 use crate::db::agent_config_store::AgentConfigStore;
 use crate::db::entry_store::EntryStore;
@@ -406,7 +407,14 @@ pub async fn start_translation(
         concurrency: 3,
     };
 
-    let result = executor.execute(&request, |_event| {}).await;
+    // Collect errors from segments
+    let last_error = std::sync::Arc::new(std::sync::Mutex::new(None::<String>));
+    let err_clone = last_error.clone();
+    let result = executor.execute(&request, move |event| {
+        if let TranslationRunEvent::Failed { error, .. } = event {
+            *err_clone.lock().unwrap() = Some(error);
+        }
+    }).await;
 
     // Return segment count + any error directly to frontend
     match result {
@@ -417,6 +425,7 @@ pub async fn start_translation(
             Ok(serde_json::json!({
                 "total_segments": segments.len(),
                 "segments": segments,
+                "error": last_error.lock().unwrap().as_ref().map(|s| s.as_str()),
             }))
         }
         Err(e) => Err(e),
