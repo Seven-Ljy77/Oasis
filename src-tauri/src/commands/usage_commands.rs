@@ -57,10 +57,12 @@ pub async fn get_usage_report(
 ) -> Result<crate::usage::reports::UsageReportSnapshot, AppError> {
     let window = match days {
         Some(d) => {
-            let from = chrono::Local::now().date_naive() - chrono::Duration::days(d);
+            let today = chrono::Local::now().date_naive();
+            let from = today - chrono::Duration::days(d);
+            let to = today + chrono::Duration::days(1);
             ReportWindow::Custom {
                 start: from.format("%Y-%m-%d").to_string(),
-                end: chrono::Local::now().format("%Y-%m-%d").to_string(),
+                end: to.format("%Y-%m-%d").to_string(),
             }
         }
         None => ReportWindow::Last30Days,

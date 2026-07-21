@@ -180,7 +180,7 @@ export interface TagLibraryItem extends TagInfo {
 
 export interface TagSuggestion {
   name: string;
-  source: "ai" | "nlp" | "existing";
+  source: "ai" | "nlp" | "existing" | "error";
   tag_id?: number;
 }
 

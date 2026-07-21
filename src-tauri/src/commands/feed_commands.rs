@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{Emitter, State};
 
 use crate::db::entry_store::{EntryStore, EntryUpsertData};
 use crate::db::feed_store::FeedStore;
@@ -148,10 +148,28 @@ pub async fn delete_feed(
 
 #[tauri::command]
 pub async fn sync_feeds(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     concurrency: u32,
 ) -> Result<Vec<crate::feed::sync_service::SyncResult>, AppError> {
-    state.sync_service.sync_all(concurrency).await
+    use crate::feed::sync_service::SyncStatus;
+    let handle = app_handle.clone();
+    let results = state.sync_service.sync_all(concurrency, move |feed, status, completed, total| {
+        let _ = handle.emit("sync-progress", serde_json::json!({
+            "feed_id": feed.id,
+            "feed_title": feed.title,
+            "status": match status {
+                SyncStatus::Fetching => "syncing",
+                SyncStatus::Completed => "done",
+                SyncStatus::Failed(_) => "error",
+                _ => "pending",
+            },
+            "completed": completed,
+            "total": total,
+        }));
+    }).await?;
+
+    Ok(results)
 }
 
 /// Validate a feed URL and return the detected title without saving anything.

@@ -217,25 +217,27 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
       </div>
 
       {/* Period comparison */}
+      {snapshot && (
       <div className="bg-surface-secondary border border-border rounded-lg p-4">
         <h4 className="text-sm font-semibold text-slate-700 mb-3">
           Period Comparison
         </h4>
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <div className="text-xs text-slate-400">Tokens vs Previous</div>
-            <div className="text-base font-semibold text-green-600">
-              +12.5%
+            <div className="text-xs text-slate-400">Success Rate</div>
+            <div className={`text-base font-semibold ${totalRequests > 0 && totalSucceeded > 0 ? "text-green-600" : "text-slate-400"}`}>
+              {totalRequests > 0 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%` : "N/A"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400">Requests vs Previous</div>
-            <div className="text-base font-semibold text-red-600">
-              -3.2%
+            <div className="text-xs text-slate-400">Avg Tokens / Request</div>
+            <div className="text-base font-semibold text-slate-900">
+              {totalRequests > 0 ? Math.round(totalTokens / totalRequests).toLocaleString() : "N/A"}
             </div>
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

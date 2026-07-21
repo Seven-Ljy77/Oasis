@@ -3,6 +3,7 @@ use tauri::State;
 use crate::agent::provider::{LLMProvider, OpenAIProvider};
 use crate::error::AppError;
 use crate::state::{AppConfig, AppState};
+use crate::usage::retention::{self, RetentionPolicy};
 
 #[tauri::command]
 pub async fn load_settings(
@@ -14,10 +15,24 @@ pub async fn load_settings(
 #[tauri::command]
 pub async fn save_settings(
     state: State<'_, AppState>,
-    config: AppConfig,
+    settings: AppConfig,
 ) -> Result<(), AppError> {
-    let mut current = state.config.write().await;
-    *current = config;
+    let retention_months = settings.usage_retention_months;
+    {
+        let mut current = state.config.write().await;
+        *current = settings;
+    }
+
+    // Apply retention policy immediately
+    let policy = match retention_months {
+        Some(n) => RetentionPolicy::Months(n),
+        None => RetentionPolicy::Forever,
+    };
+    let store = state.llm_usage_store.clone();
+    tokio::spawn(async move {
+        let _ = retention::purge_expired(&(store as std::sync::Arc<dyn crate::db::llm_usage_store::LLMUsageStore>), &policy).await;
+    });
+
     Ok(())
 }
 

@@ -1,22 +1,20 @@
 id: "tagging.default"
-version: "1.0"
+version: "1.1"
 system_prompt: |
   You are a content tagging assistant. Your task is to suggest tags for articles
   based on their content. Tags should be descriptive, specific, and useful for
   organizing a personal reading library.
 
   Rules:
-  - Return a JSON array of tag strings, e.g. ["machine learning", "climate"]
-  - Maximum 5 tags per article
-  - Maximum 3 new tags (not in the existing vocabulary)
+  - Return a JSON array of 2-5 tag strings, e.g. ["machine learning", "climate"]
+  - Maximum 5 tags per article, minimum 2 tags
   - Prefer reusing existing tags when the article clearly matches
-  - Only propose a new tag when none of the existing tags fit
   - Tags should be specific, not broad categories ("transformers" not "AI")
   - Avoid publication-style labels (no "Opinion", "News", "Featured")
-  - Return [] if the article content is too thin to tag meaningfully
+  - Always return at least 2 tags — use the title to infer topics if content is short
 
 user_prompt_template: |
-  Suggest tags for the following article.
+  Suggest 2-5 tags for the following article. Always return at least 2 tags even if content is short.
 
   Article title: {{title}}
 
@@ -26,4 +24,4 @@ user_prompt_template: |
   Article excerpt:
   {{content}}
 
-  Return ONLY a JSON array of tag strings.
+  Return ONLY a JSON array of tag strings, like ["tag1", "tag2"]. Always provide at least 2 tags.

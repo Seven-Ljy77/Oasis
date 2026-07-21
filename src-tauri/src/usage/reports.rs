@@ -66,10 +66,12 @@ pub struct AgentKindBreakdown {
 /// Convert a ReportWindow to a date range tuple (from_date, to_date).
 fn window_to_dates(window: &ReportWindow) -> (Option<String>, Option<String>) {
     let today = chrono::Local::now().date_naive();
+    let tomorrow = today + chrono::Duration::days(1);
     match window {
         ReportWindow::Today => {
             let s = today.format("%Y-%m-%d").to_string();
-            (Some(s.clone()), Some(s))
+            let e = tomorrow.format("%Y-%m-%d").to_string();
+            (Some(s), Some(e))
         }
         ReportWindow::ThisWeek => {
             let weekday = today.weekday().num_days_from_monday() as i64;
@@ -170,7 +172,23 @@ pub async fn query_report(
     let buckets = store
         .query_daily_buckets(from_date.as_deref(), to_date.as_deref())
         .await?;
-    Ok(aggregate_snapshot(&buckets))
+    let mut snapshot = aggregate_snapshot(&buckets);
+
+    // Query failed requests separately from the raw event table
+    let failed = count_failed(store, from_date.as_deref(), to_date.as_deref()).await?;
+    snapshot.failed_requests = failed;
+    snapshot.successful_requests = snapshot.total_requests.saturating_sub(failed);
+
+    Ok(snapshot)
+}
+
+/// Count requests with non-success status in the given date range.
+async fn count_failed(
+    store: &Arc<dyn LLMUsageStore>,
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+) -> Result<u64, AppError> {
+    store.count_by_status("failed", from_date, to_date).await
 }
 
 /// Query a comparison report showing daily token usage over a window.

@@ -48,6 +48,14 @@ pub trait LLMUsageStore: Send + Sync {
 
     /// Delete all usage events (for testing / reset).
     async fn clear_all(&self) -> Result<(), AppError>;
+
+    /// Count events by status in a date range.
+    async fn count_by_status(
+        &self,
+        request_status: &str,
+        from_date: Option<&str>,
+        to_date: Option<&str>,
+    ) -> Result<u64, AppError>;
 }
 
 // =============================================================================
@@ -212,6 +220,33 @@ impl LLMUsageStore for SqliteLLMUsageStore {
             db.write(|conn| {
                 conn.execute("DELETE FROM llm_usage_event", [])?;
                 Ok(())
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn count_by_status(
+        &self,
+        request_status: &str,
+        from_date: Option<&str>,
+        to_date: Option<&str>,
+    ) -> Result<u64, AppError> {
+        let fd = from_date.map(|s| s.to_string());
+        let td = to_date.map(|s| s.to_string());
+        let status = request_status.to_string();
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.read(|conn| {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM llm_usage_event \
+                     WHERE request_status = ?1 \
+                       AND (?2 IS NULL OR created_at >= ?2) \
+                       AND (?3 IS NULL OR created_at < ?3)",
+                    params![status, fd, td],
+                    |row| row.get(0),
+                )?;
+                Ok(count as u64)
             })
         })
         .await

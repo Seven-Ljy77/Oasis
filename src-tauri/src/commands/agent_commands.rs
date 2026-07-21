@@ -8,6 +8,7 @@ use crate::agent::tagging::batch::{BatchTaggingConfig, BatchTaggingExecutor};
 use crate::agent::tagging::executor::TagSuggestion;
 use crate::agent::translation::executor::TranslationRunEvent;
 use crate::agent::AgentTaskKind;
+use crate::usage::tracker::record_usage_event;
 use crate::db::agent_config_store::AgentConfigStore;
 use crate::db::entry_store::EntryStore;
 use crate::db::models::{AgentModelProfile, AgentProfile, AgentProviderProfile};
@@ -422,13 +423,41 @@ pub async fn start_translation(
             let segments = state.translation_store.load(entry_id, &target_language).await?
                 .map(|(_, segs)| segs)
                 .unwrap_or_default();
+
+            // Record usage with estimated token counts
+            let total_chars: usize = segments.iter().map(|s| s.translated_text.len()).sum();
+            let comp_tokens = (total_chars as u32 / 4).max(1);
+            let usage_store: Arc<dyn crate::db::llm_usage_store::LLMUsageStore> = state.llm_usage_store.clone();
+            let _ = record_usage_event(
+                &usage_store,
+                None,
+                &route.provider_name,
+                &format!("{}/chat/completions", route.provider_name),
+                &route.model_name,
+                comp_tokens / 2, comp_tokens, comp_tokens + comp_tokens / 2,
+                "primary", "success", None,
+            ).await;
+
             Ok(serde_json::json!({
                 "total_segments": segments.len(),
                 "segments": segments,
                 "error": last_error.lock().unwrap().as_ref().map(|s| s.as_str()),
             }))
         }
-        Err(e) => Err(e),
+        Err(e) => {
+            // Record failed usage
+            let usage_store: Arc<dyn crate::db::llm_usage_store::LLMUsageStore> = state.llm_usage_store.clone();
+            let _ = record_usage_event(
+                &usage_store,
+                None,
+                &route.provider_name,
+                &format!("{}/chat/completions", route.provider_name),
+                &route.model_name,
+                0, 0, 0,
+                "primary", "failed", None,
+            ).await;
+            Err(e)
+        }
     }
 }
 
@@ -672,7 +701,20 @@ pub async fn generate_summary(
         }
     }).await?;
 
+    // Record usage with estimated token counts
     let text = full_text.lock().unwrap().clone();
+    let comp_tokens = ((text.len() as u32) / 4).max(1);
+    let usage_store: Arc<dyn crate::db::llm_usage_store::LLMUsageStore> = state.llm_usage_store.clone();
+    let _ = record_usage_event(
+        &usage_store,
+        None,
+        &route.provider_name,
+        &format!("{}/chat/completions", route.provider_name),
+        &route.model_name,
+        comp_tokens / 2, comp_tokens, comp_tokens + comp_tokens / 2,
+        "primary", "success", None,
+    ).await;
+
     // Convert Markdown to HTML for frontend rendering
     let html = {
         let mut opts = comrak::ComrakOptions::default();

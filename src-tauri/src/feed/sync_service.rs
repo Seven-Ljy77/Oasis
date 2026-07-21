@@ -145,19 +145,23 @@ impl SyncService {
     }
 
     /// Synchronize all feeds with configurable concurrency.
+    /// The `on_progress` callback is called for each feed as syncing starts and completes.
     pub async fn sync_all(
         &self,
         concurrency: u32,
+        on_progress: impl Fn(&Feed, SyncStatus, usize, usize) + Send + Sync + 'static,
     ) -> Result<Vec<SyncResult>, AppError> {
         let feeds = self.feed_store.load_all().await?;
+        let total = feeds.len();
+        let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         let concurrency = concurrency.max(1) as usize;
         let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
         let mut join_set = tokio::task::JoinSet::new();
 
-        // Clone Arcs that we need inside spawned tasks.
         let feed_store = self.feed_store.clone();
         let entry_store = self.entry_store.clone();
+        let on_progress = Arc::new(on_progress);
 
         for feed in feeds {
             let permit = semaphore
@@ -168,10 +172,24 @@ impl SyncService {
 
             let feed_store = feed_store.clone();
             let entry_store = entry_store.clone();
+            let completed = completed.clone();
+            let on_progress = on_progress.clone();
+            let feed_clone = feed.clone();
+            let total_feeds = total;
+
+            on_progress(&feed_clone, SyncStatus::Fetching, completed.load(std::sync::atomic::Ordering::SeqCst), total_feeds);
 
             join_set.spawn(async move {
                 let _permit = permit;
-                sync_single_feed(&feed_store, &entry_store, &feed).await
+                let result = sync_single_feed(&feed_store, &entry_store, &feed_clone).await;
+                let n = completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                let status = if result.error.is_some() {
+                    SyncStatus::Failed(result.error.clone().unwrap_or_default())
+                } else {
+                    SyncStatus::Completed
+                };
+                on_progress(&feed_clone, status, n, total_feeds);
+                result
             });
         }
 

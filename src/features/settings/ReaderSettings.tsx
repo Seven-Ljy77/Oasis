@@ -33,7 +33,7 @@ const ReaderSettings: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 space-y-6">
       {/* Theme preset */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">

@@ -76,11 +76,17 @@ impl TaggingExecutor {
             store.load("tagging.default")?
         };
 
+        // Ensure we always have enough content: use title if content is too short
         let excerpt: String = content.chars().take(800).collect();
+        let effective_content = if excerpt.trim().len() < 20 {
+            format!("Title: {}\n\n{}", title, excerpt)
+        } else {
+            excerpt
+        };
 
         let mut vars = HashMap::new();
         vars.insert("title".to_string(), title.to_string());
-        vars.insert("content".to_string(), excerpt);
+        vars.insert("content".to_string(), effective_content);
         vars.insert("tag_vocabulary".to_string(), vocabulary);
 
         let system = template.render_system(&vars).unwrap_or_default();
@@ -96,9 +102,9 @@ impl TaggingExecutor {
         let llm_request = LLMRequest {
             model: route.model_name.clone(),
             messages,
-            temperature: Some(0.3),
-            top_p: Some(0.9),
-            max_tokens: Some(200),
+            temperature: Some(0.7),
+            top_p: Some(0.95),
+            max_tokens: Some(300),
             stream: false,
         };
 

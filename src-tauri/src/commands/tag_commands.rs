@@ -181,33 +181,54 @@ pub async fn suggest_tags(
         use crate::db::agent_config_store::AgentConfigStore;
 
         let resolver = RouteResolver::new(state.agent_config_store.clone());
-        if let Ok(routes) = resolver
+        let routes = match resolver
             .resolve_route(&AgentTaskKind::Tagging, None, None)
-            .await
-        {
-            if let Some(route) = routes.first() {
-                let providers = state.agent_config_store.load_providers(false).await?;
-                if let Some(provider) = providers.iter().find(|p| p.id == route.provider_profile_id || p.name == route.provider_name) {
-                    let llm = std::sync::Arc::new(OpenAIProvider::new(
-                        provider.name.clone(),
-                        provider.base_url.clone(),
-                        provider.api_key_ref.clone(),
-                    ));
-                    let tag_store: std::sync::Arc<dyn crate::db::tag_store::TagStore> = state.tag_store.clone();
-                    let executor = crate::agent::tagging::executor::TaggingExecutor::new(
-                        llm,
-                        std::sync::Arc::new(resolver),
-                        state.prompt_template_store.clone(),
-                        tag_store,
-                    );
+            .await {
+                Ok(r) => r,
+                Err(_) => Vec::new(),
+            };
+        if let Some(route) = routes.first() {
+            let providers = state.agent_config_store.load_providers(false).await?;
+            if let Some(provider) = providers.iter().find(|p| p.id == route.provider_profile_id || p.name == route.provider_name) {
+                let llm = std::sync::Arc::new(OpenAIProvider::new(
+                    provider.name.clone(),
+                    provider.base_url.clone(),
+                    provider.api_key_ref.clone(),
+                ));
+                let tag_store: std::sync::Arc<dyn crate::db::tag_store::TagStore> = state.tag_store.clone();
+                let executor = crate::agent::tagging::executor::TaggingExecutor::new(
+                    llm,
+                    std::sync::Arc::new(resolver),
+                    state.prompt_template_store.clone(),
+                    tag_store,
+                );
 
-                    // Get entry title + summary for context
-                    let entry = state.entry_store.load_by_id(entry_id).await?;
-                    let title = entry.as_ref().and_then(|e| e.title.clone()).unwrap_or_default();
-                    let content = entry.as_ref().and_then(|e| e.summary.clone()).unwrap_or_default();
+                let entry = state.entry_store.load_by_id(entry_id).await?;
+                let title = entry.as_ref().and_then(|e| e.title.clone()).unwrap_or_default();
+                let summary_text = entry.as_ref().and_then(|e| e.summary.clone()).unwrap_or_default();
+                // Try content table for richer text
+                let content = {
+                    let db = state.db.clone();
+                    let eid = entry_id;
+                    tokio::task::spawn_blocking(move || {
+                        let conn = db.conn();
+                        conn.query_row(
+                            "SELECT markdown FROM content WHERE entry_id = ?1",
+                            rusqlite::params![eid],
+                            |row| row.get::<_, Option<String>>(0),
+                        ).ok().flatten()
+                    }).await.map_err(|e| AppError::Database(e.to_string()))?
+                }.unwrap_or(summary_text);
 
-                    if let Ok(ai_suggestions) = executor.execute_for_entry(entry_id, &title, &content).await {
-                        suggestions.extend(ai_suggestions);
+                match executor.execute_for_entry(entry_id, &title, &content).await {
+                    Ok(ai_suggestions) => suggestions.extend(ai_suggestions),
+                    Err(e) => {
+                        // Report error as a "suggestion" so frontend can display it
+                        suggestions.push(TagSuggestion {
+                            name: format!("AI Error: {}", e),
+                            source: "error".to_string(),
+                            tag_id: None,
+                        });
                     }
                 }
             }

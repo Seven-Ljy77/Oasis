@@ -6,6 +6,7 @@ import { useEntryStore } from "@/stores/useEntryStore";
 import { useFeedStore } from "@/stores/useFeedStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { syncFeeds as ipcSyncFeeds } from "@/lib/ipc";
+import { listen } from "@tauri-apps/api/event";
 import ContextMenu, { type ContextMenuItem } from "@/components/ui/ContextMenu";
 import * as dialog from "@tauri-apps/plugin-dialog";
 import type { Feed } from "@/lib/types";
@@ -33,6 +34,36 @@ const FeedList: React.FC = () => {
   const exportOpml = useFeedStore((s) => s.exportOpml);
 
   // More actions dropdown state
+  const [syncing, setSyncing] = useState(false);
+  const [syncingFeedIds, setSyncingFeedIds] = useState<Set<number>>(new Set());
+
+  // Listen for sync progress events
+  useEffect(() => {
+    const unlisten = listen<{
+      feed_id: number; status: string; completed: number; total: number;
+    }>("sync-progress", (event) => {
+      const { feed_id, status } = event.payload;
+      setSyncingFeedIds((prev) => {
+        const next = new Set(prev);
+        if (status === "syncing") next.add(feed_id);
+        else next.delete(feed_id);
+        return next;
+      });
+      if (status === "done" || status === "error") {
+        setSyncingFeedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(feed_id);
+          return next;
+        });
+      }
+      // All done — reload feeds
+      if (event.payload.completed >= event.payload.total) {
+        setSyncing(false);
+        loadFeeds();
+      }
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [moreMenuPinned, setMoreMenuPinned] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -145,13 +176,17 @@ const FeedList: React.FC = () => {
         <div className="flex items-center gap-1">
           <button
             onClick={async () => {
-              const concurrency = useSettingsStore.getState().settings.sync_concurrency ?? 6;
-              await loadFeeds();
-              await ipcSyncFeeds(concurrency);
-              // Reload feeds after sync to update unread counts
-              loadFeeds();
+              if (syncing) return;
+              setSyncing(true);
+              try {
+                const concurrency = useSettingsStore.getState().settings.sync_concurrency ?? 6;
+                await ipcSyncFeeds(concurrency);
+                loadFeeds();
+              } finally {
+                setSyncing(false);
+              }
             }}
-            className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
+            className={`p-1 rounded transition-colors ${syncing ? "text-accent animate-spin" : "text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary"}`}
             title="Sync All Feeds"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -276,9 +311,17 @@ const FeedList: React.FC = () => {
                   : "text-slate-700 hover:bg-surface-tertiary"
               }`}
             >
-              <div className="w-4 h-4 rounded bg-slate-300 flex-shrink-0 flex items-center justify-center text-[8px] text-white font-bold">
-                {feed.title?.[0] ?? "?"}
-              </div>
+              {syncingFeedIds.has(feed.id) ? (
+                <div className="w-4 h-4 rounded bg-accent flex-shrink-0 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-4 h-4 rounded bg-slate-300 flex-shrink-0 flex items-center justify-center text-[8px] text-white font-bold">
+                  {feed.title?.[0] ?? "?"}
+                </div>
+              )}
               <span className="flex-1 text-left truncate">{feed.title}</span>
               {(feed.unread_count ?? 0) > 0 && (
                 <span className="text-xs text-slate-400 font-medium">

@@ -24,6 +24,8 @@ const ReaderTaggingPanel: React.FC = () => {
   const [tagInput, setTagInput] = useState("");
   const [aiSuggestions, setAiSuggestions] = useState<TagSuggestion[]>([]);
   const [nlpSuggestions, setNlpSuggestions] = useState<TagSuggestion[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const open = activePanel === "tagging" && selectedEntryId !== null;
 
@@ -32,12 +34,16 @@ const ReaderTaggingPanel: React.FC = () => {
     if (!open || !selectedEntryId) return;
 
     loadTagsForEntry(selectedEntryId);
+    setLoading(true);
     suggestTags(selectedEntryId).then((suggestions) => {
       const ai = suggestions.filter((s) => s.source === "ai");
       const nlp = suggestions.filter((s) => s.source === "nlp");
+      const errors = suggestions.filter((s) => s.source === "error");
       setAiSuggestions(ai);
       setNlpSuggestions(nlp);
-    });
+      setErrorMsg(errors.length > 0 ? errors[0].name : null);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, [open, selectedEntryId]);
 
   // Build list of existing tags NOT yet assigned to this entry
@@ -157,8 +163,27 @@ const ReaderTaggingPanel: React.FC = () => {
         </Button>
       </div>
 
+      {/* AI Loading */}
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-purple-500">
+          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          AI analyzing article...
+        </div>
+      )}
+
+      {/* AI Error */}
+      {!loading && errorMsg && (
+        <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded p-2">{errorMsg}</div>
+      )}
+      {!loading && !errorMsg && aiSuggestions.length === 0 && (
+        <p className="text-[11px] text-slate-400 italic">No tags suggested for this article.</p>
+      )}
+
       {/* AI Suggestions */}
-      {aiSuggestions.length > 0 && (
+      {!loading && aiSuggestions.length > 0 && (
         <div>
           <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
             AI Suggestions

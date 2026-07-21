@@ -7,20 +7,21 @@ import GeneralSettings from "./GeneralSettings";
 import ReaderSettings from "./ReaderSettings";
 import AgentSettingsView from "./AgentSettings/AgentSettingsView";
 import DigestSettings from "./DigestSettings";
+import UsageReportView from "@/features/usage/UsageReportView";
 
 export interface AppSettingsViewProps {
   open?: boolean;
   /** Currently active tab */
-  activeTab?: "general" | "reader" | "agents" | "digest";
+  activeTab?: "general" | "reader" | "agents" | "digest" | "usage";
   /** Called when tab changes */
-  onTabChange?: (tab: "general" | "reader" | "agents" | "digest") => void;
+  onTabChange?: (tab: "general" | "reader" | "agents" | "digest" | "usage") => void;
   /** Called when settings sheet is closed */
   onClose?: () => void;
   className?: string;
 }
 
 interface TabDef {
-  id: "general" | "reader" | "agents" | "digest";
+  id: "general" | "reader" | "agents" | "digest" | "usage";
   label: string;
   icon: React.ReactNode;
 }
@@ -88,6 +89,15 @@ const tabs: TabDef[] = [
       </svg>
     ),
   },
+  {
+    id: "usage",
+    label: "Usage",
+    icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
 ];
 
 const AppSettingsView: React.FC<AppSettingsViewProps> = ({
@@ -96,10 +106,10 @@ const AppSettingsView: React.FC<AppSettingsViewProps> = ({
   onClose,
   className = "",
 }) => {
-  const [internalTab, setInternalTab] = React.useState<"general" | "reader" | "agents" | "digest">("general");
+  const [internalTab, setInternalTab] = React.useState<"general" | "reader" | "agents" | "digest" | "usage">("general");
   const activeTab = externalTab ?? internalTab;
 
-  const handleTabChange = (tab: "general" | "reader" | "agents" | "digest") => {
+  const handleTabChange = (tab: "general" | "reader" | "agents" | "digest" | "usage") => {
     setInternalTab(tab);
     onTabChange?.(tab);
   };
@@ -151,6 +161,11 @@ const AppSettingsView: React.FC<AppSettingsViewProps> = ({
         {activeTab === "reader" && <ReaderSettings />}
         {activeTab === "agents" && <AgentSettingsView />}
         {activeTab === "digest" && <DigestSettings />}
+        {activeTab === "usage" && (
+          <div className="p-4">
+            <UsageReportView title="Token Usage" subtitle="LLM API token consumption" />
+          </div>
+        )}
       </div>
     </div>
   );
