@@ -172,9 +172,10 @@ pub async fn suggest_tags(
     entry_id: i64,
 ) -> Result<Vec<TagSuggestion>, AppError> {
     let mut suggestions: Vec<TagSuggestion> = Vec::new();
+    let ai_enabled = state.config.read().await.ai_tagging_enabled;
 
-    // 1. Try AI tagging executor
-    {
+    // 1. Try AI tagging executor (only if enabled)
+    if ai_enabled {
         use crate::agent::provider::OpenAIProvider;
         use crate::agent::route::RouteResolver;
         use crate::agent::AgentTaskKind;

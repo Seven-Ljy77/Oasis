@@ -5,11 +5,50 @@ use crate::error::AppError;
 use crate::state::{AppConfig, AppState};
 use crate::usage::retention::{self, RetentionPolicy};
 
+fn config_path() -> std::path::PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("Mercury")
+        .join("mercury-config.json")
+}
+
+/// Load config from disk, falling back to defaults.
+pub fn load_config_from_disk() -> AppConfig {
+    let path = config_path();
+    if path.exists() {
+        if let Ok(json) = std::fs::read_to_string(&path) {
+            if let Ok(config) = serde_json::from_str::<AppConfig>(&json) {
+                return config;
+            }
+        }
+    }
+    AppConfig::default()
+}
+
+/// Persist config to disk.
+fn save_config_to_disk(config: &AppConfig) -> Result<(), AppError> {
+    let path = config_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    let json = serde_json::to_string_pretty(config)
+        .map_err(|e| AppError::Config(format!("Failed to serialize settings: {e}")))?;
+    std::fs::write(&path, json)
+        .map_err(|e| AppError::Config(format!("Failed to write settings file: {e}")))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn load_settings(
     state: State<'_, AppState>,
 ) -> Result<AppConfig, AppError> {
-    Ok(state.config.read().await.clone())
+    // Load from disk first, update in-memory state
+    let disk_config = tokio::task::spawn_blocking(load_config_from_disk)
+        .await
+        .map_err(|e| AppError::Unknown(format!("{e}")))?;
+    let mut current = state.config.write().await;
+    *current = disk_config.clone();
+    Ok(disk_config)
 }
 
 #[tauri::command]
@@ -20,8 +59,14 @@ pub async fn save_settings(
     let retention_months = settings.usage_retention_months;
     {
         let mut current = state.config.write().await;
-        *current = settings;
+        *current = settings.clone();
     }
+
+    // Persist to disk
+    let settings_clone = settings.clone();
+    tokio::task::spawn_blocking(move || save_config_to_disk(&settings_clone))
+        .await
+        .map_err(|e| AppError::Unknown(format!("{e}")))??;
 
     // Apply retention policy immediately
     let policy = match retention_months {

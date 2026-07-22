@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useTagStore } from "@/stores/useTagStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 import type { TagSuggestion, TagInfo } from "@/lib/types";
 import Button from "@/components/ui/Button";
 
@@ -22,6 +23,7 @@ const ReaderTaggingPanel: React.FC = () => {
   const suggestTags = useTagStore((s) => s.suggestTags);
 
   const [tagInput, setTagInput] = useState("");
+  const aiTaggingEnabled = useSettingsStore((s) => s.settings.ai_tagging_enabled);
   const [aiSuggestions, setAiSuggestions] = useState<TagSuggestion[]>([]);
   const [nlpSuggestions, setNlpSuggestions] = useState<TagSuggestion[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -34,7 +36,7 @@ const ReaderTaggingPanel: React.FC = () => {
     if (!open || !selectedEntryId) return;
 
     loadTagsForEntry(selectedEntryId);
-    setLoading(true);
+    if (aiTaggingEnabled) setLoading(true);
     suggestTags(selectedEntryId).then((suggestions) => {
       const ai = suggestions.filter((s) => s.source === "ai");
       const nlp = suggestions.filter((s) => s.source === "nlp");
@@ -179,7 +181,11 @@ const ReaderTaggingPanel: React.FC = () => {
         <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded p-2">{errorMsg}</div>
       )}
       {!loading && !errorMsg && aiSuggestions.length === 0 && (
-        <p className="text-[11px] text-slate-400 italic">No tags suggested for this article.</p>
+        <p className="text-[11px] text-slate-400 italic">
+          {aiTaggingEnabled
+            ? "No tags suggested for this article."
+            : "AI tag suggestions are disabled. Enable in Settings → General."}
+        </p>
       )}
 
       {/* AI Suggestions */}

@@ -26,7 +26,7 @@ use crate::db::summary_store::SqliteSummaryStore;
 use crate::db::tag_store::SqliteTagStore;
 use crate::db::translation_store::SqliteTranslationStore;
 use crate::feed::sync_service::SyncService;
-use crate::state::{AppConfig, AppState};
+use crate::state::AppState;
 use crate::tasking::task_queue::TaskQueue;
 
 fn db_path() -> std::path::PathBuf {
@@ -68,7 +68,9 @@ pub fn run() {
         sync_service,
         task_queue: Arc::new(TaskQueue::new()),
         agent_runtime: Arc::new(AgentRuntimeEngine::new()),
-        config: Arc::new(RwLock::new(AppConfig::default())),
+        config: Arc::new(RwLock::new(
+            crate::commands::settings_commands::load_config_from_disk(),
+        )),
     };
 
     tauri::Builder::default()
