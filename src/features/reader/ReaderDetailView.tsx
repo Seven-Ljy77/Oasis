@@ -35,15 +35,15 @@ const ReaderDetailView: React.FC = () => {
   const fontSize = useReaderStore((s) => s.fontSize);
   const lineHeight = useReaderStore((s) => s.lineHeight);
   const contentWidth = useReaderStore((s) => s.contentWidth);
+  const quickStyle = useReaderStore((s) => s.quickStyle);
 
   // Build reader HTML when entry or theme changes
   useEffect(() => {
     useReaderStore.setState({ translationHTML: null });
     if (entry?.url) {
-      // Bypass cache on theme changes so new values take effect
       buildReaderHTML(entry.url, true);
     }
-  }, [selectedEntryId, fontFamily, fontSize, lineHeight, contentWidth]);
+  }, [selectedEntryId, fontFamily, fontSize, lineHeight, contentWidth, quickStyle]);
 
   const showPanel = (panel: typeof activePanel) => {
     setActivePanel(activePanel === panel ? null : panel);

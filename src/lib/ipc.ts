@@ -105,7 +105,7 @@ export const getEntryContent = (
 
 export const buildReaderHTML = (
   entryUrl: string,
-  theme?: { fontFamily: string; fontSize: number; lineHeight: number; contentWidth: number },
+  theme?: { fontFamily: string; fontSize: number; lineHeight: number; contentWidth: number; quickStyle: string },
 ): Promise<{ html: string; theme_fingerprint: string }> =>
   invoke("build_reader_html", { entryUrl, theme });
 

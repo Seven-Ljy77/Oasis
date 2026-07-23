@@ -239,6 +239,7 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
         fontSize: get().fontSize,
         lineHeight: get().lineHeight,
         contentWidth: get().contentWidth,
+        quickStyle: get().quickStyle,
       };
       const result = await ipc.buildReaderHTML(entryUrl, theme);
       set({ readerHTML: result.html, readerLoading: false });

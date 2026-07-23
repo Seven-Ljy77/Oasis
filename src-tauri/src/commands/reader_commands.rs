@@ -21,6 +21,8 @@ pub struct ReaderThemeParams {
     pub line_height: Option<f64>,
     #[serde(rename = "contentWidth")]
     pub content_width: Option<u32>,
+    #[serde(rename = "quickStyle")]
+    pub quick_style: Option<String>,
 }
 
 #[tauri::command]
@@ -30,11 +32,31 @@ pub async fn build_reader_html(
     theme: Option<ReaderThemeParams>,
 ) -> Result<ReaderHTML, AppError> {
     let mut tokens = ThemeTokens::default();
-    if let Some(t) = theme {
-        if let Some(ff) = t.font_family { tokens.font_family = ff; }
+    if let Some(t) = &theme {
+        if let Some(ref ff) = t.font_family { tokens.font_family = ff.clone(); }
         if let Some(fs) = t.font_size { tokens.font_size = fs; }
         if let Some(lh) = t.line_height { tokens.line_height = lh; }
         if let Some(cw) = t.content_width { tokens.max_width = cw; }
+        if let Some(ref qs) = t.quick_style {
+            match qs.as_str() {
+                "warm" => {
+                    tokens.background_color = "#fdf6e3".into();
+                    tokens.primary_text_color = "#5c4b2c".into();
+                    tokens.secondary_text_color = "#8b7355".into();
+                }
+                "cool" => {
+                    tokens.background_color = "#f0f4f8".into();
+                    tokens.primary_text_color = "#2c3e50".into();
+                    tokens.secondary_text_color = "#5a7d9a".into();
+                }
+                "slate" => {
+                    tokens.background_color = "#f5f5f5".into();
+                    tokens.primary_text_color = "#374151".into();
+                    tokens.secondary_text_color = "#6b7280".into();
+                }
+                _ => {} // "none" — use defaults
+            }
+        }
     }
     let pipeline = DefaultReaderPipeline;
     // Try cached content first for faster theme-only rebuilds

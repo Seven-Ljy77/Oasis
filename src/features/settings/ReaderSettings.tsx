@@ -9,6 +9,14 @@ const ReaderSettings: React.FC = () => {
   const setThemeMode = useReaderStore((s) => s.setThemeMode);
   const quickStyle = useReaderStore((s) => s.quickStyle);
   const setQuickStyle = useReaderStore((s) => s.setQuickStyle);
+
+  const quickStyleColors: Record<string, { bg: string; text: string }> = {
+    none: { bg: "#faf9f7", text: "#1a1a1a" },
+    warm: { bg: "#fdf6e3", text: "#5c4b2c" },
+    cool: { bg: "#f0f4f8", text: "#2c3e50" },
+    slate: { bg: "#f5f5f5", text: "#374151" },
+  };
+  const qs = quickStyleColors[quickStyle] ?? quickStyleColors.none;
   const fontFamily = useReaderStore((s) => s.fontFamily);
   const setFontFamily = useReaderStore((s) => s.setFontFamily);
   const fontSize = useReaderStore((s) => s.fontSize);
@@ -20,9 +28,10 @@ const ReaderSettings: React.FC = () => {
   const resetTheme = useReaderStore((s) => s.resetTheme);
 
   const fontFamilies = [
-    { value: "system-ui", label: "System Default" },
+    { value: "Georgia, serif", label: "Georgia" },
     { value: "'Merriweather', Georgia, serif", label: "Merriweather" },
     { value: "'Inter', system-ui, sans-serif", label: "Inter" },
+    { value: "'JetBrains Mono', monospace", label: "JetBrains Mono" },
   ];
 
   const quickStyles: { value: "none" | "warm" | "cool" | "slate"; label: string }[] = [
@@ -153,29 +162,35 @@ const ReaderSettings: React.FC = () => {
       {/* Content width */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Content Width: {contentWidth}rem
+          Content Width: {contentWidth}px
         </label>
         <input
           type="range"
-          min="28"
-          max="56"
-          step="1"
+          min="400"
+          max="1200"
+          step="40"
           value={contentWidth}
           onChange={(e) => setContentWidth(parseInt(e.target.value))}
           className="w-64 h-1.5 bg-surface-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
         />
+        <div className="flex justify-between text-[11px] text-slate-400 mt-0.5 w-64">
+          <span>400px</span>
+          <span>1200px</span>
+        </div>
       </div>
 
       {/* Live preview */}
       <div className="pt-2 border-t border-border">
         <h4 className="text-sm font-medium text-slate-700 mb-2">Preview</h4>
         <div
-          className="p-4 rounded-lg border border-border bg-reader-bg"
+          className="p-4 rounded-lg border border-border"
           style={{
             fontFamily,
             fontSize: `${fontSize}px`,
             lineHeight,
-            maxWidth: `${contentWidth}rem`,
+            maxWidth: `${contentWidth}px`,
+            backgroundColor: qs.bg,
+            color: qs.text,
           }}
         >
           <h2 className="text-xl font-bold mb-2" style={{ fontFamily }}>
