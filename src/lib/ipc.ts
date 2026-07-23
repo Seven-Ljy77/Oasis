@@ -103,8 +103,11 @@ export const getEntryContent = (
 // Reader commands
 // ---------------------------------------------------------------------------
 
-export const buildReaderHTML = (entryUrl: string): Promise<{ html: string; theme_fingerprint: string }> =>
-  invoke("build_reader_html", { entryUrl });
+export const buildReaderHTML = (
+  entryUrl: string,
+  theme?: { fontFamily: string; fontSize: number; lineHeight: number; contentWidth: number },
+): Promise<{ html: string; theme_fingerprint: string }> =>
+  invoke("build_reader_html", { entryUrl, theme });
 
 export const getThemeTokens = (preset: ThemePreset): Promise<ThemeTokens> =>
   invoke<ThemeTokens>("get_theme_tokens", { preset });

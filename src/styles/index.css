@@ -167,3 +167,32 @@ body {
     transform: scale(1);
   }
 }
+
+/* Theme: Force Dark */
+.force-dark {
+  --color-surface: #1a1a1a;
+  --color-surface-secondary: #222222;
+  --color-surface-tertiary: #2a2a2a;
+  --color-surface-inverted: #f9fafb;
+  --color-border: #333333;
+}
+.force-dark body { background: #1a1a1a; color: #e8e6e3; }
+
+/* Theme: Force Eye Care (warm amber) */
+.force-eyecare {
+  --color-surface: #faf5e8;
+  --color-surface-secondary: #f5edd8;
+  --color-surface-tertiary: #efe3c8;
+  --color-border: #d4c5a0;
+}
+.force-eyecare body { background: #faf5e8; color: #4a3728; }
+
+/* Theme: Force Light (explicit light mode) */
+.force-light {
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-tertiary: #f3f4f6;
+  --color-surface-inverted: #111827;
+  --color-border: #e5e7eb;
+}
+.force-light body { background: #ffffff; color: #1a1a1a; }

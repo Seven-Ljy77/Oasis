@@ -30,13 +30,20 @@ const ReaderDetailView: React.FC = () => {
   const setBanner = useReaderStore((s) => s.setBanner);
   const markStarred = useEntryStore((s) => s.markStarred);
 
-  // Build reader HTML when entry selection changes
+  // Subscribe to theme fields
+  const fontFamily = useReaderStore((s) => s.fontFamily);
+  const fontSize = useReaderStore((s) => s.fontSize);
+  const lineHeight = useReaderStore((s) => s.lineHeight);
+  const contentWidth = useReaderStore((s) => s.contentWidth);
+
+  // Build reader HTML when entry or theme changes
   useEffect(() => {
     useReaderStore.setState({ translationHTML: null });
     if (entry?.url) {
-      buildReaderHTML(entry.url);
+      // Bypass cache on theme changes so new values take effect
+      buildReaderHTML(entry.url, true);
     }
-  }, [selectedEntryId]);
+  }, [selectedEntryId, fontFamily, fontSize, lineHeight, contentWidth]);
 
   const showPanel = (panel: typeof activePanel) => {
     setActivePanel(activePanel === panel ? null : panel);

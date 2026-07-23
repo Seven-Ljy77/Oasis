@@ -24,6 +24,7 @@ import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestShe
 import TagRenameSheet from "@/features/tags/TagRenameSheet";
 import TagMergeSheet from "@/features/tags/TagMergeSheet";
 import SplitPane from "@/components/ui/SplitPane";
+import { useResizableWidth } from "@/hooks/useResizableWidth";
 
 export const App: React.FC = () => {
   // ---- Bootstrap ----
@@ -74,6 +75,10 @@ export const App: React.FC = () => {
   // ---- Tag merge sheet props ----
   const mergeSourceTagId = useAppStore((s) => s.mergeSourceTagId);
   const mergeSourceTagName = useAppStore((s) => s.mergeSourceTagName);
+
+  // Draggable column widths
+  const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar", 280);
+  const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist", 400);
 
   const renderSheet = () => {
     switch (activeSheet) {
@@ -186,20 +191,22 @@ export const App: React.FC = () => {
 
       {/* ---- Three-column layout ---- */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: sidebar (280px) */}
-        <aside className="w-[280px] flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden">
+        {/* Left: sidebar (draggable width) */}
+        <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden">
           <SidebarView />
         </aside>
+        {sidebarDrag}
 
-        {/* Center + Right: split pane */}
-        <SplitPane minLeft={280} minRight={300} defaultLeftWidth={400}>
-          <div className="h-full overflow-hidden border-r border-border">
-            <EntryListView />
-          </div>
-          <div className="h-full overflow-hidden">
-            <ReaderDetailView />
-          </div>
-        </SplitPane>
+        {/* Center: entry list (draggable width) */}
+        <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border">
+          <EntryListView />
+        </div>
+        {centerDrag}
+
+        {/* Right: reader */}
+        <div className="flex-1 h-full overflow-hidden">
+          <ReaderDetailView />
+        </div>
       </div>
 
       {/* ---- Status bar ---- */}

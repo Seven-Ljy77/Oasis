@@ -201,7 +201,7 @@ export interface DigestSingleEntryProjection {
 
 export type ThemePreset = "classic" | "paper";
 
-export type ThemeMode = "auto" | "forceLight" | "forceDark";
+export type ThemeMode = "auto" | "eyecare" | "forceLight" | "forceDark";
 
 export interface ThemeTokens {
   fontFamily: string;

@@ -53,7 +53,7 @@ const EntryListView: React.FC = () => {
       search_text: searchText || undefined,
       limit: 50,
     });
-  }, [selectedFeedSelection, showUnreadOnly, selectedTagIds, tagMatchMode]);
+  }, [selectedFeedSelection, showUnreadOnly, selectedTagIds, tagMatchMode, searchText]);
 
   // Infinite scroll with IntersectionObserver
   const sentinelRef = useRef<HTMLDivElement>(null);

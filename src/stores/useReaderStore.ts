@@ -87,7 +87,7 @@ export interface ReaderState {
   setContentWidth: (width: number) => void;
   resetTheme: () => void;
 
-  buildReaderHTML: (entryUrl: string) => Promise<void>;
+  buildReaderHTML: (entryUrl: string, bypassCache?: boolean) => Promise<void>;
   buildTranslationHTML: (entryId: number, targetLang: string) => Promise<void>;
   setTranslationHTML: (html: string | null) => void;
 
@@ -191,8 +191,18 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   setThemePreset: (preset) => {
     const tokens = DEFAULT_THEME_TOKENS[preset];
     set({ themePreset: preset, themeTokens: tokens });
+    // Persist preference
+    try { localStorage.setItem("mercury-theme-preset", preset); } catch {}
   },
-  setThemeMode: (mode) => set({ themeMode: mode }),
+  setThemeMode: (mode) => {
+    set({ themeMode: mode });
+    const root = document.documentElement;
+    root.classList.remove("force-light", "force-dark", "force-eyecare");
+    if (mode === "forceLight") root.classList.add("force-light");
+    else if (mode === "forceDark") root.classList.add("force-dark");
+    else if (mode === "eyecare") root.classList.add("force-eyecare");
+    try { localStorage.setItem("mercury-theme-mode", mode); } catch {}
+  },
   setEffectiveTheme: (theme) => set({ effectiveTheme: theme }),
   setThemeTokens: (tokens) => set({ themeTokens: tokens }),
   setQuickStyle: (style) => set({ quickStyle: style }),
@@ -211,18 +221,26 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   }),
 
   // Content
-  buildReaderHTML: async (entryUrl) => {
-    // Check cache first — instant for recently viewed articles
+  buildReaderHTML: async (entryUrl, bypassCache?: boolean) => {
     const cache = get().readerCache;
-    const cached = cache.get(entryUrl);
-    if (cached) {
-      set({ readerHTML: cached, readerLoading: false });
-      return;
+    // Check cache first — instant for recently viewed articles
+    if (!bypassCache) {
+      const cached = cache.get(entryUrl);
+      if (cached) {
+        set({ readerHTML: cached, readerLoading: false });
+        return;
+      }
     }
 
     set({ readerLoading: true });
     try {
-      const result = await ipc.buildReaderHTML(entryUrl);
+      const theme = {
+        fontFamily: get().fontFamily,
+        fontSize: get().fontSize,
+        lineHeight: get().lineHeight,
+        contentWidth: get().contentWidth,
+      };
+      const result = await ipc.buildReaderHTML(entryUrl, theme);
       set({ readerHTML: result.html, readerLoading: false });
 
       // Cache the result (LRU: evict oldest if over 30 entries)

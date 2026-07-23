@@ -6,27 +6,27 @@ export default {
     extend: {
       colors: {
         accent: {
-          DEFAULT: "#2563eb",
-          hover: "#1d4ed8",
-          muted: "#dbeafe",
+          DEFAULT: "var(--color-accent)",
+          hover: "var(--color-accent-hover)",
+          muted: "var(--color-accent-muted)",
         },
         surface: {
-          DEFAULT: "#ffffff",
-          secondary: "#f9fafb",
-          tertiary: "#f3f4f6",
-          inverted: "#111827",
+          DEFAULT: "var(--color-surface)",
+          secondary: "var(--color-surface-secondary)",
+          tertiary: "var(--color-surface-tertiary)",
+          inverted: "var(--color-surface-inverted)",
         },
         border: {
-          DEFAULT: "#e5e7eb",
-          focus: "#2563eb",
+          DEFAULT: "var(--color-border)",
+          focus: "var(--color-border-focus)",
         },
         reader: {
-          bg: "#faf9f7",
-          "text-primary": "#1a1a1a",
-          "text-secondary": "#6b6b6b",
-          link: "#2563eb",
-          "blockquote-border": "#2563eb",
-          "code-bg": "#f3f4f6",
+          bg: "var(--color-reader-bg)",
+          "text-primary": "var(--color-reader-text-primary)",
+          "text-secondary": "var(--color-reader-text-secondary)",
+          link: "var(--color-reader-link)",
+          "blockquote-border": "var(--color-reader-blockquote-border)",
+          "code-bg": "var(--color-reader-code-bg)",
         },
       },
       fontFamily: {

@@ -31,8 +31,10 @@ export function useKeyboardShortcuts() {
       // Modifier-based shortcuts (Ctrl / Cmd)
       // ------------------------------------------------------------------
 
-      // Ctrl+F / Cmd+F: Open search
+      // Ctrl+F / Cmd+F: Open search (main page only)
       if (mod && e.key === "f") {
+        const { activeSheet } = useAppStore.getState();
+        if (activeSheet) return; // Don't open search when a sheet is visible
         e.preventDefault();
         setSearchOpen(true);
         return;
@@ -65,16 +67,21 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Escape: Close sheets/search (works even in editable fields)
+      if (e.key === "Escape") {
+        const { searchOpen, activeSheet, closeSheet } = useAppStore.getState();
+        if (searchOpen) {
+          setSearchOpen(false);
+        } else if (activeSheet) {
+          closeSheet();
+        }
+        return;
+      }
+
       // ------------------------------------------------------------------
       // Single-key shortcuts — skip when focus is in an editable field
       // ------------------------------------------------------------------
       if (isEditableTarget(e)) return;
-
-      // Escape: Close search
-      if (e.key === "Escape") {
-        setSearchOpen(false);
-        return;
-      }
 
       // J: Next entry
       if (e.key === "j" || e.key === "J") {
