@@ -82,6 +82,8 @@ const defaultSettings: AppSettings = {
   sync_concurrency: 4,
   usage_retention_months: 12,
   ai_tagging_enabled: false,
+  digest_export_folder: null,
+  digest_template: "default",
 };
 
 const initialState = {

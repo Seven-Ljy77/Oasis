@@ -255,6 +255,12 @@ const EntryListView: React.FC = () => {
                 </button>
                 <div className="border-t border-border my-1" />
                 <button
+                  onClick={() => { openSheet("exportDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+                >
+                  Export Digest
+                </button>
+                <button
                   onClick={() => { openSheet("exportMultipleDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
                 >

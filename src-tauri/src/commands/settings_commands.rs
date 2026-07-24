@@ -110,19 +110,22 @@ pub async fn test_provider_connection(
 #[tauri::command]
 pub async fn reveal_custom_template(
     _state: State<'_, AppState>,
-    _template_id: String,
+    template_id: String,
 ) -> Result<(), AppError> {
-    // Open the template file in the default text editor
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("Mercury")
         .join("prompts");
-    let path = data_dir.join(format!("{_template_id}.yaml"));
-    if path.exists() {
-        open::that(path).map_err(|e| {
-            AppError::Config(format!("Cannot open template file: {e}"))
-        })?;
+    std::fs::create_dir_all(&data_dir).ok();
+    let path = data_dir.join(format!("{template_id}"));
+    // Create default template if it doesn't exist
+    if !path.exists() {
+        let default = include_str!("../../resources/templates/single-markdown.yaml");
+        std::fs::write(&path, default)
+            .map_err(|e| AppError::Config(format!("Cannot create template: {e}")))?;
     }
+    open::that(&path)
+        .map_err(|e| AppError::Config(format!("Cannot open template file: {e}")))?;
     Ok(())
 }
 

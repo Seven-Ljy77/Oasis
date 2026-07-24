@@ -77,8 +77,8 @@ export const App: React.FC = () => {
   const mergeSourceTagName = useAppStore((s) => s.mergeSourceTagName);
 
   // Draggable column widths
-  const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar", 280);
-  const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist", 400);
+  const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar", 280, 180, 450);
+  const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist", 400, 280, 700);
 
   const renderSheet = () => {
     switch (activeSheet) {

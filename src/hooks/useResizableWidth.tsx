@@ -1,6 +1,12 @@
 import { useRef, useEffect, useCallback } from "react";
 
-export function useResizableWidth(side: "left" | "right", storageKey: string, defaultWidth: number = 280) {
+export function useResizableWidth(
+  side: "left" | "right",
+  storageKey: string,
+  defaultWidth: number = 280,
+  minWidth: number = 150,
+  maxWidth: number = 600,
+) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -9,14 +15,14 @@ export function useResizableWidth(side: "left" | "right", storageKey: string, de
       const saved = localStorage.getItem(`panel-width-${storageKey}`);
       if (saved) {
         const w = parseInt(saved);
-        if (w >= 100 && w <= 800) {
+        if (w >= minWidth && w <= maxWidth) {
           panelRef.current.style.width = `${w}px`;
           return;
         }
       }
     } catch {}
     panelRef.current.style.width = `${defaultWidth}px`;
-  }, [storageKey, defaultWidth]);
+  }, [storageKey, defaultWidth, minWidth, maxWidth]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const panel = panelRef.current;
@@ -30,8 +36,8 @@ export function useResizableWidth(side: "left" | "right", storageKey: string, de
     const onMove = (ev: PointerEvent) => {
       const dx = ev.clientX - startX;
       const w = side === "left"
-        ? Math.max(100, Math.min(800, startW + dx))
-        : Math.max(100, Math.min(800, startW - dx));
+        ? Math.max(minWidth, Math.min(maxWidth, startW + dx))
+        : Math.max(minWidth, Math.min(maxWidth, startW - dx));
       panel.style.width = `${w}px`;
     };
 

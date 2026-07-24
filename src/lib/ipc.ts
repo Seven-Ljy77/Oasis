@@ -314,6 +314,18 @@ export const getTagsForEntry = (entryId: number): Promise<TagInfo[]> =>
 // Digest commands
 // ---------------------------------------------------------------------------
 
+export const shareDigest = (entryId: number): Promise<string> =>
+  invoke<string>("share_digest", { entryId });
+
+export const exportDigest = (entryId: number, path: string): Promise<void> =>
+  invoke<void>("export_digest", { entryId, path });
+
+export const exportMultipleDigest = (entryIds: number[], path: string): Promise<void> =>
+  invoke<void>("export_multiple_digest", { entryIds, path });
+
+export const revealCustomTemplate = (templateId: string): Promise<void> =>
+  invoke<void>("reveal_custom_template", { templateId });
+
 export const getDigestEntries = (
   feedIds?: number[],
   dateRange?: { start: string; end: string },

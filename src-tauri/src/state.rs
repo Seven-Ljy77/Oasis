@@ -51,6 +51,14 @@ pub struct AppConfig {
     /// Whether AI-powered tagging is enabled globally.
     #[serde(default)]
     pub ai_tagging_enabled: bool,
+
+    /// Default folder for digest exports.
+    #[serde(default)]
+    pub digest_export_folder: Option<String>,
+
+    /// Selected digest export template.
+    #[serde(default = "default_digest_template")]
+    pub digest_template: String,
 }
 
 fn default_language() -> String {
@@ -61,6 +69,10 @@ fn default_sync_concurrency() -> u32 {
     6
 }
 
+fn default_digest_template() -> String {
+    "default".into()
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -68,6 +80,8 @@ impl Default for AppConfig {
             sync_concurrency: default_sync_concurrency(),
             usage_retention_months: None,
             ai_tagging_enabled: false,
+            digest_export_folder: None,
+            digest_template: default_digest_template(),
         }
     }
 }

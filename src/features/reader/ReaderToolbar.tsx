@@ -3,6 +3,7 @@ import { useAppStore } from "@/stores/useAppStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import ReadingModePicker from "./ReadingModePicker";
 import ThemeSwitcher from "./ThemeSwitcher";
+import { openInBrowser } from "@/lib/ipc";
 import type { ReaderPanel } from "@/lib/types";
 
 interface ReaderToolbarProps {
@@ -36,12 +37,14 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
 
   const [shareOpen, setShareOpen] = useState(false);
 
-  const handleShare = (action: "copy" | "browser") => {
+  const handleShare = (action: "copy" | "browser" | "digest") => {
     setShareOpen(false);
     if (action === "copy") {
       navigator.clipboard.writeText(entryUrl);
+    } else if (action === "digest") {
+      useAppStore.getState().openSheet("shareDigest");
     } else {
-      window.open(entryUrl, "_blank");
+      openInBrowser(entryUrl);
     }
   };
 
@@ -176,12 +179,18 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
           </svg>
         </button>
         {shareOpen && (
-          <div className="absolute right-0 top-full mt-1 w-40 bg-surface border border-border rounded-lg shadow-lg py-1 z-50">
+          <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-lg shadow-lg py-1 z-50">
             <button
               onClick={() => handleShare("copy")}
               className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
             >
               Copy Link
+            </button>
+            <button
+              onClick={() => handleShare("digest")}
+              className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
+            >
+              Copy Digest
             </button>
             <button
               onClick={() => handleShare("browser")}

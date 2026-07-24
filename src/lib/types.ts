@@ -289,6 +289,8 @@ export interface AppSettings {
   sync_concurrency: number;
   usage_retention_months: number | null;
   ai_tagging_enabled: boolean;
+  digest_export_folder: string | null;
+  digest_template: string;
 }
 
 // -----------------------------------------------------------------------------

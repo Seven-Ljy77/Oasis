@@ -1,4 +1,8 @@
 import React, { useState } from "react";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { exportMultipleDigest } from "@/lib/ipc";
+import { save } from "@tauri-apps/plugin-dialog";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 
@@ -7,169 +11,91 @@ interface ExportMultipleDigestSheetProps {
   onClose: () => void;
 }
 
-const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({
-  open,
-  onClose,
-}) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const [digestTitle, setDigestTitle] = useState(`Digest ${today}`);
-  const [filename, setFilename] = useState(`digest-${today}`);
-  const [exportPath, setExportPath] = useState("C:/Users/Documents/Mercury/Digests");
-  const [includeSummary, setIncludeSummary] = useState(true);
-  const [includeNote, setIncludeNote] = useState(true);
+const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ open, onClose }) => {
+  const entries = useEntryStore((s) => s.entries);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
-  // Placeholder selected entries
-  const selectedEntries = [
-    { id: 1, title: "Getting Started with Rust and Tauri", author: "Jane Doe", note: "Great intro article" },
-    { id: 2, title: "TypeScript 5.7 Released: What's New", author: null, note: "" },
-    { id: 3, title: "Understanding React Server Components", author: "Alex Chen", note: "Must read for RSC migration" },
-  ];
-
-  const buildMarkdown = () => {
-    let md = `# ${digestTitle}\n\n`;
-    md += `*Generated on ${new Date().toLocaleDateString()}*\n\n`;
-    md += `---\n\n`;
-
-    selectedEntries.forEach((entry, idx) => {
-      md += `## ${idx + 1}. ${entry.title}\n\n`;
-      if (entry.author) md += `*by ${entry.author}*\n\n`;
-      if (includeSummary) {
-        md += `Summary: Placeholder summary for "${entry.title}".\n\n`;
-      }
-      if (includeNote && entry.note) {
-        md += `> **Note:** ${entry.note}\n\n`;
-      }
-      md += `---\n\n`;
-    });
-
-    md += `*Exported by Mercury v0.1.0*`;
-    return md;
+  const toggle = (id: number) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
   };
 
-  const markdown = buildMarkdown();
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(markdown);
+  const selectAll = () => {
+    if (selected.size === entries.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(entries.map((e) => e.id)));
+    }
   };
 
-  const handleExport = () => {
-    // TODO: invoke Tauri export command
-    console.log("Export multiple to:", `${exportPath}/${filename}.md`);
+  const entryIds = Array.from(selected);
+
+  const handleExport = async () => {
+    if (entryIds.length === 0) return;
+    setExporting(true);
+    try {
+      const date = new Date().toISOString().slice(0, 10);
+      const exportFolder = useSettingsStore.getState().settings.digest_export_folder;
+      const filename = `digest-${date}.md`;
+      const defaultPath = exportFolder
+        ? `${exportFolder.replace(/[/\\]$/, "")}/${filename}`
+        : filename;
+      const filePath = await save({
+        defaultPath,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (filePath) {
+        await exportMultipleDigest(entryIds, filePath);
+        onClose();
+      }
+    } catch (e) {
+      console.error("Export failed:", e);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Export Multiple Digest" width="640px">
+    <Sheet open={open} onClose={onClose} title="Export Multiple Digest" width="550px">
       <div className="space-y-4">
-        {/* Selected entries */}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Selected Articles ({selectedEntries.length})
-          </label>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {selectedEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-center gap-2 px-2 py-1 bg-surface-secondary rounded text-xs"
-              >
-                <span className="w-4 h-4 rounded-full bg-accent-muted text-accent flex items-center justify-center text-[10px] font-medium flex-shrink-0">
-                  {entry.id}
-                </span>
-                <span className="text-slate-700 truncate flex-1">{entry.title}</span>
-                {entry.author && (
-                  <span className="text-slate-400 flex-shrink-0">{entry.author}</span>
-                )}
-              </div>
-            ))}
-          </div>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-600">
+            {entryIds.length} selected
+          </p>
+          <button onClick={selectAll} className="text-xs text-accent hover:underline">
+            {selected.size === entries.length ? "Deselect All" : "Select All"}
+          </button>
         </div>
 
-        {/* Digest title */}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Digest Title
-          </label>
-          <input
-            type="text"
-            value={digestTitle}
-            onChange={(e) => setDigestTitle(e.target.value)}
-            className="w-full h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
-          />
+        <div className="max-h-64 overflow-y-auto border border-border rounded">
+          {entries.map((e) => (
+            <label
+              key={e.id}
+              className={`flex items-center gap-3 px-3 py-2 border-b border-border/50 text-sm cursor-pointer hover:bg-surface-tertiary ${
+                selected.has(e.id) ? "bg-accent-muted" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(e.id)}
+                onChange={() => toggle(e.id)}
+                className="rounded w-3.5 h-3.5"
+              />
+              <span className="truncate">{e.title ?? "Untitled"}</span>
+            </label>
+          ))}
+          {entries.length === 0 && (
+            <p className="px-3 py-4 text-sm text-slate-400 text-center">No articles loaded.</p>
+          )}
         </div>
 
-        {/* Export filename */}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Export Filename
-          </label>
-          <div className="flex items-center gap-1">
-            <input
-              type="text"
-              value={filename}
-              onChange={(e) => setFilename(e.target.value)}
-              className="flex-1 h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
-            />
-            <span className="text-sm text-slate-400">.md</span>
-          </div>
-        </div>
-
-        {/* Export path */}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Export Folder
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              readOnly
-              value={exportPath}
-              className="flex-1 h-8 px-2 text-sm rounded-md border border-border bg-surface-secondary text-slate-500 text-xs"
-            />
-            <Button variant="secondary" size="sm">Choose...</Button>
-          </div>
-        </div>
-
-        {/* Include toggles */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeSummary}
-              onChange={(e) => setIncludeSummary(e.target.checked)}
-              className="rounded border-slate-300 text-accent w-3.5 h-3.5"
-            />
-            <span className="text-sm text-slate-700">Include summaries</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeNote}
-              onChange={(e) => setIncludeNote(e.target.checked)}
-              className="rounded border-slate-300 text-accent w-3.5 h-3.5"
-            />
-            <span className="text-sm text-slate-700">Include notes</span>
-          </label>
-        </div>
-
-        {/* Live preview */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Preview
-          </label>
-          <div className="p-3 bg-surface-secondary rounded-lg border border-border text-xs text-slate-600 whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
-            {markdown}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="secondary" size="md" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="secondary" size="md" onClick={handleCopy}>
-            Copy
-          </Button>
-          <Button variant="primary" size="md" onClick={handleExport}>
-            Export
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleExport} disabled={exporting || entryIds.length === 0}>
+            {exporting ? "Exporting..." : `Export ${entryIds.length} Articles`}
           </Button>
         </div>
       </div>

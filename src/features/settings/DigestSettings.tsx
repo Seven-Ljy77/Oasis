@@ -4,6 +4,8 @@
 
 import React from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { revealCustomTemplate } from "@/lib/ipc";
+import { Button } from "@/components/ui/Button";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export interface DigestSettingsProps {
@@ -16,13 +18,8 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
   const saveSettingsFn = useSettingsStore((s) => s.saveSettings);
   const save = () => saveSettingsFn(useSettingsStore.getState().settings);
 
-  const [exportFolder, setExportFolder] = React.useState("");
-  const [templateName, setTemplateName] = React.useState("default");
-  const [includeAuthor, setIncludeAuthor] = React.useState(true);
-  const [includeDate, setIncludeDate] = React.useState(true);
-  const [includeSummary, setIncludeSummary] = React.useState(true);
-  const [includeSourceUrl, setIncludeSourceUrl] = React.useState(true);
-
+  const exportFolder = settings.digest_export_folder ?? "";
+  const templateName = settings.digest_template ?? "default";
   const templates = [
     { value: "default", label: "Default" },
     { value: "minimal", label: "Minimal" },
@@ -44,14 +41,20 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
           <input
             type="text"
             value={exportFolder}
-            onChange={(e) => setExportFolder(e.target.value)}
+            onChange={(e) => {
+              updateSetting("digest_export_folder", e.target.value);
+              save();
+            }}
             placeholder="Select export folder..."
             className="flex-1 h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none truncate"
           />
           <button
             onClick={async () => {
               const selected = await open({ directory: true, multiple: false });
-              if (selected) setExportFolder(selected as string);
+              if (selected) {
+                updateSetting("digest_export_folder", selected as string);
+                save();
+              }
             }}
             className="px-3 py-1 text-xs font-medium rounded border border-border bg-surface hover:bg-surface-secondary text-slate-600 transition-colors whitespace-nowrap"
           >
@@ -67,7 +70,10 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
         </label>
         <select
           value={templateName}
-          onChange={(e) => setTemplateName(e.target.value)}
+          onChange={(e) => {
+            updateSetting("digest_template", e.target.value);
+            save();
+          }}
           className="w-full h-8 px-2 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
         >
           {templates.map((t) => (
@@ -81,68 +87,29 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
         </p>
       </div>
 
-      {/* Template customization section */}
+      {/* Template customization */}
       <div className="pt-3 border-t border-border">
         <h3 className="text-sm font-semibold text-slate-700 mb-3">
           Template Customization
         </h3>
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeAuthor}
-              onChange={(e) => setIncludeAuthor(e.target.checked)}
-              className="rounded border-slate-300 text-accent w-4 h-4"
-            />
-            <span className="text-sm text-slate-600">Include article author</span>
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeDate}
-              onChange={(e) => setIncludeDate(e.target.checked)}
-              className="rounded border-slate-300 text-accent w-4 h-4"
-            />
-            <span className="text-sm text-slate-600">Include publication date</span>
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeSummary}
-              onChange={(e) => setIncludeSummary(e.target.checked)}
-              className="rounded border-slate-300 text-accent w-4 h-4"
-            />
-            <span className="text-sm text-slate-600">Include article summary</span>
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeSourceUrl}
-              onChange={(e) => setIncludeSourceUrl(e.target.checked)}
-              className="rounded border-slate-300 text-accent w-4 h-4"
-            />
-            <span className="text-sm text-slate-600">Include source URL</span>
-          </label>
-        </div>
-      </div>
-
-      {/* Template preview placeholder */}
-      <div className="pt-3 border-t border-border">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">
-          Template Preview
-        </h3>
-        <div className="p-3 rounded-lg border border-border bg-surface-secondary text-xs text-slate-500 font-mono whitespace-pre-wrap">
-          {`---\nTitle: {{ digest_title }}\nDate: {{ export_date }}\n---\n\n`}
-          {`{{# each entries }}\n## {{ title }}`}
-          {includeAuthor ? `\n*By {{ author }}*` : ""}
-          {includeDate ? `\n*Published: {{ published_at }}*` : ""}
-          {includeSummary ? `\n\n{{ summary }}` : ""}
-          {includeSourceUrl ? `\n\n[Read original]({{ url }})` : ""}
-          {`\n\n{{/ each }}`}
-        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          Export templates are YAML files. Edit them with your preferred text editor
+          to customize the layout and formatting of exported digests.
+        </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            // Map template name to template ID for revealing
+            const id = templateName === "default" ? "single-markdown" : templateName;
+            revealCustomTemplate(`${id}.yaml`);
+          }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open Template File
+        </Button>
       </div>
     </div>
   );
