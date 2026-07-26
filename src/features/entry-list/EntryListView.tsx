@@ -6,7 +6,7 @@ import { useTagStore } from "@/stores/useTagStore";
 import { useSidebarStore } from "@/stores/useSidebarStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useI18n } from "@/lib/i18n";
-import { recalculateTagCounts, markAllRead, deleteAllEntries } from "@/lib/ipc";
+import { recalculateTagCounts, markAllRead } from "@/lib/ipc";
 import EntryRow from "./EntryRow";
 import MultiSelectToolbar from "./MultiSelectToolbar";
 import Button from "@/components/ui/Button";
@@ -167,16 +167,25 @@ const EntryListView: React.FC = () => {
   const allFeeds = useFeedStore((s) => s.feeds);
 
   const handleDeleteSelected = async () => {
-    const scopeLabel = selectedFeedSelection.type === "feed" ? "this feed" : "current view";
-    if (!window.confirm(`Delete ALL articles in ${scopeLabel}? This cannot be undone.`)) return;
+    if (!window.confirm("Delete ALL feeds and ALL articles? This cannot be undone.")) return;
 
-    const query = buildCurrentQuery();
-    await deleteAllEntries(query);
+    // Delete all feeds (cascades to entries)
+    for (const feed of allFeeds) {
+      await deleteFeedFromStore(feed.id);
+    }
+
+    // Recalculate tag counts and reload
     await recalculateTagCounts();
     await loadTags();
+    useSidebarStore.getState().loadCounts();
     clearEntries();
+    selectFeedGlobal({ type: "all" });
     loadFirstPage({
-      ...query,
+      feed_id: undefined,
+      unread_only: showUnreadOnly,
+      tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      tag_match_mode: tagMatchMode,
+      search_text: searchText || undefined,
       limit: 50,
     });
   };

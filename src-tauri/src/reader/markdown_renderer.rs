@@ -8,11 +8,21 @@
 use crate::error::AppError;
 use crate::reader::theme::ThemeTokens;
 
+/// Minimal HTML-escape for attribute values (only `"` matters inside href).
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 /// Render a Markdown string into a full reader HTML document themed with the
-/// given `ThemeTokens`.
+/// given `ThemeTokens`. When `base_url` is provided, a `<base href="...">` tag
+/// is injected so that relative URLs (images, links) resolve correctly.
 pub fn markdown_to_reader_html(
     markdown: &str,
     theme: &ThemeTokens,
+    base_url: Option<&str>,
 ) -> Result<String, AppError> {
     // Configure comrak for GFM-flavoured Markdown.
     let mut options = comrak::ComrakOptions::default();
@@ -24,6 +34,11 @@ pub fn markdown_to_reader_html(
     let body_html = comrak::markdown_to_html(markdown, &options);
     let theme_css = theme.to_css();
 
+    // Build the base tag if a URL is provided.
+    let base_tag = base_url
+        .map(|url| format!("<base href=\"{}\">", html_escape(url)))
+        .unwrap_or_default();
+
     // Build a self-contained HTML document.
     let document = format!(
         r#"<!DOCTYPE html>
@@ -31,6 +46,7 @@ pub fn markdown_to_reader_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+{base_tag}
 <style>
 {theme_css}
 

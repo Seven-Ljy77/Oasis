@@ -130,16 +130,26 @@ export interface ReaderState {
 // Initial state
 // ---------------------------------------------------------------------------
 
+/// Load a persisted value from localStorage, returning the default if missing.
+function loadPref<T>(key: string, parse: (raw: string) => T, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw !== null ? parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const initialState = {
-  themePreset: DEFAULT_THEME_PRESET,
-  themeMode: "auto" as ThemeMode,
+  themePreset: loadPref("mercury-theme-preset", (v) => v as ThemePreset, DEFAULT_THEME_PRESET),
+  themeMode: loadPref("mercury-theme-mode", (v) => v as ThemeMode, "auto" as ThemeMode),
   effectiveTheme: "light" as "light" | "dark",
   themeTokens: DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET],
-  quickStyle: "none" as string,
-  fontFamily: "Georgia, serif" as string,
-  fontSize: 16 as number,
-  lineHeight: 1.8 as number,
-  contentWidth: 720 as number,
+  quickStyle: loadPref("mercury-quick-style", (v) => v, "none"),
+  fontFamily: loadPref("mercury-font-family", (v) => v, "Georgia, serif"),
+  fontSize: loadPref("mercury-font-size", (v) => Number(v) || 16, 16),
+  lineHeight: loadPref("mercury-line-height", (v) => Number(v) || 1.8, 1.8),
+  contentWidth: loadPref("mercury-content-width", (v) => Number(v) || 720, 720),
 
   readerHTML: null as string | null,
   readerLoading: false,
@@ -210,11 +220,26 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   },
   setEffectiveTheme: (theme) => set({ effectiveTheme: theme }),
   setThemeTokens: (tokens) => set({ themeTokens: tokens }),
-  setQuickStyle: (style) => set({ quickStyle: style }),
-  setFontFamily: (font) => set({ fontFamily: font }),
-  setFontSize: (size) => set({ fontSize: size }),
-  setLineHeight: (lh) => set({ lineHeight: lh }),
-  setContentWidth: (width) => set({ contentWidth: width }),
+  setQuickStyle: (style) => {
+    set({ quickStyle: style });
+    try { localStorage.setItem("mercury-quick-style", style); } catch {}
+  },
+  setFontFamily: (font) => {
+    set({ fontFamily: font });
+    try { localStorage.setItem("mercury-font-family", font); } catch {}
+  },
+  setFontSize: (size) => {
+    set({ fontSize: size });
+    try { localStorage.setItem("mercury-font-size", String(size)); } catch {}
+  },
+  setLineHeight: (lh) => {
+    set({ lineHeight: lh });
+    try { localStorage.setItem("mercury-line-height", String(lh)); } catch {}
+  },
+  setContentWidth: (width) => {
+    set({ contentWidth: width });
+    try { localStorage.setItem("mercury-content-width", String(width)); } catch {}
+  },
   resetTheme: () => set({
     themePreset: DEFAULT_THEME_PRESET,
     themeTokens: DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET],

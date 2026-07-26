@@ -25,8 +25,12 @@ impl OpmlImporter {
     pub fn import(path: &str) -> Result<Vec<OpmlOutline>, AppError> {
         let xml = std::fs::read_to_string(path)
             .map_err(|e| AppError::Unknown(format!("Failed to read OPML file: {}", e)))?;
+        Self::parse_xml(&xml)
+    }
 
-        let mut reader = Reader::from_str(&xml);
+    /// Parse an OPML XML string and return the list of feed outlines.
+    pub fn parse_xml(xml: &str) -> Result<Vec<OpmlOutline>, AppError> {
+        let mut reader = Reader::from_str(xml);
 
         let mut outlines = Vec::new();
         let mut buf = Vec::new();

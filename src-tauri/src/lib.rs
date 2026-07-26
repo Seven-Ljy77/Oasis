@@ -65,6 +65,25 @@ pub fn run() {
         entry_store.clone(),
     ));
 
+    // Kick off first-run bootstrap in a background thread (does nothing if DB non-empty).
+    let bs_feed = feed_store.clone();
+    let bs_entry = entry_store.clone();
+    let bs_logger = logger.clone();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("bootstrap runtime");
+        rt.block_on(async {
+            match crate::feed::bootstrap::bootstrap_if_needed(bs_feed, bs_entry).await {
+                Ok(result) if result.is_first_run => {
+                    let _ = bs_logger.info("bootstrap", &format!("Imported {} default feeds", result.default_feeds_added));
+                }
+                Err(e) => {
+                    let _ = bs_logger.error("bootstrap_failed", &format!("{}", e));
+                }
+                _ => {}
+            }
+        });
+    });
+
     let app_state = AppState {
         db,
         feed_store,

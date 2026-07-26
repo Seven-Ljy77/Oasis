@@ -129,7 +129,7 @@ async fn try_build_from_cache(
     {
         let markdown = cached.markdown.as_deref().unwrap_or("");
         let html =
-            crate::reader::markdown_renderer::markdown_to_reader_html(markdown, theme)?;
+            crate::reader::markdown_renderer::markdown_to_reader_html(markdown, theme, Some(_entry_url))?;
         return Ok(ReaderHTML {
             html,
             theme_fingerprint: String::new(),

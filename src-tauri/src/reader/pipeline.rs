@@ -87,7 +87,7 @@ impl DefaultReaderPipeline {
 
         // 4. Render Markdown to themed reader HTML.
         let reader_html =
-            crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme)?;
+            crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, Some(entry_url))?;
 
         Ok(ReaderHTML {
             html: reader_html,
@@ -136,7 +136,7 @@ impl DefaultReaderPipeline {
 
         // 6. Render Markdown to themed reader HTML.
         let reader_html =
-            crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme)?;
+            crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, None)?;
 
         Ok(ReaderHTML {
             html: reader_html,
@@ -188,7 +188,7 @@ impl DefaultReaderPipeline {
                     .await?;
 
                 let html =
-                    crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme)?;
+                    crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, None)?;
                 Ok(ReaderHTML {
                     html,
                     theme_fingerprint: String::new(),
@@ -215,7 +215,7 @@ impl DefaultReaderPipeline {
                     .await?;
 
                 let html =
-                    crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme)?;
+                    crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, None)?;
                 Ok(ReaderHTML {
                     html,
                     theme_fingerprint: String::new(),
@@ -279,6 +279,6 @@ impl ReaderPipeline for DefaultReaderPipeline {
     fn render_html(&self, markdown: &str, _theme_css: &str) -> Result<String, AppError> {
         // Use default theme tokens when only a CSS string is provided.
         let theme = ThemeTokens::default();
-        crate::reader::markdown_renderer::markdown_to_reader_html(markdown, &theme)
+        crate::reader::markdown_renderer::markdown_to_reader_html(markdown, &theme, None)
     }
 }
