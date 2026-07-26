@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useI18n } from "@/lib/i18n";
 import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { getNote, saveNote } from "@/lib/ipc";
 
@@ -16,6 +17,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   maxLength = 10000,
   className = "",
 }) => {
+  const { t } = useI18n();
   const { panelRef, dragHandle } = useResizableHeight("note", 200);
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const [text, setText] = useState("");
@@ -88,9 +90,9 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   };
 
   const saveStatusLabel = {
-    idle: "Auto-save in 5s",
-    saving: "Saving...",
-    saved: "Saved",
+    idle: t.note.idle || "Auto-save in 5s",
+    saving: t.note.saving,
+    saved: t.note.saved,
     error: "Save error",
   }[saveStatus];
 
@@ -111,7 +113,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
         </svg>
-        <span>Article Note</span>
+        <span>{t.note.title}</span>
         {text && <span className="w-2 h-2 rounded-full bg-accent ml-auto" />}
       </button>
     );
@@ -132,7 +134,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        <h3 className="text-sm font-semibold text-slate-700">Article Note</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t.note.title}</h3>
 
         <div className="flex-1" />
 
@@ -149,7 +151,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
           disabled={saveStatus === "saving"}
           className="px-2 py-0.5 text-xs font-medium rounded bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
         >
-          Save
+          {t.note.save}
         </button>
 
         {onClose && (
@@ -169,13 +171,13 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
         <textarea
           value={text}
           onChange={handleChange}
-          placeholder="Write your notes in Markdown..."
+          placeholder={t.note.placeholder}
           className="w-full h-full min-h-[120px] resize-none bg-transparent text-sm text-slate-700 placeholder-slate-400 focus:outline-none leading-relaxed"
         />
       </div>
 
       <div className="px-3 py-1.5 border-t border-border/50 bg-surface-secondary text-[10px] text-slate-400">
-        Supports Markdown formatting
+        {t.note.characters}
       </div>
     </div>
   );

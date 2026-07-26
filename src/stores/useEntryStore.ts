@@ -8,6 +8,7 @@ import type {
   EntryListQuery,
   PageCursor,
 } from "@/lib/types";
+import { useSidebarStore } from "./useSidebarStore";
 import * as ipc from "@/lib/ipc";
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ export const useEntryStore = create<EntryState>()((set, get) => {
         set({ error: message });
         // TODO: rollback optimistic update
       }
+      useSidebarStore.getState().loadCounts();
     },
 
     markStarred: async (entryId, isStarred) => {
@@ -134,6 +136,7 @@ export const useEntryStore = create<EntryState>()((set, get) => {
         set({ error: message });
         // TODO: rollback optimistic update
       }
+      useSidebarStore.getState().loadCounts();
     },
 
     deleteEntry: async (entryId) => {
@@ -154,6 +157,7 @@ export const useEntryStore = create<EntryState>()((set, get) => {
         set({ error: message });
         // TODO: rollback optimistic removal by reloading page
       }
+      useSidebarStore.getState().loadCounts();
     },
 
     selectEntry: (entryId) =>

@@ -54,6 +54,44 @@ pub enum ThemeMode {
 }
 
 impl ThemeTokens {
+    /// Dark theme preset — swaps all colors for comfortable reading on dark backgrounds.
+    pub fn dark() -> Self {
+        Self {
+            font_family: "Georgia, serif".into(),
+            font_size: 16,
+            line_height: 1.8,
+            max_width: 720,
+            background_color: "#1a1b1e".into(),
+            primary_text_color: "#e2e2e2".into(),
+            secondary_text_color: "#9ca3af".into(),
+            link_color: "#93c5fd".into(),
+            blockquote_border_color: "#4b5563".into(),
+            code_background_color: "#2d2d2d".into(),
+            paragraph_spacing: 1.25,
+            heading_scale: 1.3,
+            code_border_radius: 6.0,
+        }
+    }
+
+    /// Eye-care / warm amber theme — reduced blue light.
+    pub fn eyecare() -> Self {
+        Self {
+            font_family: "Georgia, serif".into(),
+            font_size: 16,
+            line_height: 1.8,
+            max_width: 720,
+            background_color: "#f5e6d3".into(),
+            primary_text_color: "#4a3728".into(),
+            secondary_text_color: "#7a6a5c".into(),
+            link_color: "#2563eb".into(),
+            blockquote_border_color: "#b8956a".into(),
+            code_background_color: "#ede0cc".into(),
+            paragraph_spacing: 1.25,
+            heading_scale: 1.3,
+            code_border_radius: 6.0,
+        }
+    }
+
     /// Generate CSS from theme tokens for injection into reader HTML.
     pub fn to_css(&self) -> String {
         format!(

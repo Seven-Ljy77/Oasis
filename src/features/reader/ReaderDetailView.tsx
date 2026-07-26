@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { useI18n } from "@/lib/i18n";
 import ReaderToolbar from "./ReaderToolbar";
 import ReaderWebView from "./ReaderWebView";
 import ReaderSummaryPanel from "./ReaderSummaryPanel";
@@ -11,6 +12,7 @@ import ReaderNotePanel from "./ReaderNotePanel";
 import Button from "@/components/ui/Button";
 
 const ReaderDetailView: React.FC = () => {
+  const { t } = useI18n();
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const readingMode = useAppStore((s) => s.readingMode);
 
@@ -36,14 +38,17 @@ const ReaderDetailView: React.FC = () => {
   const lineHeight = useReaderStore((s) => s.lineHeight);
   const contentWidth = useReaderStore((s) => s.contentWidth);
   const quickStyle = useReaderStore((s) => s.quickStyle);
+  const themeMode = useReaderStore((s) => s.themeMode);
 
   // Build reader HTML when entry or theme changes
   useEffect(() => {
     useReaderStore.setState({ translationHTML: null });
-    if (entry?.url) {
-      buildReaderHTML(entry.url, true);
+    if (entry?.url && entry?.id) {
+      buildReaderHTML(entry.url, entry.id, true);
+    } else if (entry?.url) {
+      buildReaderHTML(entry.url, undefined, true);
     }
-  }, [selectedEntryId, fontFamily, fontSize, lineHeight, contentWidth, quickStyle]);
+  }, [selectedEntryId, fontFamily, fontSize, lineHeight, contentWidth, quickStyle, themeMode]);
 
   const showPanel = (panel: typeof activePanel) => {
     setActivePanel(activePanel === panel ? null : panel);
@@ -67,10 +72,10 @@ const ReaderDetailView: React.FC = () => {
           />
         </svg>
         <h3 className="text-base font-medium text-slate-500 mb-1">
-          No article selected
+          {t.common.noData}
         </h3>
         <p className="text-sm text-slate-400">
-          Select an article from the list to start reading.
+          {t.reader.selectArticle}
         </p>
       </div>
     );
@@ -132,7 +137,7 @@ const ReaderDetailView: React.FC = () => {
             navigator.clipboard.writeText(entry.url ?? "");
           }}
           className="p-0.5 rounded hover:bg-surface-tertiary hover:text-slate-600 transition-colors"
-          title="Copy link"
+          title={t.reader.copyLink}
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />

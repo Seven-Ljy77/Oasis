@@ -206,18 +206,22 @@ pub async fn probe_feed(
 
 #[tauri::command]
 pub async fn import_opml(
+    app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     path: String,
     replace: bool,
     force_site_name: bool,
+    concurrency: Option<u32>,
 ) -> Result<ImportResult, AppError> {
     let outlines = OpmlImporter::import(&path)?;
     OpmlImporter::import_into_db(
         &outlines,
         replace,
         force_site_name,
-        &state.feed_store,
-        &state.entry_store,
+        concurrency.unwrap_or(4),
+        state.feed_store.clone(),
+        state.entry_store.clone(),
+        app_handle,
     )
     .await
 }
@@ -229,4 +233,16 @@ pub async fn export_opml(
 ) -> Result<(), AppError> {
     let feeds = state.feed_store.load_all().await?;
     OpmlExporter::export(&feeds, &path)
+}
+
+#[tauri::command]
+pub async fn get_sidebar_projection(
+    state: State<'_, AppState>,
+) -> Result<crate::feed::sidebar_counts::SidebarProjection, AppError> {
+    tokio::task::spawn_blocking({
+        let db = state.db.clone();
+        move || crate::feed::sidebar_counts::compute_projection(&db)
+    })
+    .await
+    .map_err(|e| AppError::Unknown(format!("{e}")))?
 }

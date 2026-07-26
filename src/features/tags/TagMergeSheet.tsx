@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTagStore } from "@/stores/useTagStore";
+import { useI18n } from "@/lib/i18n";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import type { TagInfo } from "@/lib/types";
@@ -13,6 +14,7 @@ interface TagMergeSheetProps {
 }
 
 const TagMergeSheet: React.FC<TagMergeSheetProps> = ({ open, onClose, sourceTagId, sourceTagName, tags }) => {
+  const { t } = useI18n();
   const [searchText, setSearchText] = useState("");
   const [targetTagId, setTargetTagId] = useState<number | null>(null);
   const mergeTag = useTagStore((s) => s.mergeTag);
@@ -30,7 +32,7 @@ const TagMergeSheet: React.FC<TagMergeSheetProps> = ({ open, onClose, sourceTagI
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Merge Tag" width="400px">
+    <Sheet open={open} onClose={onClose} title={t.tagLibrary.mergeInto} width="400px">
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Source Tag</label>
@@ -39,10 +41,10 @@ const TagMergeSheet: React.FC<TagMergeSheetProps> = ({ open, onClose, sourceTagI
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Target Tag (all articles will be moved here)
+            {t.tagLibrary.mergeInto} (all articles will be moved here)
           </label>
           <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search tags..." autoFocus
+            placeholder={t.tagLibrary.search} autoFocus
             className="w-full h-8 px-3 text-sm rounded-md border border-border bg-surface focus:border-accent focus:outline-none mb-2" />
           <div className="max-h-40 overflow-y-auto border border-border rounded-md">
             {availableTargets.map(t => (
@@ -56,14 +58,14 @@ const TagMergeSheet: React.FC<TagMergeSheetProps> = ({ open, onClose, sourceTagI
               </button>
             ))}
             {availableTargets.length === 0 && (
-              <div className="px-3 py-4 text-center text-xs text-slate-400">No matching tags</div>
+              <div className="px-3 py-4 text-center text-xs text-slate-400">{t.common.noData}</div>
             )}
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" size="md" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" size="md" onClick={onClose}>{t.common.cancel}</Button>
           <Button variant="danger" size="md" onClick={handleMerge} disabled={!targetTagId}>
-            Merge
+            {t.common.merge}
           </Button>
         </div>
       </div>

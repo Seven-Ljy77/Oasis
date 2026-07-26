@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import Sheet from "@/components/ui/Sheet";
 import Button from "@/components/ui/Button";
 import { useFeedStore } from "@/stores/useFeedStore";
@@ -19,6 +20,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
   initialUrl = "",
   initialTitle = "",
 }) => {
+  const { t } = useI18n();
   const [url, setUrl] = useState(initialUrl);
   const [title, setTitle] = useState(initialTitle);
   const [validating, setValidating] = useState(false);
@@ -30,7 +32,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
 
   const handleCheck = async () => {
     if (!url.trim()) {
-      setValidationError("Please enter a URL");
+      setValidationError(t.feedEditor.invalidUrl);
       return;
     }
     setValidating(true);
@@ -49,7 +51,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
 
   const handleSave = async () => {
     if (!url.trim()) {
-      setValidationError("URL is required");
+      setValidationError(t.feedEditor.invalidUrl);
       return;
     }
     setSaving(true);
@@ -67,12 +69,12 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title={isEditing ? "Edit Feed" : "Add Feed"}>
+    <Sheet open={open} onClose={onClose} title={isEditing ? t.feedEditor.editTitle : t.feedEditor.addTitle}>
       <div className="space-y-4">
         {/* URL input */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Feed URL
+            {t.feedEditor.feedUrl}
           </label>
           <div className="flex gap-2">
             <input
@@ -88,7 +90,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
               onClick={handleCheck}
               loading={validating}
             >
-              Check
+              {t.feedEditor.check}
             </Button>
           </div>
         </div>
@@ -96,7 +98,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
         {/* Title input */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Title
+            {t.feedEditor.feedName}
           </label>
           <input
             type="text"
@@ -117,7 +119,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" size="md" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button
             variant="primary"
@@ -125,7 +127,7 @@ const FeedEditorSheet: React.FC<FeedEditorSheetProps> = ({
             onClick={handleSave}
             loading={saving}
           >
-            {isEditing ? "Save Changes" : "Add Feed"}
+            {isEditing ? t.feedEditor.saveChanges : t.feedEditor.addFeed}
           </Button>
         </div>
       </div>

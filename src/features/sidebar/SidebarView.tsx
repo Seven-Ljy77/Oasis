@@ -1,13 +1,16 @@
 import React from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useSidebarStore } from "@/stores/useSidebarStore";
+import { useI18n } from "@/lib/i18n";
 import FeedList from "./FeedList";
 import TagFilter from "./TagFilter";
 
 const SidebarView: React.FC = () => {
+  const { t } = useI18n();
   const sidebarSection = useAppStore((s) => s.sidebarSection);
   const switchSection = useAppStore((s) => s.switchSection);
   const syncState = useSidebarStore((s) => s.syncState);
+  const totalUnread = useSidebarStore((s) => s.totalUnread);
 
   return (
     <div className="flex flex-col h-full">
@@ -22,7 +25,7 @@ const SidebarView: React.FC = () => {
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            Feeds
+            {t.sidebar.feeds}
           </button>
           <button
             onClick={() => switchSection("tags")}
@@ -32,7 +35,7 @@ const SidebarView: React.FC = () => {
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            Tags
+            {t.sidebar.tags}
           </button>
         </div>
       </div>
@@ -65,12 +68,12 @@ const SidebarView: React.FC = () => {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            <span>{syncState.message ?? "Syncing..."}</span>
+            <span>{syncState.message ?? t.status.syncing}</span>
           </>
         )}
         {syncState?.phase !== "syncing" && (
           <span>
-            {useSidebarStore.getState().totalUnread} unread
+            {totalUnread} {t.status.unread}
           </span>
         )}
       </div>

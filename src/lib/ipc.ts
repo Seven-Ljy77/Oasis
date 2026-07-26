@@ -56,11 +56,15 @@ export const importOpml = (
   path: string,
   replace: boolean,
   forceSiteName: boolean,
-): Promise<void> =>
-  invoke<void>("import_opml", { path, replace, forceSiteName });
+  concurrency?: number,
+): Promise<import("./types").ImportResult> =>
+  invoke("import_opml", { path, replace, forceSiteName, concurrency });
 
 export const exportOpml = (path: string): Promise<void> =>
   invoke<void>("export_opml", { path });
+
+export const getSidebarProjection = (): Promise<import("./types").SidebarProjection> =>
+  invoke("get_sidebar_projection");
 
 export const getFeeds = (): Promise<Feed[]> =>
   invoke<Feed[]>("get_feeds", {});
@@ -79,6 +83,15 @@ export const markRead = (
   entryIds: number[],
   isRead: boolean,
 ): Promise<void> => invoke<void>("mark_read", { entryIds, isRead });
+
+export const markAllRead = (
+  query: import("./types").EntryListQuery,
+  isRead: boolean,
+): Promise<number> => invoke<number>("mark_all_read", { query, isRead });
+
+export const deleteAllEntries = (
+  query: import("./types").EntryListQuery,
+): Promise<number> => invoke<number>("delete_all_entries", { query });
 
 export const markStarred = (
   entryId: number,
@@ -105,9 +118,10 @@ export const getEntryContent = (
 
 export const buildReaderHTML = (
   entryUrl: string,
+  entryId?: number,
   theme?: { fontFamily: string; fontSize: number; lineHeight: number; contentWidth: number; quickStyle: string },
 ): Promise<{ html: string; theme_fingerprint: string }> =>
-  invoke("build_reader_html", { entryUrl, theme });
+  invoke("build_reader_html", { entryUrl, entryId, theme });
 
 export const getThemeTokens = (preset: ThemePreset): Promise<ThemeTokens> =>
   invoke<ThemeTokens>("get_theme_tokens", { preset });

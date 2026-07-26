@@ -1,5 +1,6 @@
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use tauri::Emitter;
 
 use crate::db::entry_store::{EntryStore, EntryUpsertData, SqliteEntryStore};
 use crate::db::feed_store::{FeedStore, SqliteFeedStore};
@@ -106,22 +107,31 @@ impl OpmlImporter {
         Ok(outlines)
     }
 
-    /// Import parsed outlines into the database.
+    /// Import parsed outlines into the database with concurrent fetching
+    /// and per-feed progress events emitted to the frontend.
     ///
-    /// If `replace` is `true`, all existing feeds (and their entries) are deleted first.
-    /// Per-outline errors are collected and reported without stopping the import.
+    /// If `replace` is `true`, all existing feeds (and their entries) are
+    /// deleted first. Per-outline errors are collected without stopping the
+    /// overall import. Progress events are emitted via `app_handle` as
+    /// `import-opml-progress` with the following JSON payload:
+    ///
+    /// ```json
+    /// { "feed_title": "...", "feed_url": "...", "status": "fetching|done|error|skipped",
+    ///   "completed": 3, "total": 10, "error": "..." }
+    /// ```
     pub async fn import_into_db(
         outlines: &[OpmlOutline],
         replace: bool,
         force_site_name: bool,
-        feed_store: &SqliteFeedStore,
-        entry_store: &SqliteEntryStore,
+        concurrency: u32,
+        feed_store: std::sync::Arc<SqliteFeedStore>,
+        entry_store: std::sync::Arc<SqliteEntryStore>,
+        app_handle: tauri::AppHandle,
     ) -> Result<ImportResult, AppError> {
-        let mut result = ImportResult {
-            added: 0,
-            skipped: 0,
-            errors: Vec::new(),
-        };
+        let total = outlines.len();
+        let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let added = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let skipped = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         // If replacing, delete all existing feeds first (cascades to entries).
         if replace {
@@ -131,74 +141,154 @@ impl OpmlImporter {
             }
         }
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .user_agent("Mercury/0.1 (RSS Reader)")
-            .build()
-            .map_err(|e| AppError::Network(e.to_string()))?;
+        // Shared HTTP client for all concurrent fetches.
+        let client = std::sync::Arc::new(
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .user_agent("Mercury/0.1 (RSS Reader)")
+                .build()
+                .map_err(|e| AppError::Network(e.to_string()))?,
+        );
+
+        let concurrency = concurrency.max(1) as usize;
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(concurrency));
+        let mut join_set = tokio::task::JoinSet::new();
+        let mut errors: Vec<String> = Vec::new();
 
         for outline in outlines {
-            // Lenient URL parse — no HTTPS enforcement for OPML import.
-            let feed_url = match url::Url::parse(&outline.xml_url) {
-                Ok(u) => u.to_string(),
-                Err(e) => {
-                    result
-                        .errors
-                        .push(format!("Invalid feed URL '{}': {}", outline.xml_url, e));
-                    continue;
-                }
-            };
+            let permit = semaphore
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|e| AppError::Unknown(format!("Semaphore error: {}", e)))?;
 
-            // Check for duplicates (skip if already subscribed).
-            if !replace {
-                match feed_store.find_by_url(&feed_url).await {
-                    Ok(Some(_)) => {
-                        result.skipped += 1;
-                        continue;
+            let client = client.clone();
+            let feed_store = feed_store.clone();
+            let entry_store = entry_store.clone();
+            let completed = completed.clone();
+            let added = added.clone();
+            let skipped = skipped.clone();
+            let outline = outline.clone();
+            let replace = replace;
+            let force_site_name = force_site_name;
+            let total_feeds = total;
+            let handle = app_handle.clone();
+
+            // Emit "fetching" progress event before spawning.
+            let _ = handle.emit(
+                "import-opml-progress",
+                serde_json::json!({
+                    "feed_title": outline.title,
+                    "feed_url": outline.xml_url,
+                    "status": "fetching",
+                    "completed": completed.load(std::sync::atomic::Ordering::SeqCst),
+                    "total": total_feeds,
+                }),
+            );
+
+            join_set.spawn(async move {
+                let _permit = permit;
+
+                // URL validation
+                let feed_url = match url::Url::parse(&outline.xml_url) {
+                    Ok(u) => u.to_string(),
+                    Err(e) => {
+                        let _ = handle.emit("import-opml-progress", serde_json::json!({
+                            "feed_title": outline.title,
+                            "feed_url": outline.xml_url,
+                            "status": "error",
+                            "completed": completed.load(std::sync::atomic::Ordering::SeqCst),
+                            "total": total_feeds,
+                            "error": format!("Invalid feed URL: {}", e),
+                        }));
+                        completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        return (outline.title.clone(), Err(format!("Invalid feed URL '{}': {}", outline.xml_url, e)));
+                    }
+                };
+
+                // Duplicate check
+                if !replace {
+                    match feed_store.find_by_url(&feed_url).await {
+                        Ok(Some(_)) => {
+                            skipped.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            let _ = handle.emit("import-opml-progress", serde_json::json!({
+                                "feed_title": outline.title,
+                                "feed_url": outline.xml_url,
+                                "status": "skipped",
+                                "completed": completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1,
+                                "total": total_feeds,
+                            }));
+                            return (outline.title.clone(), Ok(()));
+                        }
+                        Err(e) => {
+                            completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            return (outline.title.clone(), Err(format!("Database error: {}", e)));
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Fetch, parse, persist
+                match fetch_and_upsert_one(
+                    &client, &feed_url, &outline, force_site_name,
+                    &feed_store, &entry_store,
+                ).await {
+                    Ok(()) => {
+                        added.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        let _ = handle.emit("import-opml-progress", serde_json::json!({
+                            "feed_title": outline.title,
+                            "feed_url": outline.xml_url,
+                            "status": "done",
+                            "completed": completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1,
+                            "total": total_feeds,
+                        }));
+                        (outline.title.clone(), Ok(()))
                     }
                     Err(e) => {
-                        result.errors.push(format!(
-                            "{}: database error during duplicate check: {}",
-                            outline.title, e
-                        ));
-                        continue;
+                        let _ = handle.emit("import-opml-progress", serde_json::json!({
+                            "feed_title": outline.title,
+                            "feed_url": outline.xml_url,
+                            "status": "error",
+                            "completed": completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1,
+                            "total": total_feeds,
+                            "error": e.to_string(),
+                        }));
+                        (outline.title.clone(), Err(format!("{}: {}", outline.title, e)))
                     }
-                    _ => {}
                 }
-            }
+            });
+        }
 
-            // Fetch, parse, and persist the feed.
-            match Self::fetch_and_upsert_one(
-                &client,
-                &feed_url,
-                outline,
-                force_site_name,
-                feed_store,
-                entry_store,
-            )
-            .await
-            {
-                Ok(()) => result.added += 1,
-                Err(e) => {
-                    result
-                        .errors
-                        .push(format!("{}: {}", outline.title, e));
+        // Collect results from all tasks.
+        while let Some(result) = join_set.join_next().await {
+            match result {
+                Ok((title, Ok(()))) => {}
+                Ok((_title, Err(err_msg))) => {
+                    errors.push(err_msg);
+                }
+                Err(join_err) => {
+                    errors.push(format!("Task panicked: {}", join_err));
                 }
             }
         }
 
-        Ok(result)
+        Ok(ImportResult {
+            added: added.load(std::sync::atomic::Ordering::SeqCst),
+            skipped: skipped.load(std::sync::atomic::Ordering::SeqCst),
+            errors,
+        })
     }
+}
 
-    /// Fetch a single feed URL, parse it, and upsert the feed and its entries.
-    async fn fetch_and_upsert_one(
-        client: &reqwest::Client,
-        feed_url: &str,
-        outline: &OpmlOutline,
-        force_site_name: bool,
-        feed_store: &SqliteFeedStore,
-        entry_store: &SqliteEntryStore,
-    ) -> Result<(), AppError> {
+/// Fetch a single feed URL, parse it, and upsert the feed and its entries.
+async fn fetch_and_upsert_one(
+    client: &reqwest::Client,
+    feed_url: &str,
+    outline: &OpmlOutline,
+    force_site_name: bool,
+    feed_store: &SqliteFeedStore,
+    entry_store: &SqliteEntryStore,
+) -> Result<(), AppError> {
         let response = client
             .get(feed_url)
             .send()
@@ -278,7 +368,6 @@ impl OpmlImporter {
 
         Ok(())
     }
-}
 
 /// Result of an OPML import operation.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

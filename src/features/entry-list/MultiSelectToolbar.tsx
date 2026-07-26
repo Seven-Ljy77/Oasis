@@ -1,8 +1,10 @@
 import React from "react";
 import { useAppStore } from "@/stores/useAppStore";
+import { useI18n } from "@/lib/i18n";
 import Button from "@/components/ui/Button";
 
 const MultiSelectToolbar: React.FC = () => {
+  const { t } = useI18n();
   const selectedEntryIds = useAppStore((s) => s.selectedEntryIds);
   const exitMultiSelect = useAppStore((s) => s.exitMultiSelect);
   const openSheet = useAppStore((s) => s.openSheet);
@@ -12,7 +14,7 @@ const MultiSelectToolbar: React.FC = () => {
   return (
     <div className="flex items-center gap-3 px-3 py-2 bg-accent-muted border-b border-accent/20">
       <span className="text-sm font-medium text-accent">
-        {count} {count === 1 ? "entry" : "entries"} selected
+        {count} {t.entryList.selected}
       </span>
 
       <div className="flex-1" />
@@ -22,7 +24,7 @@ const MultiSelectToolbar: React.FC = () => {
         size="sm"
         onClick={exitMultiSelect}
       >
-        Cancel
+        {t.common.cancel}
       </Button>
 
       <Button
@@ -31,7 +33,7 @@ const MultiSelectToolbar: React.FC = () => {
         onClick={() => openSheet("exportMultipleDigest")}
         disabled={count === 0}
       >
-        Continue
+        {t.entryList.continue}
       </Button>
     </div>
   );

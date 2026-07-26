@@ -1,16 +1,16 @@
 use tauri::State;
 
 use crate::error::AppError;
-use crate::reader::pipeline::{DefaultReaderPipeline, ReaderHTML};
+use crate::reader::pipeline::{DefaultReaderPipeline, PipelineVersions, ReaderHTML};
 use crate::reader::theme::ThemeTokens;
 use crate::state::AppState;
 
-/// Build a reader-mode HTML document for the given article URL.
+/// Build a reader-mode HTML document for the given article.
 ///
-/// The frontend passes the entry's URL directly (the entry URL is available
-/// from the entry list data already loaded in the UI). Theme tokens are
-/// derived from defaults for now; theme customisation will be wired up in
-/// a later phase.
+/// When `entry_id` is provided the pipeline will attempt to use cached
+/// artifacts (source HTML, cleaned HTML, Markdown) to skip expensive
+/// network and processing steps. Theme tokens are derived from the
+/// optional theme params; defaults are used otherwise.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct ReaderThemeParams {
     #[serde(rename = "fontFamily")]
@@ -23,6 +23,8 @@ pub struct ReaderThemeParams {
     pub content_width: Option<u32>,
     #[serde(rename = "quickStyle")]
     pub quick_style: Option<String>,
+    #[serde(rename = "themeMode")]
+    pub theme_mode: Option<String>,
 }
 
 #[tauri::command]
@@ -30,8 +32,19 @@ pub async fn build_reader_html(
     state: State<'_, AppState>,
     entry_url: String,
     theme: Option<ReaderThemeParams>,
+    entry_id: Option<i64>,
 ) -> Result<ReaderHTML, AppError> {
-    let mut tokens = ThemeTokens::default();
+    // Start from the appropriate base theme by appearance mode.
+    let mut tokens = if let Some(ref t) = theme {
+        match t.theme_mode.as_deref() {
+            Some("forceDark") => ThemeTokens::dark(),
+            Some("forceEyecare") => ThemeTokens::eyecare(),
+            _ => ThemeTokens::default(),
+        }
+    } else {
+        ThemeTokens::default()
+    };
+
     if let Some(t) = &theme {
         if let Some(ref ff) = t.font_family { tokens.font_family = ff.clone(); }
         if let Some(fs) = t.font_size { tokens.font_size = fs; }
@@ -58,37 +71,81 @@ pub async fn build_reader_html(
             }
         }
     }
+
     let pipeline = DefaultReaderPipeline;
-    // Try cached content first for faster theme-only rebuilds
-    match try_render_from_cache(&state, &entry_url, &tokens).await {
-        Ok(html) => Ok(html),
-        Err(_) => pipeline.build_html(&entry_url, &tokens).await,
+
+    // If entry_id is provided, try the full 5-tier cache hierarchy first.
+    if let Some(id) = entry_id {
+        match try_build_from_cache(&state, &pipeline, id, &entry_url, &tokens).await {
+            Ok(html) => return Ok(html),
+            Err(_) => {} // Cache miss or error — fall through to full build.
+        }
+    }
+
+    // Fall through: full pipeline with DB persistence if entry_id is available.
+    if let Some(id) = entry_id {
+        let cs: &dyn crate::db::content_store::ContentStore = state.content_store.as_ref();
+        pipeline
+            .build_html_with_store(id, &entry_url, &tokens, cs)
+            .await
+    } else {
+        pipeline.build_html(&entry_url, &tokens).await
     }
 }
 
-/// Try to re-render from cached markdown in the content table.
-async fn try_render_from_cache(
+/// Try to serve the reader HTML from the content store cache hierarchy.
+///
+/// The 5-tier cache check:
+/// 1. Markdown cached with current version → re-render from Markdown (fast)
+/// 2. Cleaned HTML cached with current version → re-convert + render
+/// 3. Source HTML cached → re-run readability + convert + render
+/// 4. Nothing cached → return error, caller will do full build
+async fn try_build_from_cache(
     state: &AppState,
-    entry_url: &str,
+    pipeline: &DefaultReaderPipeline,
+    entry_id: i64,
+    _entry_url: &str,
     theme: &ThemeTokens,
 ) -> Result<ReaderHTML, AppError> {
-    use rusqlite::OptionalExtension;
-    let url = entry_url.to_string();
-    let db = state.db.clone();
-    let markdown = tokio::task::spawn_blocking(move || {
-        let conn = db.conn();
-        conn.query_row(
-            "SELECT c.markdown FROM content c JOIN entry e ON c.entry_id = e.id WHERE e.url = ?1 AND c.markdown IS NOT NULL",
-            rusqlite::params![url],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()
-        .map_err(|e| AppError::Database(e.to_string()))
-    }).await.map_err(|e| AppError::Database(e.to_string()))??
-    .ok_or_else(|| AppError::NotFound("No cached markdown".to_string()))?;
+    let cs: &dyn crate::db::content_store::ContentStore = state.content_store.as_ref();
+    let cached = cs
+        .load(entry_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("No cached content for entry".to_string()))?;
 
-    let html = crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme)?;
-    Ok(ReaderHTML { html, theme_fingerprint: String::new() })
+    // Tier 1: Markdown is cached and version is current → just re-render.
+    if cached.markdown.is_some()
+        && cached.markdown_version == Some(PipelineVersions::MARKDOWN as i32)
+    {
+        let markdown = cached.markdown.as_deref().unwrap_or("");
+        let html =
+            crate::reader::markdown_renderer::markdown_to_reader_html(markdown, theme)?;
+        return Ok(ReaderHTML {
+            html,
+            theme_fingerprint: String::new(),
+        });
+    }
+
+    // Tier 2: Cleaned HTML cached with current version → re-convert + render.
+    if cached.cleaned_html.is_some()
+        && cached.readability_version == Some(PipelineVersions::READABILITY)
+    {
+        return pipeline
+            .build_html_from_cache(entry_id, &cached, theme, cs)
+            .await;
+    }
+
+    // Tier 3: Source HTML cached → re-run readability + convert + render.
+    if cached.html.is_some() {
+        return pipeline
+            .build_html_from_cache(entry_id, &cached, theme, cs)
+            .await;
+    }
+
+    // Tier 4: No useful cache — signal caller to do full build.
+    Err(AppError::NotFound(
+        "No usable cached content for entry".to_string(),
+    ))
 }
 
 #[tauri::command]

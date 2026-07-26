@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTagStore } from "@/stores/useTagStore";
+import { useI18n } from "@/lib/i18n";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 
@@ -16,6 +17,7 @@ const TagRenameSheet: React.FC<TagRenameSheetProps> = ({
   tagId,
   currentName,
 }) => {
+  const { t } = useI18n();
   const [newName, setNewName] = useState(currentName);
   const renameTag = useTagStore((s) => s.renameTag);
 
@@ -26,11 +28,11 @@ const TagRenameSheet: React.FC<TagRenameSheetProps> = ({
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Rename Tag" width="400px">
+    <Sheet open={open} onClose={onClose} title={t.tagLibrary.rename} width="400px">
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Current Name
+            {t.tagLibrary.name}
           </label>
           <input
             type="text"
@@ -42,13 +44,13 @@ const TagRenameSheet: React.FC<TagRenameSheetProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            New Name
+            {t.common.rename}
           </label>
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Enter new tag name..."
+            placeholder={t.tagLibrary.rename}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleRename();
@@ -59,7 +61,7 @@ const TagRenameSheet: React.FC<TagRenameSheetProps> = ({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" size="md" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button
             variant="primary"
@@ -67,7 +69,7 @@ const TagRenameSheet: React.FC<TagRenameSheetProps> = ({
             onClick={handleRename}
             disabled={!newName.trim() || newName.trim() === currentName}
           >
-            Rename
+            {t.common.rename}
           </Button>
         </div>
       </div>

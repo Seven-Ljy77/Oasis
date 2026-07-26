@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useI18n } from "@/lib/i18n";
 import { exportMultipleDigest } from "@/lib/ipc";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Sheet } from "@/components/ui/Sheet";
@@ -12,6 +13,7 @@ interface ExportMultipleDigestSheetProps {
 }
 
 const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ open, onClose }) => {
+  const { t } = useI18n();
   const entries = useEntryStore((s) => s.entries);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -59,14 +61,14 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Export Multiple Digest" width="550px">
+    <Sheet open={open} onClose={onClose} title={t.digest.exportMultipleTitle} width="550px">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-600">
-            {entryIds.length} selected
+            {entryIds.length} {t.entryList.selected}
           </p>
           <button onClick={selectAll} className="text-xs text-accent hover:underline">
-            {selected.size === entries.length ? "Deselect All" : "Select All"}
+            {selected.size === entries.length ? t.digest.deselectAll : t.digest.selectAll}
           </button>
         </div>
 
@@ -88,14 +90,14 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
             </label>
           ))}
           {entries.length === 0 && (
-            <p className="px-3 py-4 text-sm text-slate-400 text-center">No articles loaded.</p>
+            <p className="px-3 py-4 text-sm text-slate-400 text-center">{t.entryList.noArticles}</p>
           )}
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>
           <Button variant="primary" onClick={handleExport} disabled={exporting || entryIds.length === 0}>
-            {exporting ? "Exporting..." : `Export ${entryIds.length} Articles`}
+            {exporting ? t.common.loading : t.digest.exportNArticles.replace("{n}", String(entryIds.length))}
           </Button>
         </div>
       </div>

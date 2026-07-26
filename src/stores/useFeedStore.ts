@@ -25,7 +25,8 @@ export interface FeedState {
     path: string,
     replace: boolean,
     forceSiteName: boolean,
-  ) => Promise<void>;
+    concurrency?: number,
+  ) => Promise<{ added: number; skipped: number; errors: string[] }>;
   exportOpml: (path: string) => Promise<void>;
 }
 
@@ -104,15 +105,19 @@ export const useFeedStore = create<FeedState>()((set, get) => ({
     }
   },
 
-  importOpml: async (path, replace, forceSiteName) => {
-    // TODO: use @tauri-apps/plugin-dialog for file picker
+  importOpml: async (path, replace, forceSiteName, concurrency) => {
     try {
-      await ipc.importOpml(path, replace, forceSiteName);
+      const result = await ipc.importOpml(path, replace, forceSiteName, concurrency);
       // Reload feeds after import
       await get().loadFeeds();
+      // Refresh sidebar counts
+      const { useSidebarStore } = await import("./useSidebarStore");
+      await useSidebarStore.getState().loadCounts();
+      return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
+      throw err;
     }
   },
 

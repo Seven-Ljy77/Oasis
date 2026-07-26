@@ -21,6 +21,9 @@
   --color-border: #e5e7eb;
   --color-border-focus: #2563eb;
 
+  /* Set to 1 by @media query when system is dark — read from JS if matchMedia fails */
+  --system-is-dark: 0;
+
   /* Reader tokens */
   --color-reader-bg: #faf9f7;
   --color-reader-bg-dark: #1a1a1a;
@@ -45,6 +48,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --system-is-dark: 1;
+    /* Only set background surface vars — text colors are handled by .force-dark
+       class added by JS, scoped so that Light mode still works properly. */
     --color-surface: #1a1a1a;
     --color-surface-secondary: #222222;
     --color-surface-tertiary: #2a2a2a;
@@ -177,6 +183,70 @@ body {
   --color-border: #333333;
 }
 .force-dark body { background: #1a1a1a; color: #e8e6e3; }
+
+/* Dark mode: force ALL text to be light by default */
+.force-dark {
+  color-scheme: dark;
+}
+.force-dark body,
+.force-dark #root {
+  color: #e2e2e2;
+}
+/* Override all slate text colors — use !important to ensure they win */
+.force-dark .text-slate-900,
+.force-dark .text-slate-800,
+.force-dark .text-slate-700 { color: #e2e2e2 !important; }
+.force-dark .text-slate-600 { color: #c8c8c8 !important; }
+.force-dark .text-slate-500 { color: #b0b0b0 !important; }
+.force-dark .text-slate-400 { color: #909090 !important; }
+.force-dark .text-slate-300 { color: #606060 !important; }
+.force-dark .text-slate-200 { color: #4a4a4a !important; }
+.force-dark .text-slate-100 { color: #3a3a3a !important; }
+/* Hover states */
+.force-dark .hover\:text-slate-600:hover,
+.force-dark .hover\:text-slate-700:hover { color: #e2e2e2 !important; }
+.force-dark .hover\:text-slate-500:hover { color: #c0c0c0 !important; }
+
+/* Accent / link color */
+.force-dark .text-accent { color: #93c5fd !important; }
+
+/* Semantic alert colors */
+.force-dark .bg-red-50  { background-color: #3b1a1a !important; }
+.force-dark .text-red-500,
+.force-dark .text-red-600,
+.force-dark .text-red-700 { color: #fca5a5 !important; }
+.force-dark .text-red-400 { color: #f87171 !important; }
+.force-dark .border-red-200 { border-color: #5c2a2a !important; }
+.force-dark .bg-emerald-50 { background-color: #1a3b2a !important; }
+.force-dark .text-emerald-600,
+.force-dark .text-emerald-700,
+.force-dark .text-emerald-800 { color: #86efac !important; }
+.force-dark .border-emerald-200 { border-color: #2a5c3a !important; }
+.force-dark .bg-amber-50 { background-color: #3b2e1a !important; }
+.force-dark .bg-amber-100 { background-color: #3b2e1a !important; }
+.force-dark .text-amber-600,
+.force-dark .text-amber-700 { color: #fcd34d !important; }
+.force-dark .bg-blue-50 { background-color: #1a2a3b !important; }
+.force-dark .text-blue-600,
+.force-dark .text-blue-700 { color: #93c5fd !important; }
+.force-dark .border-blue-200 { border-color: #2a3a5c !important; }
+
+/* Form elements */
+.force-dark input,
+.force-dark select,
+.force-dark textarea {
+  color: #e2e2e2 !important;
+}
+.force-dark input[readonly] {
+  color: #9ca3af !important;
+}
+.force-dark .border-border { border-color: #333333 !important; }
+
+/* Dropdowns & menus */
+.force-dark .bg-white { background-color: #1e1e1e !important; }
+
+/* Status bar */
+.force-dark .border-t { border-color: #333333 !important; }
 
 /* Theme: Force Eye Care (warm amber) */
 .force-eyecare {

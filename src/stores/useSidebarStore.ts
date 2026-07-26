@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { Feed, TagInfo } from "@/lib/types";
+import * as ipc from "@/lib/ipc";
+import { useAppStore } from "./useAppStore";
 
 interface SidebarState {
   // Feeds
@@ -7,12 +9,15 @@ interface SidebarState {
   totalUnread: number;
   starredCount: number;
   starredUnread: number;
+  totalEntries: number;
+  totalFeeds: number;
   selectedFeedId: number | null;
   feedsLoading: boolean;
 
   setFeeds: (feeds: Feed[]) => void;
   setFeedsLoading: (loading: boolean) => void;
   selectFeed: (id: number | null) => void;
+  loadCounts: () => Promise<void>;
 
   // Tags
   tags: TagInfo[];
@@ -38,6 +43,8 @@ export const useSidebarStore = create<SidebarState>((set) => ({
   totalUnread: 0,
   starredCount: 0,
   starredUnread: 0,
+  totalEntries: 0,
+  totalFeeds: 0,
   selectedFeedId: null,
   feedsLoading: false,
   syncState: null,
@@ -49,6 +56,36 @@ export const useSidebarStore = create<SidebarState>((set) => ({
     }),
   setFeedsLoading: (loading) => set({ feedsLoading: loading }),
   selectFeed: (id) => set({ selectedFeedId: id }),
+
+  loadCounts: async () => {
+    try {
+      const proj = await ipc.getSidebarProjection();
+      console.log("[loadCounts] projection:", proj);
+      set({
+        totalUnread: proj.total_unread,
+        starredCount: proj.total_starred,
+        starredUnread: proj.starred_unread,
+        totalEntries: proj.total_entries,
+        totalFeeds: proj.total_feeds,
+      });
+      // Also update per-feed unread counts on the existing feeds list
+      set((s) => {
+        const countMap = new Map(proj.per_feed.map((fc) => [fc.feed_id, fc.unread]));
+        return {
+          feeds: s.feeds.map((f) => ({
+            ...f,
+            unread_count: countMap.get(f.id) ?? 0,
+          })),
+        };
+      });
+      // Sync to app store for StatusBar
+      useAppStore.getState().setTotalUnread(proj.total_unread);
+      useAppStore.getState().setFeedCount(proj.total_feeds);
+      useAppStore.getState().setEntryCount(proj.total_entries);
+    } catch (err) {
+      console.error("[loadCounts] failed:", err);
+    }
+  },
 
   tags: [],
   selectedTagIds: new Set(),

@@ -19,6 +19,7 @@ pub struct EntryPage {
 
 /// Specifies how multiple selected tags should be matched.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum TagMatchMode {
     /// An entry must have at least one of the selected tags.
     Any,
@@ -28,6 +29,7 @@ pub enum TagMatchMode {
 
 /// Builder-style query for listing entries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct EntryListQuery {
     /// If set, only return entries belonging to this feed.
     pub feed_id: Option<i64>,

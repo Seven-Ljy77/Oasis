@@ -2,11 +2,13 @@ import React from "react";
 import { useSidebarStore } from "@/stores/useSidebarStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { useTagStore } from "@/stores/useTagStore";
+import { useI18n } from "@/lib/i18n";
 import ContextMenu, { type ContextMenuItem } from "@/components/ui/ContextMenu";
 import { deleteTagsBatch, deleteUnusedTags } from "@/lib/ipc";
 import type { TagInfo } from "@/lib/types";
 
 const TagFilter: React.FC = () => {
+  const { t } = useI18n();
   const tags = useTagStore((s) => s.tags);
   const isLoading = useTagStore((s) => s.isLoading);
   const deleteTag = useTagStore((s) => s.deleteTag);
@@ -35,7 +37,7 @@ const TagFilter: React.FC = () => {
 
   const getTagContextMenu = (tag: TagInfo): ContextMenuItem[] => [
     {
-      label: "Rename",
+      label: t.common.rename,
       onClick: () => {
         setRenameTargetTagId(tag.id);
         setRenameTargetTagName(tag.name);
@@ -43,7 +45,7 @@ const TagFilter: React.FC = () => {
       },
     },
     {
-      label: "Merge Into...",
+      label: t.tagLibrary.mergeInto,
       onClick: () => {
         setMergeSourceTagId(tag.id);
         setMergeSourceTagName(tag.name);
@@ -51,7 +53,7 @@ const TagFilter: React.FC = () => {
       },
     },
     {
-      label: "Delete",
+      label: t.common.delete,
       danger: true,
       onClick: () => {
         if (window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) {
@@ -80,7 +82,7 @@ const TagFilter: React.FC = () => {
       {/* ---- Header ---- */}
       <div className="px-3 py-2">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-          Tags
+          {t.sidebar.tags}
         </h3>
 
         {/* Search input */}
@@ -88,7 +90,7 @@ const TagFilter: React.FC = () => {
           type="text"
           value={tagSearchText}
           onChange={(e) => setTagSearchText(e.target.value)}
-          placeholder="Filter tags..."
+          placeholder={t.sidebar.searchTags}
           className="w-full h-7 px-2 text-xs rounded-md border border-border bg-surface placeholder-slate-400 focus:outline-none focus:border-accent transition-colors"
         />
 
@@ -103,7 +105,7 @@ const TagFilter: React.FC = () => {
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            Any
+            {t.sidebar.any}
           </button>
           <button
             onClick={() => setTagMatchMode("all")}
@@ -113,7 +115,7 @@ const TagFilter: React.FC = () => {
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            All
+            {t.sidebar.all}
           </button>
         </div>
 
@@ -124,7 +126,7 @@ const TagFilter: React.FC = () => {
               onClick={handleClearAll}
               className="text-xs text-accent hover:text-accent-hover transition-colors"
             >
-              Clear ({selectedTagIds.size} selected)
+              {t.sidebar.clearSelected}
             </button>
             <button
               onClick={async () => {
@@ -138,7 +140,7 @@ const TagFilter: React.FC = () => {
               }}
               className="text-xs text-red-500 hover:text-red-600 transition-colors"
             >
-              Delete selected
+              {t.sidebar.deleteSelected}
             </button>
           </div>
         )}
@@ -151,7 +153,7 @@ const TagFilter: React.FC = () => {
           }}
           className="mt-1 text-xs text-red-400 hover:text-red-500 transition-colors"
         >
-          Delete unused
+          {t.sidebar.deleteUnused}
         </button>
       </div>
 
@@ -159,7 +161,7 @@ const TagFilter: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-1">
         {isLoading && (
           <div className="flex items-center justify-center py-8 text-slate-400 text-sm">
-            Loading tags...
+            {t.common.loading}
           </div>
         )}
 
@@ -192,7 +194,7 @@ const TagFilter: React.FC = () => {
 
         {!isLoading && filteredTags.length === 0 && (
           <div className="py-8 text-center text-xs text-slate-400">
-            {tagSearchText ? "No tags match your filter" : "No tags yet"}
+            {tagSearchText ? t.common.noData : t.common.noData}
           </div>
         )}
       </div>

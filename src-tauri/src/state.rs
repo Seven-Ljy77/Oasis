@@ -5,6 +5,7 @@ use crate::agent::prompt_template::PromptTemplateStore;
 use crate::agent::runtime::AgentRuntimeEngine;
 use crate::db::agent_config_store::SqliteAgentConfigStore;
 use crate::db::agent_task_store::SqliteAgentTaskStore;
+use crate::db::content_store_impl::SqliteContentStore;
 use crate::db::entry_store::SqliteEntryStore;
 use crate::db::feed_store::SqliteFeedStore;
 use crate::db::llm_usage_store::SqliteLLMUsageStore;
@@ -21,6 +22,7 @@ pub struct AppState {
     pub feed_store: Arc<SqliteFeedStore>,
     pub entry_store: Arc<SqliteEntryStore>,
     pub tag_store: Arc<SqliteTagStore>,
+    pub content_store: Arc<SqliteContentStore>,
     pub agent_config_store: Arc<SqliteAgentConfigStore>,
     pub agent_task_store: Arc<SqliteAgentTaskStore>,
     pub llm_usage_store: Arc<SqliteLLMUsageStore>,

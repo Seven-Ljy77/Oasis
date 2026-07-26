@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { useI18n } from "@/lib/i18n";
 import type { ThemePreset, ThemeMode } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -41,30 +42,12 @@ const PaletteIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }
 
 interface ModeOption { value: ThemeMode; label: string; icon: React.FC<{ className?: string }> }
 
-const MODE_OPTIONS: ModeOption[] = [
-  { value: "auto", label: "Auto", icon: PaletteIcon },
-  { value: "forceLight", label: "Light", icon: SunIcon },
-  { value: "forceDark", label: "Dark", icon: MoonIcon },
-  { value: "eyecare", label: "Eye Care", icon: EyeIcon },
-];
-
-const PRESET_OPTIONS: { value: ThemePreset; label: string; desc: string }[] = [
-  { value: "classic", label: "Classic", desc: "Clean, modern" },
-  { value: "paper", label: "Paper", desc: "Warm, paper-like" },
-];
-
-const FONT_FAMILIES = [
-  { value: "Georgia, serif", label: "Georgia" },
-  { value: "'Merriweather', Georgia, serif", label: "Merriweather" },
-  { value: "'Inter', system-ui, sans-serif", label: "Inter" },
-  { value: "'JetBrains Mono', monospace", label: "JetBrains Mono" },
-];
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const ThemeSwitcher: React.FC = () => {
+  const { t } = useI18n();
   const themeMode = useReaderStore((s) => s.themeMode);
   const setThemeMode = useReaderStore((s) => s.setThemeMode);
   const themePreset = useReaderStore((s) => s.themePreset);
@@ -77,6 +60,25 @@ const ThemeSwitcher: React.FC = () => {
   const setLineHeight = useReaderStore((s) => s.setLineHeight);
   const contentWidth = useReaderStore((s) => s.contentWidth);
   const setContentWidth = useReaderStore((s) => s.setContentWidth);
+
+  const MODE_OPTIONS: ModeOption[] = [
+    { value: "auto", label: t.theme.auto, icon: PaletteIcon },
+    { value: "forceLight", label: t.theme.light, icon: SunIcon },
+    { value: "forceDark", label: t.theme.dark, icon: MoonIcon },
+    { value: "eyecare", label: t.theme.eyeCare, icon: EyeIcon },
+  ];
+
+  const PRESET_OPTIONS: { value: ThemePreset; label: string; desc: string }[] = [
+    { value: "classic", label: t.theme.classic, desc: "" },
+    { value: "paper", label: t.theme.paper, desc: "" },
+  ];
+
+  const FONT_FAMILIES = [
+    { value: "Georgia, serif", label: "Georgia" },
+    { value: "'Merriweather', Georgia, serif", label: "Merriweather" },
+    { value: "'Inter', system-ui, sans-serif", label: "Inter" },
+    { value: "'JetBrains Mono', monospace", label: "JetBrains Mono" },
+  ];
 
   const [open, setOpen] = useState(false);
   const [editFontSize, setEditFontSize] = useState(false);
@@ -111,7 +113,7 @@ const ThemeSwitcher: React.FC = () => {
             ? "bg-accent-muted text-accent"
             : "text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary"
         }`}
-        title="Reader theme"
+        title={t.theme.readerTheme}
       >
         <PaletteIcon />
       </button>
@@ -121,7 +123,7 @@ const ThemeSwitcher: React.FC = () => {
         <div className="absolute right-0 top-full mt-1 z-[90] w-64 bg-surface border border-border rounded-lg shadow-lg p-3.5 space-y-3.5">
           {/* Appearance */}
           <div>
-            <label className={labelClass}>Appearance</label>
+            <label className={labelClass}>{t.theme.appearance}</label>
             <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 mt-1.5">
               {MODE_OPTIONS.map(({ value, label, icon: Icon }) => (
                 <button
@@ -147,7 +149,7 @@ const ThemeSwitcher: React.FC = () => {
 
           {/* Reader Theme */}
           <div>
-            <label className={labelClass}>Reader Theme</label>
+            <label className={labelClass}>{t.theme.readerTheme}</label>
             <div className="space-y-1 mt-1.5">
               {PRESET_OPTIONS.map(({ value, label, desc }) => (
                 <button
@@ -175,7 +177,7 @@ const ThemeSwitcher: React.FC = () => {
 
           {/* Font Size */}
           <div>
-            <label className={labelClass}>Font Size</label>
+            <label className={labelClass}>{t.theme.fontSize}</label>
             <div className="flex items-center justify-between bg-surface-tertiary rounded-lg px-2 py-1.5 mt-1.5">
               <button
                 onClick={() => setFontSize(Math.max(12, fontSize - 1))}
@@ -219,7 +221,7 @@ const ThemeSwitcher: React.FC = () => {
 
           {/* Font Family */}
           <div>
-            <label className={labelClass}>Font Family</label>
+            <label className={labelClass}>{t.theme.fontFamily}</label>
             <select
               value={fontFamily}
               onChange={(e) => setFontFamily(e.target.value)}
@@ -233,7 +235,7 @@ const ThemeSwitcher: React.FC = () => {
 
           {/* Line Height */}
           <div>
-            <label className={labelClass}>Line Height: {lineHeight.toFixed(1)}</label>
+            <label className={labelClass}>{t.theme.lineHeight}: {lineHeight.toFixed(1)}</label>
             <div className="flex items-center justify-between bg-surface-tertiary rounded-lg px-2 py-1.5 mt-1.5">
               <button
                 onClick={() => setLineHeight(Math.max(1.2, lineHeight - 0.1))}
@@ -277,7 +279,7 @@ const ThemeSwitcher: React.FC = () => {
 
           {/* Content Width */}
           <div>
-            <label className={labelClass}>Content Width: {contentWidth}px</label>
+            <label className={labelClass}>{t.theme.contentWidth}: {contentWidth}px</label>
             <div className="flex items-center justify-between bg-surface-tertiary rounded-lg px-2 py-1.5 mt-1.5">
               <button
                 onClick={() => setContentWidth(Math.max(400, contentWidth - 40))}

@@ -5,6 +5,7 @@ import { useEntryListStore } from "@/stores/useEntryListStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useFeedStore } from "@/stores/useFeedStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useI18n } from "@/lib/i18n";
 import { syncFeeds as ipcSyncFeeds } from "@/lib/ipc";
 import { listen } from "@tauri-apps/api/event";
 import ContextMenu, { type ContextMenuItem } from "@/components/ui/ContextMenu";
@@ -12,6 +13,7 @@ import * as dialog from "@tauri-apps/plugin-dialog";
 import type { Feed } from "@/lib/types";
 
 const FeedList: React.FC = () => {
+  const { t } = useI18n();
   const feeds = useSidebarStore((s) => s.feeds);
   const totalUnread = useSidebarStore((s) => s.totalUnread);
   const starredCount = useSidebarStore((s) => s.starredCount);
@@ -32,6 +34,7 @@ const FeedList: React.FC = () => {
   const loadFeeds = useFeedStore((s) => s.loadFeeds);
   const deleteFeed = useFeedStore((s) => s.deleteFeed);
   const exportOpml = useFeedStore((s) => s.exportOpml);
+  const loadCounts = useSidebarStore((s) => s.loadCounts);
 
   // More actions dropdown state
   const [syncing, setSyncing] = useState(false);
@@ -56,10 +59,11 @@ const FeedList: React.FC = () => {
           return next;
         });
       }
-      // All done — reload feeds
+      // All done — reload feeds and counts
       if (event.payload.completed >= event.payload.total) {
         setSyncing(false);
         loadFeeds();
+        loadCounts();
       }
     });
     return () => { unlisten.then((fn) => fn()); };
@@ -148,13 +152,13 @@ const FeedList: React.FC = () => {
 
   const getFeedContextMenu = (feed: Feed): ContextMenuItem[] => [
     {
-      label: "Edit",
+      label: t.sidebar.editFeed,
       onClick: () => {
         openSheet("feedEditor" as SheetKind);
       },
     },
     {
-      label: "Delete",
+      label: t.sidebar.deleteFeed,
       danger: true,
       onClick: async () => {
         if (window.confirm(`Delete "${feed.title || feed.feed_url}"? This will remove all associated entries.`)) {
@@ -171,7 +175,7 @@ const FeedList: React.FC = () => {
       {/* ---- Header with + and ... buttons ---- */}
       <div className="flex items-center justify-between px-3 py-2">
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Feeds
+          {t.sidebar.feeds}
         </h3>
         <div className="flex items-center gap-1">
           <button
@@ -187,7 +191,7 @@ const FeedList: React.FC = () => {
               }
             }}
             className={`p-1 rounded transition-colors ${syncing ? "text-accent animate-spin" : "text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary"}`}
-            title="Sync All Feeds"
+            title={t.sidebar.syncAll}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -196,7 +200,7 @@ const FeedList: React.FC = () => {
           <button
             onClick={() => openSheet("feedEditor" as SheetKind)}
             className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
-            title="Add feed"
+            title={t.sidebar.addFeed}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -205,7 +209,7 @@ const FeedList: React.FC = () => {
           <button
             onClick={() => openSheet("appSettings" as SheetKind)}
             className="p-1 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
-            title="Settings"
+            title={t.sidebar.settings}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -234,14 +238,14 @@ const FeedList: React.FC = () => {
                   onClick={handleImportOpml}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary transition-colors cursor-pointer"
                 >
-                  Import OPML
+                  {t.sidebar.importOpml}
                 </button>
                 <button
                   type="button"
                   onClick={handleExportOpml}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary transition-colors cursor-pointer"
                 >
-                  Export OPML
+                  {t.sidebar.exportOpml}
                 </button>
               </div>
             )}
@@ -253,7 +257,7 @@ const FeedList: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-1">
         {feedsLoading && (
           <div className="flex items-center justify-center py-8 text-slate-400 text-sm">
-            Loading feeds...
+            {t.common.loading}
           </div>
         )}
 
@@ -269,7 +273,7 @@ const FeedList: React.FC = () => {
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <span className="flex-1 text-left truncate">All Feeds</span>
+          <span className="flex-1 text-left truncate">{t.sidebar.allFeeds}</span>
           {totalUnread > 0 && (
             <span className="text-xs bg-accent text-white rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-medium">
               {totalUnread > 999 ? "999+" : totalUnread}
@@ -289,7 +293,7 @@ const FeedList: React.FC = () => {
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
           </svg>
-          <span className="flex-1 text-left truncate">Starred</span>
+          <span className="flex-1 text-left truncate">{t.sidebar.starred}</span>
           {starredUnread > 0 && (
             <span className="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-medium">
               {starredUnread > 999 ? "999+" : starredUnread}
@@ -335,8 +339,8 @@ const FeedList: React.FC = () => {
         {/* Empty state */}
         {!feedsLoading && feeds.length === 0 && (
           <div className="px-3 py-6 text-center text-sm text-slate-400">
-            <p>No feeds yet</p>
-            <p className="text-xs mt-1">Click + to add your first subscription</p>
+            <p>{t.common.noData}</p>
+            <p className="text-xs mt-1">{t.sidebar.addFeed}</p>
           </div>
         )}
       </div>

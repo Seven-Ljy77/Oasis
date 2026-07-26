@@ -18,6 +18,7 @@ use crate::agent::prompt_template::PromptTemplateStore;
 use crate::agent::runtime::AgentRuntimeEngine;
 use crate::db::agent_config_store::SqliteAgentConfigStore;
 use crate::db::agent_task_store::SqliteAgentTaskStore;
+use crate::db::content_store_impl::SqliteContentStore;
 use crate::db::entry_store::SqliteEntryStore;
 use crate::db::feed_store::SqliteFeedStore;
 use crate::db::llm_usage_store::SqliteLLMUsageStore;
@@ -44,6 +45,7 @@ pub fn run() {
     let feed_store = Arc::new(SqliteFeedStore::new(db.clone()));
     let entry_store = Arc::new(SqliteEntryStore::new(db.clone()));
     let tag_store = Arc::new(SqliteTagStore::new(db.clone()));
+    let content_store = Arc::new(SqliteContentStore::new(db.clone()));
     let agent_config_store = Arc::new(SqliteAgentConfigStore::new(db.clone()));
     let agent_task_store = Arc::new(SqliteAgentTaskStore::new(db.clone()));
     let llm_usage_store = Arc::new(SqliteLLMUsageStore::new(db.clone()));
@@ -59,6 +61,7 @@ pub fn run() {
         feed_store,
         entry_store,
         tag_store,
+        content_store,
         agent_config_store,
         agent_task_store,
         llm_usage_store,
@@ -89,11 +92,14 @@ pub fn run() {
             commands::feed_commands::sync_feeds,
             commands::feed_commands::import_opml,
             commands::feed_commands::export_opml,
+            commands::feed_commands::get_sidebar_projection,
             // Entry commands
             commands::entry_commands::load_entries,
             commands::entry_commands::load_next_entries,
             commands::entry_commands::mark_read,
             commands::entry_commands::mark_starred,
+            commands::entry_commands::mark_all_read,
+            commands::entry_commands::delete_all_entries,
             commands::entry_commands::delete_entry,
             commands::entry_commands::search_entries,
             // Reader commands

@@ -1,8 +1,10 @@
 import React from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { useI18n } from "@/lib/i18n";
 import type { ThemePreset, ThemeMode } from "@/lib/types";
 
 const ReaderSettings: React.FC = () => {
+  const { t } = useI18n();
   const themePreset = useReaderStore((s) => s.themePreset);
   const setThemePreset = useReaderStore((s) => s.setThemePreset);
   const themeMode = useReaderStore((s) => s.themeMode);
@@ -35,10 +37,10 @@ const ReaderSettings: React.FC = () => {
   ];
 
   const quickStyles: { value: "none" | "warm" | "cool" | "slate"; label: string }[] = [
-    { value: "none", label: "None" },
-    { value: "warm", label: "Warm" },
-    { value: "cool", label: "Cool" },
-    { value: "slate", label: "Slate" },
+    { value: "none", label: t.theme.none },
+    { value: "warm", label: t.theme.warm },
+    { value: "cool", label: t.theme.cool },
+    { value: "slate", label: t.theme.slate },
   ];
 
   return (
@@ -46,7 +48,7 @@ const ReaderSettings: React.FC = () => {
       {/* Theme preset */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Theme Preset
+          {t.theme.readerTheme}
         </label>
         <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 w-fit">
           {(["classic", "paper"] as ThemePreset[]).map((preset) => (
@@ -59,7 +61,7 @@ const ReaderSettings: React.FC = () => {
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {preset}
+              {preset === "classic" ? t.theme.classic : t.theme.paper}
             </button>
           ))}
         </div>
@@ -68,7 +70,7 @@ const ReaderSettings: React.FC = () => {
       {/* Appearance */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Appearance
+          {t.theme.appearance}
         </label>
         <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 w-fit">
           {(["auto", "forceLight", "forceDark"] as ThemeMode[]).map((mode) => (
@@ -81,7 +83,7 @@ const ReaderSettings: React.FC = () => {
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {mode === "auto" ? "Auto" : mode === "forceLight" ? "Light" : "Dark"}
+              {mode === "auto" ? t.theme.auto : mode === "forceLight" ? t.theme.light : t.theme.dark}
             </button>
           ))}
         </div>
@@ -90,7 +92,7 @@ const ReaderSettings: React.FC = () => {
       {/* Quick style */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Quick Style
+          {t.theme.quickStyle}
         </label>
         <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 w-fit">
           {quickStyles.map((style) => (
@@ -112,7 +114,7 @@ const ReaderSettings: React.FC = () => {
       {/* Font family */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Font Family
+          {t.theme.fontFamily}
         </label>
         <select
           value={fontFamily}
@@ -130,7 +132,7 @@ const ReaderSettings: React.FC = () => {
       {/* Font size */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Font Size: {fontSize}px
+          {t.theme.fontSize}: {fontSize}px
         </label>
         <input
           type="range"
@@ -146,7 +148,7 @@ const ReaderSettings: React.FC = () => {
       {/* Line height */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Line Height: {lineHeight.toFixed(1)}
+          {t.theme.lineHeight}: {lineHeight.toFixed(1)}
         </label>
         <input
           type="range"
@@ -162,7 +164,7 @@ const ReaderSettings: React.FC = () => {
       {/* Content width */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Content Width: {contentWidth}px
+          {t.theme.contentWidth}: {contentWidth}px
         </label>
         <input
           type="range"
@@ -181,7 +183,7 @@ const ReaderSettings: React.FC = () => {
 
       {/* Live preview */}
       <div className="pt-2 border-t border-border">
-        <h4 className="text-sm font-medium text-slate-700 mb-2">Preview</h4>
+        <h4 className="text-sm font-medium text-slate-700 mb-2">{t.theme.preview}</h4>
         <div
           className="p-4 rounded-lg border border-border"
           style={{
@@ -216,7 +218,7 @@ const ReaderSettings: React.FC = () => {
           onClick={resetTheme}
           className="text-sm text-accent hover:text-accent-hover transition-colors"
         >
-          Reset to defaults
+          {t.theme.reset}
         </button>
       </div>
     </div>

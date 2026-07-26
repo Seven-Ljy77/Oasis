@@ -3,14 +3,17 @@ import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useFeedStore } from "@/stores/useFeedStore";
 import { useTagStore } from "@/stores/useTagStore";
+import { useSidebarStore } from "@/stores/useSidebarStore";
 import { useReaderStore } from "@/stores/useReaderStore";
-import { recalculateTagCounts } from "@/lib/ipc";
+import { useI18n } from "@/lib/i18n";
+import { recalculateTagCounts, markAllRead, deleteAllEntries } from "@/lib/ipc";
 import EntryRow from "./EntryRow";
 import MultiSelectToolbar from "./MultiSelectToolbar";
 import Button from "@/components/ui/Button";
 import type { EntryListItem } from "@/lib/types";
 
 const EntryListView: React.FC = () => {
+  const { t } = useI18n();
   const selectedFeedSelection = useAppStore((s) => s.selectedFeedSelection);
   const showUnreadOnly = useAppStore((s) => s.showUnreadOnly);
   const searchText = useAppStore((s) => s.searchText);
@@ -123,14 +126,39 @@ const EntryListView: React.FC = () => {
     }
   };
 
-  const handleMarkAllRead = () => {
-    const ids = entries.map((e) => e.id);
-    markRead(ids, true);
+  // Build query from current filters for query-scoped batch operations.
+  const buildCurrentQuery = () => ({
+    feed_id: selectedFeedSelection.type === "feed" ? selectedFeedSelection.feedId : undefined,
+    unread_only: false, // Always target ALL entries in scope, not just unread
+    starred_only: selectedFeedSelection.type === "starred" ? true : undefined,
+    search_text: searchText || undefined,
+    tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    tag_match_mode: tagMatchMode,
+    limit: 1, // Not used for batch operations
+  });
+
+  const handleMarkAllRead = async () => {
+    try {
+      const query = buildCurrentQuery();
+      await markAllRead(query, true);
+      useSidebarStore.getState().loadCounts();
+      loadFirstPage({ ...query, limit: 50 });
+    } catch (err) {
+      console.error("markAllRead failed:", err);
+      alert("Mark All Read failed: " + String(err));
+    }
   };
 
-  const handleMarkAllUnread = () => {
-    const ids = entries.map((e) => e.id);
-    markRead(ids, false);
+  const handleMarkAllUnread = async () => {
+    try {
+      const query = buildCurrentQuery();
+      await markAllRead(query, false);
+      useSidebarStore.getState().loadCounts();
+      loadFirstPage({ ...query, limit: 50 });
+    } catch (err) {
+      console.error("markAllUnread failed:", err);
+      alert("Mark All Unread failed: " + String(err));
+    }
   };
 
   const deleteFeedFromStore = useFeedStore((s) => s.deleteFeed);
@@ -139,24 +167,16 @@ const EntryListView: React.FC = () => {
   const allFeeds = useFeedStore((s) => s.feeds);
 
   const handleDeleteSelected = async () => {
-    if (!window.confirm("Delete ALL feeds and ALL articles? This cannot be undone.")) return;
+    const scopeLabel = selectedFeedSelection.type === "feed" ? "this feed" : "current view";
+    if (!window.confirm(`Delete ALL articles in ${scopeLabel}? This cannot be undone.`)) return;
 
-    // Delete all feeds (cascades to entries)
-    for (const feed of allFeeds) {
-      await deleteFeedFromStore(feed.id);
-    }
-
-    // Recalculate tag counts and clear
+    const query = buildCurrentQuery();
+    await deleteAllEntries(query);
     await recalculateTagCounts();
     await loadTags();
     clearEntries();
-    selectFeedGlobal({ type: "all" });
     loadFirstPage({
-      feed_id: undefined,
-      unread_only: showUnreadOnly,
-      tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-      tag_match_mode: tagMatchMode,
-      search_text: searchText || undefined,
+      ...query,
       limit: 50,
     });
   };
@@ -172,7 +192,7 @@ const EntryListView: React.FC = () => {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface-secondary">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-slate-800">
-            {isStarredView ? "Starred" : "Entries"}
+            {isStarredView ? t.entryList.starred : t.entryList.entries}
           </h2>
           {isLoading && (
             <svg
@@ -206,9 +226,9 @@ const EntryListView: React.FC = () => {
                 ? "bg-accent-muted text-accent font-medium"
                 : "text-slate-500 hover:text-slate-700"
             }`}
-            title="Show unread only"
+            title={t.entryList.unreadOnly}
           >
-            Unread
+            {t.entryList.unreadOnly}
           </button>
 
           {/* Action menu */}
@@ -238,33 +258,33 @@ const EntryListView: React.FC = () => {
                   onClick={() => { handleMarkAllRead(); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
                 >
-                  Mark All Read
+                  {t.entryList.markAllRead}
                 </button>
                 <button
                   onClick={() => { handleMarkAllUnread(); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
                 >
-                  Mark All Unread
+                  {t.entryList.markAllUnread}
                 </button>
                 <div className="border-t border-border my-1" />
                 <button
                   onClick={() => { handleDeleteSelected(); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                 >
-                  Delete All
+                  {t.entryList.deleteAll}
                 </button>
                 <div className="border-t border-border my-1" />
                 <button
                   onClick={() => { openSheet("exportDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
                 >
-                  Export Digest
+                  {t.entryList.exportDigest}
                 </button>
                 <button
                   onClick={() => { openSheet("exportMultipleDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
                 >
-                  Export Multiple Digest
+                  {t.entryList.exportMultipleDigest}
                 </button>
               </div>
             )}
@@ -279,8 +299,8 @@ const EntryListView: React.FC = () => {
             <svg className="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
             </svg>
-            <p className="text-sm">No articles</p>
-            <p className="text-xs mt-1">Select a feed to see its articles</p>
+            <p className="text-sm">{t.entryList.noArticles}</p>
+            <p className="text-xs mt-1">{t.entryList.selectFeedHint}</p>
           </div>
         )}
         {entries.map((entry) => (
@@ -298,15 +318,15 @@ const EntryListView: React.FC = () => {
         {/* Infinite scroll sentinel */}
         <div ref={sentinelRef} className="py-4 text-center">
           {isLoadingMore && (
-            <span className="text-xs text-slate-400">Loading more...</span>
+            <span className="text-xs text-slate-400">{t.common.loading}</span>
           )}
           {!hasMore && entries.length > 0 && (
             <span className="text-xs text-slate-400">
-              {entries.length} entries
+              {entries.length} {t.entryList.entries}
             </span>
           )}
           {!hasMore && entries.length === 0 && !isLoading && (
-            <span className="text-xs text-slate-400">No entries to show</span>
+            <span className="text-xs text-slate-400">{t.entryList.noArticles}</span>
           )}
         </div>
       </div>

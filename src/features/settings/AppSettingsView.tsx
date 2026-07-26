@@ -3,6 +3,7 @@
 // =============================================================================
 
 import React from "react";
+import { useI18n } from "@/lib/i18n";
 import GeneralSettings from "./GeneralSettings";
 import ReaderSettings from "./ReaderSettings";
 import AgentSettingsView from "./AgentSettings/AgentSettingsView";
@@ -106,6 +107,7 @@ const AppSettingsView: React.FC<AppSettingsViewProps> = ({
   onClose,
   className = "",
 }) => {
+  const { t } = useI18n();
   const [internalTab, setInternalTab] = React.useState<"general" | "reader" | "agents" | "digest" | "usage">("general");
   const activeTab = externalTab ?? internalTab;
 
@@ -123,7 +125,7 @@ const AppSettingsView: React.FC<AppSettingsViewProps> = ({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-secondary">
-        <h2 className="text-base font-semibold text-slate-900">Settings</h2>
+        <h2 className="text-base font-semibold text-slate-900">{t.settings.title}</h2>
         {onClose && (
           <button
             onClick={onClose}
@@ -150,7 +152,7 @@ const AppSettingsView: React.FC<AppSettingsViewProps> = ({
             }`}
           >
             {tab.icon}
-            {tab.label}
+            {t.settings[tab.id]}
           </button>
         ))}
       </div>

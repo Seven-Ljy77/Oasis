@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
 import {
   BarChart,
   Bar,
@@ -26,6 +27,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
   subtitle,
   filters,
 }) => {
+  const { t } = useI18n();
   const [period, setPeriod] = useState<7 | 14 | 30>(7);
   const [snapshot, setSnapshot] = useState<UsageReportSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,7 +97,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {p === 7 ? "1 Week" : p === 14 ? "2 Weeks" : "1 Month"}
+              {p === 7 ? t.usage.period1w : p === 14 ? t.usage.period2w : t.usage.period1m}
             </button>
           ))}
         </div>
@@ -162,19 +164,19 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-surface-secondary border border-border rounded-lg p-4">
-          <div className="text-xs text-slate-400 mb-1">Total Tokens</div>
+          <div className="text-xs text-slate-400 mb-1">{t.usage.totalTokens}</div>
           <div className="text-xl font-semibold text-slate-900">
             {totalTokens.toLocaleString()}
           </div>
         </div>
         <div className="bg-surface-secondary border border-border rounded-lg p-4">
-          <div className="text-xs text-slate-400 mb-1">Total Requests</div>
+          <div className="text-xs text-slate-400 mb-1">{t.usage.totalRequests}</div>
           <div className="text-xl font-semibold text-slate-900">
             {totalRequests.toLocaleString()}
           </div>
         </div>
         <div className="bg-surface-secondary border border-border rounded-lg p-4">
-          <div className="text-xs text-slate-400 mb-1">Success Rate</div>
+          <div className="text-xs text-slate-400 mb-1">{t.usage.successRate}</div>
           <div className="text-xl font-semibold text-green-600">
             {totalRequests > 0
               ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%`
@@ -186,11 +188,11 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
       {/* Quality metrics */}
       <div className="bg-surface-secondary border border-border rounded-lg p-4">
         <h4 className="text-sm font-semibold text-slate-700 mb-3">
-          Quality Metrics
+          {t.usage.qualityMetrics}
         </h4>
         <div className="grid grid-cols-3 gap-6">
           <div>
-            <div className="text-xs text-slate-400">Success Rate</div>
+            <div className="text-xs text-slate-400">{t.usage.successRate}</div>
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0
                 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%`
@@ -198,7 +200,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400">Coverage Rate</div>
+            <div className="text-xs text-slate-400">{t.usage.coverageRate}</div>
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0
                 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%`
@@ -206,7 +208,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400">Avg Tokens / Request</div>
+            <div className="text-xs text-slate-400">{t.usage.avgTokensPerRequest}</div>
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0
                 ? Math.round(totalTokens / totalRequests).toLocaleString()
@@ -220,17 +222,17 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
       {snapshot && (
       <div className="bg-surface-secondary border border-border rounded-lg p-4">
         <h4 className="text-sm font-semibold text-slate-700 mb-3">
-          Period Comparison
+          {t.usage.periodComparison}
         </h4>
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <div className="text-xs text-slate-400">Success Rate</div>
+            <div className="text-xs text-slate-400">{t.usage.successRate}</div>
             <div className={`text-base font-semibold ${totalRequests > 0 && totalSucceeded > 0 ? "text-green-600" : "text-slate-400"}`}>
               {totalRequests > 0 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%` : "N/A"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400">Avg Tokens / Request</div>
+            <div className="text-xs text-slate-400">{t.usage.avgTokensPerRequest}</div>
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0 ? Math.round(totalTokens / totalRequests).toLocaleString() : "N/A"}
             </div>

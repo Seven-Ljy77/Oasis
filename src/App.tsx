@@ -3,12 +3,14 @@
 // =============================================================================
 
 import React, { useEffect } from "react";
+import { I18nProvider } from "@/lib/i18n";
 import { useAppStore } from "@/stores/useAppStore";
 import { useFeedStore } from "@/stores/useFeedStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useTagStore } from "@/stores/useTagStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useSidebarStore } from "@/stores/useSidebarStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import SidebarView from "@/features/sidebar/SidebarView";
 import EntryListView from "@/features/entry-list/EntryListView";
@@ -23,23 +25,41 @@ import ExportDigestSheet from "@/features/digest/ExportDigestSheet";
 import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestSheet";
 import TagRenameSheet from "@/features/tags/TagRenameSheet";
 import TagMergeSheet from "@/features/tags/TagMergeSheet";
-import SplitPane from "@/components/ui/SplitPane";
 import { useResizableWidth } from "@/hooks/useResizableWidth";
 
-export const App: React.FC = () => {
+const AppShell: React.FC = () => {
   // ---- Bootstrap ----
   const bootstrap = useAppStore((s) => s.bootstrap);
   const isReady = useAppStore((s) => s.isReady);
   const loadFeeds = useFeedStore((s) => s.loadFeeds);
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const loadTags = useTagStore((s) => s.loadTags);
+  const loadCounts = useSidebarStore((s) => s.loadCounts);
   const tagStoreTags = useTagStore((s) => s.tags);
 
   useEffect(() => {
+    // Apply initial theme class immediately on mount.
+    // Use CSS custom property fallback for system dark detection (more reliable
+    // than matchMedia in WebView2).
+    const mode = useReaderStore.getState().themeMode;
+    const root = document.documentElement;
+    root.classList.remove("force-light", "force-dark", "force-eyecare");
+    if (mode === "auto") {
+      const systemDark = getComputedStyle(root).getPropertyValue("--system-is-dark").trim();
+      root.classList.add(systemDark === "1" ? "force-dark" : "force-light");
+    } else if (mode === "forceDark") {
+      root.classList.add("force-dark");
+    } else if (mode === "forceLight") {
+      root.classList.add("force-light");
+    } else if (mode === "eyecare") {
+      root.classList.add("force-eyecare");
+    }
+
     const doBootstrap = async () => {
       try {
         await loadSettings();
         await Promise.all([loadFeeds(), loadTags()]);
+        await loadCounts();
         bootstrap();
       } catch (err) {
         console.error("Bootstrap failed:", err);
@@ -224,3 +244,9 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
+export const App: React.FC = () => (
+  <I18nProvider>
+    <AppShell />
+  </I18nProvider>
+);

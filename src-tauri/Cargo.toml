@@ -42,6 +42,7 @@ futures = "0.3"
 serde_yaml = "0.9"
 dirs = "6"
 url = "2"
+readability-js = "0.1"
 
 [features]
 default = ["custom-protocol"]

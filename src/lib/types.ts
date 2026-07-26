@@ -346,6 +346,37 @@ export interface OpmlImportOptions {
   forceSiteName: boolean;
 }
 
+export interface ImportResult {
+  added: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface SidebarProjection {
+  total_unread: number;
+  total_starred: number;
+  starred_unread: number;
+  total_entries: number;
+  total_feeds: number;
+  per_feed: FeedCount[];
+}
+
+export interface FeedCount {
+  feed_id: number;
+  title: string;
+  unread: number;
+  total: number;
+}
+
+export interface ImportProgressEvent {
+  feed_title: string;
+  feed_url: string;
+  status: "fetching" | "done" | "error" | "skipped";
+  completed: number;
+  total: number;
+  error?: string;
+}
+
 // -----------------------------------------------------------------------------
 // Navigation / Sidebar
 // -----------------------------------------------------------------------------

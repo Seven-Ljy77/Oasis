@@ -3,10 +3,12 @@ import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useTagStore } from "@/stores/useTagStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useI18n } from "@/lib/i18n";
 import type { TagSuggestion, TagInfo } from "@/lib/types";
 import Button from "@/components/ui/Button";
 
 const ReaderTaggingPanel: React.FC = () => {
+  const { t } = useI18n();
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const activePanel = useReaderStore((s) => s.activePanel);
   const setActivePanel = useReaderStore((s) => s.setActivePanel);
@@ -109,7 +111,7 @@ const ReaderTaggingPanel: React.FC = () => {
   return (
     <div className="absolute right-2 top-12 z-50 w-72 bg-surface border border-border rounded-lg shadow-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">Tag this article</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t.tagging.title}</h3>
         <button
           onClick={() => setActivePanel(null)}
           className="p-0.5 rounded text-slate-400 hover:text-slate-600"
@@ -124,7 +126,7 @@ const ReaderTaggingPanel: React.FC = () => {
       {(entryTags ?? []).length > 0 && (
         <div>
           <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
-            Assigned Tags
+            {t.tagging.existingTags}
           </label>
           <div className="flex flex-wrap gap-1">
             {(entryTags ?? []).map((tag) => (
@@ -136,7 +138,7 @@ const ReaderTaggingPanel: React.FC = () => {
                 <button
                   onClick={() => handleRemoveTag(tag.id)}
                   className="ml-0.5 hover:text-red-500 transition-colors"
-                  title="Remove tag"
+                  title={t.tagging.remove}
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -157,11 +159,11 @@ const ReaderTaggingPanel: React.FC = () => {
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAddTagFromInput();
           }}
-          placeholder="Add tags (comma separated)..."
+          placeholder={t.tagging.addTag}
           className="flex-1 h-7 px-2 text-xs rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
         />
         <Button variant="primary" size="sm" onClick={handleAddTagFromInput}>
-          Add
+          {t.tagging.apply}
         </Button>
       </div>
 
@@ -172,7 +174,7 @@ const ReaderTaggingPanel: React.FC = () => {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          AI analyzing article...
+          {t.common.loading}
         </div>
       )}
 
@@ -183,8 +185,8 @@ const ReaderTaggingPanel: React.FC = () => {
       {!loading && !errorMsg && aiSuggestions.length === 0 && (
         <p className="text-[11px] text-slate-400 italic">
           {aiTaggingEnabled
-            ? "No tags suggested for this article."
-            : "AI tag suggestions are disabled. Enable in Settings → General."}
+            ? t.common.noData
+            : t.tagging.aiDisabled}
         </p>
       )}
 
@@ -192,7 +194,7 @@ const ReaderTaggingPanel: React.FC = () => {
       {!loading && aiSuggestions.length > 0 && (
         <div>
           <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
-            AI Suggestions
+            {t.tagging.aiSuggestions}
           </label>
           <div className="flex flex-wrap gap-1">
             {aiSuggestions.map((s) => (
@@ -212,7 +214,7 @@ const ReaderTaggingPanel: React.FC = () => {
       {nlpSuggestions.length > 0 && (
         <div>
           <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
-            NLP Suggestions
+            {t.tagging.nlpSuggestions}
           </label>
           <div className="flex flex-wrap gap-1">
             {nlpSuggestions.map((s) => (
@@ -232,7 +234,7 @@ const ReaderTaggingPanel: React.FC = () => {
       {existingTags.length > 0 && (
         <div>
           <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
-            Existing Tags
+            {t.tagging.existingTags}
           </label>
           <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
             {existingTags.map((s) => (
@@ -255,7 +257,7 @@ const ReaderTaggingPanel: React.FC = () => {
         className="w-full"
         onClick={() => setActivePanel(null)}
       >
-        Done
+        {t.common.close}
       </Button>
     </div>
   );

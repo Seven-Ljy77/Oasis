@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTagStore } from "@/stores/useTagStore";
+import { useI18n } from "@/lib/i18n";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import type { TagLibraryItem } from "@/lib/types";
@@ -12,6 +13,7 @@ interface TagLibrarySheetProps {
 type FilterKind = "all" | "unused" | "hasAliases";
 
 const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
+  const { t } = useI18n();
   const tags = useTagStore((s) => s.tags);
   const tagLibrary = useTagStore((s) => s.tagLibrary);
   const loadTags = useTagStore((s) => s.loadTags);
@@ -65,9 +67,9 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
   const aliases = selectedTag ? aliasesForTag(selectedTag.id) : [];
 
   const filters: { value: FilterKind; label: string }[] = [
-    { value: "all", label: "All" },
-    { value: "unused", label: "Unused" },
-    { value: "hasAliases", label: "Has Aliases" },
+    { value: "all", label: t.tagLibrary.filterAll },
+    { value: "unused", label: t.tagLibrary.filterUnused },
+    { value: "hasAliases", label: t.tagLibrary.filterHasAliases },
   ];
 
   const refresh = () => {
@@ -76,7 +78,7 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Tag Library" width="800px" maxWidth="95vw">
+    <Sheet open={open} onClose={onClose} title={t.tagLibrary.title} width="800px" maxWidth="95vw">
       <div className="flex gap-4" style={{ minHeight: "400px" }}>
         {/* Left: tag list */}
         <div className="w-72 flex-shrink-0">
@@ -84,7 +86,7 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tags..."
+            placeholder={t.tagLibrary.search}
             className="w-full h-7 px-2 text-xs rounded-md border border-border bg-surface focus:border-accent focus:outline-none mb-2"
           />
 
@@ -127,7 +129,7 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
             ))}
             {filteredTags.length === 0 && (
               <div className="px-3 py-4 text-xs text-slate-400 text-center">
-                No tags match your filter.
+                {t.common.noData}
               </div>
             )}
           </div>
@@ -137,16 +139,16 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
         <div className="flex-1 min-w-0">
           {!selectedTag ? (
             <div className="flex items-center justify-center h-full text-sm text-slate-400">
-              Select a tag from the list to inspect.
+              {t.common.noData}
             </div>
           ) : (
             <div className="space-y-4">
               {/* Identity */}
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">Identity</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">{t.tagLibrary.identity}</h4>
                 <div className="space-y-1 text-sm">
                   <div className="flex gap-2">
-                    <span className="text-slate-500 w-24">Name:</span>
+                    <span className="text-slate-500 w-24">{t.tagLibrary.name}:</span>
                     {renaming ? (
                       <div className="flex gap-1">
                         <input
@@ -161,21 +163,21 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
                             setRenaming(false);
                             refresh();
                           }
-                        }}>OK</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
+                        }}>{t.common.confirm}</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>{t.common.cancel}</Button>
                       </div>
                     ) : (
                       <span className="text-slate-700 font-medium">{selectedTag.name}</span>
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <span className="text-slate-500 w-24">Normalized:</span>
+                    <span className="text-slate-500 w-24">{t.tagLibrary.normalizedName}:</span>
                     <span className="text-slate-600 font-mono text-xs">{selectedTag.normalized_name}</span>
                   </div>
                   <div className="flex gap-2">
-                    <span className="text-slate-500 w-24">Status:</span>
+                    <span className="text-slate-500 w-24">{t.tagLibrary.status}:</span>
                     <span className={selectedTag.is_provisional ? "text-amber-600" : "text-green-600"}>
-                      {selectedTag.is_provisional ? "Provisional" : "Active"}
+                      {selectedTag.is_provisional ? t.tagLibrary.provisional : t.tagLibrary.permanent}
                     </span>
                   </div>
                 </div>
@@ -183,9 +185,9 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
 
               {/* Aliases */}
               <div className="pt-2 border-t border-border/50">
-                <h4 className="text-sm font-semibold text-slate-700 mb-2">Aliases ({aliases.length})</h4>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2">{t.tagLibrary.aliases} ({aliases.length})</h4>
                 {aliases.length === 0 ? (
-                  <p className="text-xs text-slate-400">No aliases defined.</p>
+                  <p className="text-xs text-slate-400">{t.common.noData}</p>
                 ) : (
                   <div className="space-y-1">
                     {aliases.map((alias) => (
@@ -199,13 +201,13 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
 
               {/* Actions */}
               <div className="pt-2 border-t border-border space-y-2">
-                <h4 className="text-sm font-semibold text-slate-700">Actions</h4>
+                <h4 className="text-sm font-semibold text-slate-700">{t.tagLibrary.actions}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" size="sm" onClick={() => {
                     setNewName(selectedTag.name);
                     setRenaming(true);
-                  }}>Rename</Button>
-                  <Button variant="secondary" size="sm" onClick={() => setShowMergePicker(true)}>Merge</Button>
+                  }}>{t.tagLibrary.rename}</Button>
+                  <Button variant="secondary" size="sm" onClick={() => setShowMergePicker(true)}>{t.tagLibrary.mergeInto}</Button>
                   <Button
                     variant="danger"
                     size="sm"
@@ -216,7 +218,7 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
                         refresh();
                       }
                     }}
-                  >Delete</Button>
+                  >{t.tagLibrary.delete}</Button>
                 </div>
               </div>
 
@@ -224,14 +226,14 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
               {showMergePicker && (
                 <div className="p-3 border border-accent rounded-lg mt-4 bg-accent-muted">
                   <h5 className="text-sm font-medium text-accent mb-2">
-                    Merge "{selectedTag.name}" into:
+                    {t.tagLibrary.mergeInto} "{selectedTag.name}":
                   </h5>
                   <select
                     className="w-full h-8 px-2 text-sm rounded border border-border bg-surface focus:border-accent focus:outline-none mb-2"
                     value={mergeTargetId ?? ""}
                     onChange={(e) => setMergeTargetId(Number(e.target.value))}
                   >
-                    <option value="">Select target tag...</option>
+                    <option value="">{t.tagLibrary.mergeInto}...</option>
                     {displayTags
                       .filter((t) => t.id !== selectedTag.id)
                       .map((t) => (
@@ -244,7 +246,7 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
                     {selectedTag.usage_count} usages + aliases will be transferred. Source tag will be deleted.
                   </p>
                   <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setShowMergePicker(false)}>Cancel</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setShowMergePicker(false)}>{t.common.cancel}</Button>
                     <Button
                       variant="primary"
                       size="sm"
@@ -257,7 +259,7 @@ const TagLibrarySheet: React.FC<TagLibrarySheetProps> = ({ open, onClose }) => {
                           refresh();
                         }
                       }}
-                    >Confirm Merge</Button>
+                    >{t.common.confirm}</Button>
                   </div>
                 </div>
               )}

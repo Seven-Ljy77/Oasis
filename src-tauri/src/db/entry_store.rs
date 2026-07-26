@@ -35,6 +35,12 @@ pub trait EntryStore: Send + Sync {
 
     /// Insert or ignore parsed entries from a feed sync.
     async fn upsert_entries(&self, feed_id: i64, entries: &[EntryUpsertData]) -> Result<usize, AppError>;
+
+    /// Mark ALL entries matching the query as read or unread (query-scoped, not page-scoped).
+    async fn mark_all_read(&self, query: &EntryListQuery, is_read: bool) -> Result<u64, AppError>;
+
+    /// Soft-delete ALL entries matching the query (query-scoped).
+    async fn delete_all_entries(&self, query: &EntryListQuery) -> Result<u64, AppError>;
 }
 
 /// Defines which fields are searched.
@@ -416,6 +422,53 @@ impl EntryStore for SqliteEntryStore {
                     count += changes;
                 }
                 Ok(count)
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn mark_all_read(&self, query: &EntryListQuery, is_read: bool) -> Result<u64, AppError> {
+        let query = query.clone();
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.write(|conn| {
+                let (where_clause, mut param_values) = build_where_clause(&query);
+                // Prepend the is_read value as the first parameter.
+                let mut all_params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(is_read)];
+                all_params.append(&mut param_values);
+                let param_refs = params_from_vec(&all_params);
+
+                let sql = format!(
+                    "UPDATE entry SET is_read = ?1 WHERE id IN (SELECT e.id FROM entry e {})",
+                    where_clause
+                );
+                let rows = conn
+                    .execute(&sql, &param_refs[..])
+                    .map_err(|e| AppError::Database(e.to_string()))? as u64;
+                Ok(rows)
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn delete_all_entries(&self, query: &EntryListQuery) -> Result<u64, AppError> {
+        let query = query.clone();
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.write(|conn| {
+                let (where_clause, param_values) = build_where_clause(&query);
+                let param_refs = params_from_vec(&param_values);
+
+                let sql = format!(
+                    "UPDATE entry SET is_deleted = 1 WHERE id IN (SELECT e.id FROM entry e {})",
+                    where_clause
+                );
+                let rows = conn
+                    .execute(&sql, &param_refs[..])
+                    .map_err(|e| AppError::Database(e.to_string()))? as u64;
+                Ok(rows)
             })
         })
         .await

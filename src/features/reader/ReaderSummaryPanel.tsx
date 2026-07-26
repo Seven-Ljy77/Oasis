@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useI18n } from "@/lib/i18n";
 import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { listen } from "@tauri-apps/api/event";
 import Button from "@/components/ui/Button";
 
 const ReaderSummaryPanel: React.FC = () => {
+  const { t } = useI18n();
   const { panelRef, dragHandle } = useResizableHeight("summary", 200);
   const summaryOpen = useReaderStore((s) => s.summaryOpen);
   const setSummaryOpen = useReaderStore((s) => s.setSummaryOpen);
@@ -70,9 +72,9 @@ const ReaderSummaryPanel: React.FC = () => {
   ];
 
   const detailLevels: { value: "short" | "medium" | "detailed"; label: string }[] = [
-    { value: "short", label: "Short" },
-    { value: "medium", label: "Medium" },
-    { value: "detailed", label: "Detailed" },
+    { value: "short", label: t.summary.short },
+    { value: "medium", label: t.summary.medium },
+    { value: "detailed", label: t.summary.detailed },
   ];
 
   const handleGenerate = async () => {
@@ -103,7 +105,7 @@ const ReaderSummaryPanel: React.FC = () => {
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
         </svg>
-        <span>Summary</span>
+        <span>{t.summary.title}</span>
         {summaryText && <span className="w-2 h-2 rounded-full bg-accent" />}
       </button>
     );
@@ -161,33 +163,33 @@ const ReaderSummaryPanel: React.FC = () => {
             onChange={(e) => setSummaryAutoEnabled(e.target.checked)}
             className="rounded border-slate-300 text-accent w-3 h-3"
           />
-          Auto
+          {t.summary.autoSummary}
         </label>
 
         <div className="flex-1" />
 
         {/* Action buttons */}
         <Button variant="ghost" size="sm" onClick={handleGenerate} loading={summaryLoading}>
-          Generate
+          {t.summary.generate}
         </Button>
         {summaryLoading && (
           <Button variant="ghost" size="sm" onClick={() => setSummaryLoading(false)}>
-            Abort
+            {t.summary.abort}
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!summaryText}>
-          Copy
+          {t.summary.copy}
         </Button>
         <Button variant="ghost" size="sm" onClick={handleClear} disabled={!summaryText}>
-          Clear
+          {t.summary.clear}
         </Button>
       </div>
 
       {/* Meta row */}
       {summaryText && (
         <div className="px-3 py-1 text-[10px] text-slate-400 border-b border-border/50 flex items-center gap-3">
-          <span>Language: {languages.find((l) => l.value === summaryTargetLanguage)?.label}</span>
-          <span>Detail: {summaryDetailLevel}</span>
+          <span>{t.summary.targetLanguage}: {languages.find((l) => l.value === summaryTargetLanguage)?.label}</span>
+          <span>{t.summary.detailLevel}: {summaryDetailLevel}</span>
           <span>Generated: {new Date().toLocaleTimeString()}</span>
         </div>
       )}
@@ -196,12 +198,12 @@ const ReaderSummaryPanel: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-4">
         {summaryLoading && (
           <div className="text-sm text-slate-500 italic animate-pulse">
-            Generating summary{streamingDots}
+            {t.summary.generating}{streamingDots}
           </div>
         )}
         {!summaryLoading && !summaryText && (
           <div className="text-sm text-slate-400 text-center py-4">
-            No summary yet. Click "Generate" to create one.
+            {t.summary.ready}
           </div>
         )}
         {!summaryLoading && summaryText && (

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import type { BatchTagConfig } from "@/stores/useAppStore";
@@ -11,6 +12,7 @@ interface BatchTaggingSheetProps {
 type Phase = "configure" | "running" | "review" | "applying";
 
 const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) => {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>("configure");
 
   // Configure pane state
@@ -70,14 +72,14 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Batch Tagging" width="640px" maxWidth="95vw">
+    <Sheet open={open} onClose={onClose} title={t.batchTagging.title} width="640px" maxWidth="95vw">
       <div className="space-y-4">
         {/* ---- Configure Pane ---- */}
         {phase === "configure" && (
           <>
             {/* Scope picker */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Scope</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t.batchTagging.scope}</label>
               <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 w-fit">
                 {(["time_range", "all", "unread"] as const).map((s) => (
                   <button
@@ -89,7 +91,7 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
-                    {s === "time_range" ? "Time Range" : s}
+                    {s === "time_range" ? "Time Range" : s === "all" ? t.sidebar.all : t.entryList.unreadOnly}
                   </button>
                 ))}
               </div>
@@ -105,7 +107,7 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
                   className="rounded border-slate-300 text-accent w-3.5 h-3.5"
                 />
                 <span className="text-sm text-slate-600">
-                  Skip entries that already have AI tags
+                  {t.batchTagging.skipTagged}
                 </span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
@@ -116,7 +118,7 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
                   className="rounded border-slate-300 text-accent w-3.5 h-3.5"
                 />
                 <span className="text-sm text-slate-600">
-                  Skip entries where tagging was already attempted
+                  {t.batchTagging.skipAttempted}
                 </span>
               </label>
             </div>
@@ -124,7 +126,7 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
             {/* Concurrency slider */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Concurrency: {concurrency}
+                {t.batchTagging.concurrency}: {concurrency}
               </label>
               <input
                 type="range"
@@ -140,7 +142,7 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
             {/* Candidate count */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Candidate Count: {candidateCount}
+                {t.batchTagging.scope}: {candidateCount}
               </label>
               <input
                 type="range"
@@ -169,7 +171,7 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
             {/* Progress bar */}
             <div>
               <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Progress</span>
+                <span>{t.batchTagging.processed}</span>
                 <span>
                   {processed}/{totalCandidates}
                 </span>
@@ -186,15 +188,15 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-surface-secondary rounded-lg p-3">
                 <div className="text-lg font-semibold text-slate-700">{processed}</div>
-                <div className="text-xs text-slate-400">Processed</div>
+                <div className="text-xs text-slate-400">{t.batchTagging.processed}</div>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
                 <div className="text-lg font-semibold text-green-600">{succeeded}</div>
-                <div className="text-xs text-slate-400">Succeeded</div>
+                <div className="text-xs text-slate-400">{t.batchTagging.succeeded}</div>
               </div>
               <div className="bg-red-50 rounded-lg p-3">
                 <div className="text-lg font-semibold text-red-600">{failed}</div>
-                <div className="text-xs text-slate-400">Failed</div>
+                <div className="text-xs text-slate-400">{t.batchTagging.failed}</div>
               </div>
             </div>
 
@@ -209,10 +211,10 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
         {phase === "review" && (
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-slate-700">
-              Review Tag Proposals ({proposals.length})
+              {t.batchTagging.review} ({proposals.length})
             </h4>
             <p className="text-xs text-slate-500">
-              Review the AI-generated tag suggestions below. Click "Keep" to apply or "Discard" to ignore.
+              {t.batchTagging.review}: {t.batchTagging.keep} or {t.batchTagging.discard}.
             </p>
 
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -235,8 +237,8 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="primary" size="sm">Keep</Button>
-                    <Button variant="ghost" size="sm">Discard</Button>
+                    <Button variant="primary" size="sm">{t.batchTagging.keep}</Button>
+                    <Button variant="ghost" size="sm">{t.batchTagging.discard}</Button>
                   </div>
                 </div>
               ))}
@@ -244,10 +246,10 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
 
             <div className="flex gap-2 pt-2 border-t border-border">
               <Button variant="primary" size="sm" onClick={handleApplyAll}>
-                Apply All
+                {t.batchTagging.apply}
               </Button>
-              <Button variant="secondary" size="sm">Keep All</Button>
-              <Button variant="ghost" size="sm">Discard All</Button>
+              <Button variant="secondary" size="sm">{t.digest.selectAll}</Button>
+              <Button variant="ghost" size="sm">{t.digest.deselectAll}</Button>
             </div>
           </div>
         )}
@@ -255,10 +257,10 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
         {/* ---- Applying Pane ---- */}
         {phase === "applying" && (
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-slate-700">Applying Tags...</h4>
+            <h4 className="text-sm font-semibold text-slate-700">{t.batchTagging.apply}...</h4>
             <div>
               <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Apply Progress</span>
+                <span>{t.batchTagging.apply}</span>
                 <span>
                   {applied}/{totalCandidates}
                 </span>
@@ -284,21 +286,21 @@ const BatchTaggingSheet: React.FC<BatchTaggingSheetProps> = ({ open, onClose }) 
             {phase === "configure" && (
               <>
                 <Button variant="secondary" size="md" onClick={onClose}>
-                  Cancel
+                  {t.common.cancel}
                 </Button>
                 <Button variant="primary" size="md" onClick={handleStart}>
-                  Start
+                  {t.batchTagging.start}
                 </Button>
               </>
             )}
             {phase === "running" && (
               <Button variant="danger" size="md" onClick={() => setPhase("configure")}>
-                Abort
+                {t.batchTagging.abort}
               </Button>
             )}
             {phase === "review" && (
               <Button variant="secondary" size="md" onClick={() => setPhase("configure")}>
-                Back
+                {t.batchTagging.configure}
               </Button>
             )}
           </div>

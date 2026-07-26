@@ -1,28 +1,30 @@
 import React, { useState, useMemo } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
 import type { AgentProviderProfile, AgentModelProfile } from "@/lib/types";
 
 type AgentTab = "providers" | "models" | "agents";
 
 const AgentSettingsView: React.FC = () => {
+  const { t } = useI18n();
   const [tab, setTab] = useState<AgentTab>("providers");
 
   return (
     <div className="p-4 space-y-4">
       {/* Sub-tabs */}
       <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 w-fit">
-        {(["providers", "models", "agents"] as AgentTab[]).map((t) => (
+        {(["providers", "models", "agents"] as AgentTab[]).map((tabValue) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabValue}
+            onClick={() => setTab(tabValue)}
             className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
-              tab === t
+              tab === tabValue
                 ? "bg-surface text-slate-900 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            {t}
+            {tabValue === "providers" ? t.agentSettings.providers : tabValue === "models" ? t.agentSettings.models : t.agentSettings.agents}
           </button>
         ))}
       </div>
@@ -37,6 +39,7 @@ const AgentSettingsView: React.FC = () => {
 // ---- Provider Tab ----
 
 const ProviderTab: React.FC = () => {
+  const { t } = useI18n();
   const providers = useSettingsStore((s) => s.providers);
   const loadProviders = useSettingsStore((s) => s.loadProviders);
   const addProvider = useSettingsStore((s) => s.addProvider);
@@ -71,39 +74,39 @@ const ProviderTab: React.FC = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-slate-700">Providers</h4>
+        <h4 className="text-sm font-medium text-slate-700">{t.agentSettings.providers}</h4>
         <Button variant="secondary" size="sm" onClick={() => setShowAdd(!showAdd)}>
-          Add Provider
+          {t.agentSettings.addProvider}
         </Button>
       </div>
 
       {showAdd && (
         <div className="mb-3 p-3 border border-border rounded-lg space-y-2 bg-surface-secondary">
           <input
-            placeholder="Name"
+            placeholder={t.agentSettings.name}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
           />
           <input
-            placeholder="Base URL"
+            placeholder={t.agentSettings.baseUrl}
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
           />
           <input
             type="password"
-            placeholder="API Key"
+            placeholder={t.agentSettings.apiKey}
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
             className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
           />
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button variant="primary" size="sm" onClick={handleAdd}>
-              Save
+              {t.common.save}
             </Button>
           </div>
         </div>
@@ -112,8 +115,8 @@ const ProviderTab: React.FC = () => {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs text-slate-500">
-            <th className="py-2 pr-4 font-medium">Name</th>
-            <th className="py-2 pr-4 font-medium">Base URL</th>
+            <th className="py-2 pr-4 font-medium">{t.agentSettings.name}</th>
+            <th className="py-2 pr-4 font-medium">{t.agentSettings.baseUrl}</th>
             <th className="py-2 pr-4 font-medium">Status</th>
             <th className="py-2 pr-4 font-medium">Default</th>
             <th className="py-2 pr-4 font-medium">Actions</th>
@@ -132,7 +135,7 @@ const ProviderTab: React.FC = () => {
                       : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  {p.is_enabled ? "Active" : "Disabled"}
+                  {p.is_enabled ? "Active" : t.common.disabled}
                 </span>
               </td>
               <td className="py-2 pr-4">
@@ -148,7 +151,7 @@ const ProviderTab: React.FC = () => {
                     const newName = prompt("New name:", p.name);
                     if (newName) await updateProvider(p.id, { ...p, name: newName });
                     loadProviders();
-                  }}>Edit</Button>
+                  }}>{t.common.edit}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
                     const models = useSettingsStore.getState().models[p.id] ?? [];
                     if (models.length > 0) {
@@ -157,12 +160,12 @@ const ProviderTab: React.FC = () => {
                     } else {
                       alert("No models configured for this provider");
                     }
-                  }}>Test Connection</Button>
+                  }}>{t.agentSettings.testConnection}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
                     await updateProvider(p.id, { ...p, is_default: true });
                     loadProviders();
-                  }}>Set Default</Button>
-                  <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>Delete</Button>
+                  }}>{t.agentSettings.setDefault}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>{t.common.delete}</Button>
                 </div>
               </td>
             </tr>
@@ -176,6 +179,7 @@ const ProviderTab: React.FC = () => {
 // ---- Model Tab ----
 
 const ModelTab: React.FC = () => {
+  const { t } = useI18n();
   const providers = useSettingsStore((s) => s.providers);
   const models = useSettingsStore((s) => s.models);
   const loadModels = useSettingsStore((s) => s.loadModels);
@@ -221,46 +225,46 @@ const ModelTab: React.FC = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-slate-700">Models</h4>
+        <h4 className="text-sm font-medium text-slate-700">{t.agentSettings.models}</h4>
         <Button variant="secondary" size="sm" onClick={() => setShowAdd(!showAdd)}>
-          Add Model
+          {t.agentSettings.addModel}
         </Button>
       </div>
 
       {showAdd && selectedProviderId && (
         <div className="mb-3 p-3 border border-border rounded-lg space-y-2 bg-surface-secondary">
           <input
-            placeholder="Model name (e.g. qwen3)"
+            placeholder={t.agentSettings.modelName}
             value={newModelName}
             onChange={(e) => setNewModelName(e.target.value)}
             className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
           />
           <div className="flex gap-2">
             <input
-              placeholder="Temperature"
+              placeholder={t.agentSettings.temperature}
               value={newTemp}
               onChange={(e) => setNewTemp(e.target.value)}
               className="w-24 h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
             />
             <input
-              placeholder="Max Tokens"
+              placeholder={t.agentSettings.maxTokens}
               value={newMaxTokens}
               onChange={(e) => setNewMaxTokens(e.target.value)}
               className="w-24 h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
             />
             <label className="flex items-center gap-1 text-xs text-slate-600">
-              <input type="checkbox" checked={newSupportsSummary} onChange={(e) => setNewSupportsSummary(e.target.checked)} className="w-3 h-3" /> Summary
+              <input type="checkbox" checked={newSupportsSummary} onChange={(e) => setNewSupportsSummary(e.target.checked)} className="w-3 h-3" /> {t.agentSettings.summary}
             </label>
             <label className="flex items-center gap-1 text-xs text-slate-600">
-              <input type="checkbox" checked={newSupportsTrans} onChange={(e) => setNewSupportsTrans(e.target.checked)} className="w-3 h-3" /> Trans
+              <input type="checkbox" checked={newSupportsTrans} onChange={(e) => setNewSupportsTrans(e.target.checked)} className="w-3 h-3" /> {t.agentSettings.translation}
             </label>
             <label className="flex items-center gap-1 text-xs text-slate-600">
-              <input type="checkbox" checked={newSupportsTag} onChange={(e) => setNewSupportsTag(e.target.checked)} className="w-3 h-3" /> Tag
+              <input type="checkbox" checked={newSupportsTag} onChange={(e) => setNewSupportsTag(e.target.checked)} className="w-3 h-3" /> {t.agentSettings.tagging}
             </label>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button variant="primary" size="sm" onClick={handleAddModel}>Save</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>{t.common.cancel}</Button>
+            <Button variant="primary" size="sm" onClick={handleAddModel}>{t.common.save}</Button>
           </div>
         </div>
       )}
@@ -287,10 +291,10 @@ const ModelTab: React.FC = () => {
         {displayModels.length > 0 && (
         <thead>
           <tr className="border-b border-border text-left text-xs text-slate-500">
-            <th className="py-2 pr-4 font-medium">Model</th>
-            <th className="py-2 pr-4 font-medium">Summary</th>
-            <th className="py-2 pr-4 font-medium">Translation</th>
-            <th className="py-2 pr-4 font-medium">Tagging</th>
+            <th className="py-2 pr-4 font-medium">{t.agentSettings.modelName}</th>
+            <th className="py-2 pr-4 font-medium">{t.agentSettings.summary}</th>
+            <th className="py-2 pr-4 font-medium">{t.agentSettings.translation}</th>
+            <th className="py-2 pr-4 font-medium">{t.agentSettings.tagging}</th>
             <th className="py-2 pr-4 font-medium">Default</th>
             <th className="py-2 pr-4 font-medium">Actions</th>
           </tr>
@@ -302,23 +306,23 @@ const ModelTab: React.FC = () => {
               <td className="py-2 pr-4 text-slate-700">{m.model_name}</td>
               <td className="py-2 pr-4">
                 {m.supports_summary ? (
-                  <span className="text-green-600 text-xs">Yes</span>
+                  <span className="text-green-600 text-xs">{t.common.enabled}</span>
                 ) : (
-                  <span className="text-slate-300 text-xs">No</span>
+                  <span className="text-slate-300 text-xs">{t.common.disabled}</span>
                 )}
               </td>
               <td className="py-2 pr-4">
                 {m.supports_translation ? (
-                  <span className="text-green-600 text-xs">Yes</span>
+                  <span className="text-green-600 text-xs">{t.common.enabled}</span>
                 ) : (
-                  <span className="text-slate-300 text-xs">No</span>
+                  <span className="text-slate-300 text-xs">{t.common.disabled}</span>
                 )}
               </td>
               <td className="py-2 pr-4">
                 {m.supports_tagging ? (
-                  <span className="text-green-600 text-xs">Yes</span>
+                  <span className="text-green-600 text-xs">{t.common.enabled}</span>
                 ) : (
-                  <span className="text-slate-300 text-xs">No</span>
+                  <span className="text-slate-300 text-xs">{t.common.disabled}</span>
                 )}
               </td>
               <td className="py-2 pr-4">
@@ -330,7 +334,7 @@ const ModelTab: React.FC = () => {
               </td>
               <td className="py-2">
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => deleteModel(m.id)}>Delete</Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteModel(m.id)}>{t.common.delete}</Button>
                 </div>
               </td>
             </tr>
@@ -344,6 +348,7 @@ const ModelTab: React.FC = () => {
 // ---- Agent Tab ----
 
 const AgentTab: React.FC = () => {
+  const { t } = useI18n();
   const providers = useSettingsStore((s) => s.providers);
   const models = useSettingsStore((s) => s.models);
   const loadModels = useSettingsStore((s) => s.loadModels);
@@ -378,9 +383,9 @@ const AgentTab: React.FC = () => {
   }, [loadAgentProfile]);
 
   const agentTypes = [
-    { type: "summary", label: "Summary Agent", description: "Generates article summaries" },
-    { type: "translation", label: "Translation Agent", description: "Translates article content" },
-    { type: "tagging", label: "Tagging Agent", description: "Auto-tags articles with relevant labels" },
+    { type: "summary", label: "Summary Agent", description: "Summary Agent" },
+    { type: "translation", label: "Translation Agent", description: "Translation Agent" },
+    { type: "tagging", label: "Tagging Agent", description: "Tagging Agent" },
   ];
 
   const handleSaveProfile = (agentType: string, primaryId: number | null, fallbackId: number | null) => {
@@ -418,7 +423,7 @@ const AgentTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Primary Model</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t.agentSettings.primaryModel}</label>
             <select
               value={sel.primary ?? ""}
               onChange={(e) => {
@@ -428,7 +433,7 @@ const AgentTab: React.FC = () => {
               }}
               className="w-56 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none"
             >
-              <option value="">Select a model...</option>
+              <option value="">{t.agentSettings.primaryModel}...</option>
               {allModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.name} ({m.providerName})</option>
               ))}
@@ -436,7 +441,7 @@ const AgentTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Fallback Model (optional)</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t.agentSettings.fallbackModel}</label>
             <select
               value={sel.fallback ?? ""}
               onChange={(e) => {
@@ -446,7 +451,7 @@ const AgentTab: React.FC = () => {
               }}
               className="w-56 h-7 px-2 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none"
             >
-              <option value="">None</option>
+              <option value="">{t.theme.none}</option>
               {allModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.name} ({m.providerName})</option>
               ))}

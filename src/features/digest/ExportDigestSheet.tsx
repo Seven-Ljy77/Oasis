@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useI18n } from "@/lib/i18n";
 import { exportDigest } from "@/lib/ipc";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Sheet } from "@/components/ui/Sheet";
@@ -12,6 +13,7 @@ interface ExportDigestSheetProps {
 }
 
 const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) => {
+  const { t } = useI18n();
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const entry = useEntryStore((s) => s.entries.find((e) => e.id === selectedEntryId));
   const [exporting, setExporting] = useState(false);
@@ -54,7 +56,7 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Export Digest" width="500px">
+    <Sheet open={open} onClose={onClose} title={t.digest.exportTitle} width="500px">
       <div className="space-y-4">
         <div className="text-sm text-slate-600">
           <p><strong>Title:</strong> {title}</p>
@@ -63,9 +65,9 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>
           <Button variant="primary" onClick={handleExport} disabled={exporting}>
-            {exporting ? "Exporting..." : "Export as Markdown"}
+            {exporting ? t.common.loading : t.digest.exportMarkdown}
           </Button>
         </div>
       </div>

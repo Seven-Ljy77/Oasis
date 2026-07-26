@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
+import { useI18n } from "@/lib/i18n";
 import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { startTranslation, getTranslationSegments, buildTranslationHTML } from "@/lib/ipc";
 import Button from "@/components/ui/Button";
 
 const ReaderTranslationPanel: React.FC = () => {
+  const { t } = useI18n();
   const { panelRef, dragHandle } = useResizableHeight("translation", 200);
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const translationEnabled = useReaderStore((s) => s.translationEnabled);
@@ -86,9 +88,9 @@ const ReaderTranslationPanel: React.FC = () => {
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
         </svg>
-        <span>Translation</span>
+        <span>{t.translation.title}</span>
         {translationProgress && <span className="text-xs text-green-500 ml-auto">{translationProgress.total} segments</span>}
-        {translationLoading && <span className="text-xs text-accent ml-auto">Translating...</span>}
+        {translationLoading && <span className="text-xs text-accent ml-auto">{t.translation.translating}</span>}
       </button>
     );
   }
@@ -102,22 +104,22 @@ const ReaderTranslationPanel: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        <h3 className="text-sm font-semibold text-slate-700">Translation</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t.translation.title}</h3>
         <div className="flex-1" />
       </div>
       <div className="p-4 space-y-3 overflow-y-auto">
 
       <div className="flex items-center gap-3">
         <span className="text-sm text-slate-600">
-          {translationBilingual ? "Bilingual mode" : "Translation"}
+          {translationBilingual ? t.translation.bilingual : t.translation.title}
         </span>
         <Button variant="primary" size="sm" onClick={handleStart} disabled={!selectedEntryId || translationLoading}>
-          {translationLoading ? "Translating..." : "Start Translation"}
+          {translationLoading ? t.translation.translating : t.translation.start}
         </Button>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">Target Language</label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.targetLanguage}</label>
         <select
           value={translationTargetLanguage}
           onChange={(e) => setTranslationTargetLanguage(e.target.value)}
@@ -144,11 +146,11 @@ const ReaderTranslationPanel: React.FC = () => {
           }}
           className="rounded border-slate-300 text-accent w-3.5 h-3.5"
         />
-        <span className="text-sm text-slate-600">Bilingual (show original + translation)</span>
+        <span className="text-sm text-slate-600">{t.translation.bilingual}</span>
       </label>
 
       <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">Concurrency: {translationConcurrency}</label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.concurrency}: {translationConcurrency}</label>
         <input
           type="range" min="1" max="5" step="1"
           value={translationConcurrency}
@@ -158,18 +160,18 @@ const ReaderTranslationPanel: React.FC = () => {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">Prompt Strategy</label>
+        <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.promptStrategy}</label>
         <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5">
           <button
             onClick={() => setTranslationPromptStrategy("standard")}
             className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
               translationPromptStrategy === "standard" ? "bg-surface text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}>Standard</button>
+            }`}>{t.translation.standard}</button>
           <button
             onClick={() => setTranslationPromptStrategy("hy_mt_optimized")}
             className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
               translationPromptStrategy === "hy_mt_optimized" ? "bg-surface text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}>HY-MT Opt</button>
+            }`}>{t.translation.hyMtOpt}</button>
         </div>
       </div>
 

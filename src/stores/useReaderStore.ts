@@ -87,7 +87,7 @@ export interface ReaderState {
   setContentWidth: (width: number) => void;
   resetTheme: () => void;
 
-  buildReaderHTML: (entryUrl: string, bypassCache?: boolean) => Promise<void>;
+  buildReaderHTML: (entryUrl: string, entryId?: number, bypassCache?: boolean) => Promise<void>;
   buildTranslationHTML: (entryId: number, targetLang: string) => Promise<void>;
   setTranslationHTML: (html: string | null) => void;
 
@@ -198,9 +198,14 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
     set({ themeMode: mode });
     const root = document.documentElement;
     root.classList.remove("force-light", "force-dark", "force-eyecare");
-    if (mode === "forceLight") root.classList.add("force-light");
-    else if (mode === "forceDark") root.classList.add("force-dark");
-    else if (mode === "eyecare") root.classList.add("force-eyecare");
+    let resolved = mode;
+    if (mode === "auto") {
+      const systemDark = getComputedStyle(root).getPropertyValue("--system-is-dark").trim();
+      resolved = systemDark === "1" ? "forceDark" : "forceLight";
+    }
+    if (resolved === "forceDark") root.classList.add("force-dark");
+    else if (resolved === "forceLight") root.classList.add("force-light");
+    else if (resolved === "eyecare") root.classList.add("force-eyecare");
     try { localStorage.setItem("mercury-theme-mode", mode); } catch {}
   },
   setEffectiveTheme: (theme) => set({ effectiveTheme: theme }),
@@ -221,7 +226,7 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   }),
 
   // Content
-  buildReaderHTML: async (entryUrl, bypassCache?: boolean) => {
+  buildReaderHTML: async (entryUrl, entryId, bypassCache?: boolean) => {
     const cache = get().readerCache;
     // Check cache first — instant for recently viewed articles
     if (!bypassCache) {
@@ -234,14 +239,22 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
 
     set({ readerLoading: true });
     try {
+      // Resolve "auto" mode to actual system preference
+      let resolvedMode = get().themeMode;
+      if (resolvedMode === "auto") {
+        resolvedMode = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "forceDark"
+          : "forceLight";
+      }
       const theme = {
         fontFamily: get().fontFamily,
         fontSize: get().fontSize,
         lineHeight: get().lineHeight,
         contentWidth: get().contentWidth,
         quickStyle: get().quickStyle,
+        themeMode: resolvedMode,
       };
-      const result = await ipc.buildReaderHTML(entryUrl, theme);
+      const result = await ipc.buildReaderHTML(entryUrl, entryId, theme);
       set({ readerHTML: result.html, readerLoading: false });
 
       // Cache the result (LRU: evict oldest if over 30 entries)
@@ -335,3 +348,18 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
     bannerMessage: null, bannerAction: null,
   }),
 }));
+
+// Listen for system color-scheme changes when in Auto mode.
+if (typeof window !== "undefined") {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    const store = useReaderStore.getState();
+    if (store.themeMode !== "auto") return;
+    // Re-apply with a small delay to let CSS update the --system-is-dark property.
+    setTimeout(() => {
+      const root = document.documentElement;
+      const systemDark = getComputedStyle(root).getPropertyValue("--system-is-dark").trim();
+      root.classList.remove("force-light", "force-dark");
+      root.classList.add(systemDark === "1" ? "force-dark" : "force-light");
+    }, 50);
+  });
+}

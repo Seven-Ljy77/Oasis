@@ -94,6 +94,23 @@ pub async fn mark_starred(
 }
 
 #[tauri::command]
+pub async fn mark_all_read(
+    state: State<'_, AppState>,
+    query: crate::db::query_builder::EntryListQuery,
+    is_read: bool,
+) -> Result<u64, AppError> {
+    state.entry_store.mark_all_read(&query, is_read).await
+}
+
+#[tauri::command]
+pub async fn delete_all_entries(
+    state: State<'_, AppState>,
+    query: crate::db::query_builder::EntryListQuery,
+) -> Result<u64, AppError> {
+    state.entry_store.delete_all_entries(&query).await
+}
+
+#[tauri::command]
 pub async fn delete_entry(
     state: State<'_, AppState>,
     entry_id: i64,
