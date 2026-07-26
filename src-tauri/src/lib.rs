@@ -4,6 +4,7 @@ pub mod db;
 pub mod digest;
 pub mod error;
 pub mod feed;
+pub mod logging;
 pub mod reader;
 pub mod resources;
 pub mod state;
@@ -27,6 +28,7 @@ use crate::db::summary_store::SqliteSummaryStore;
 use crate::db::tag_store::SqliteTagStore;
 use crate::db::translation_store::SqliteTranslationStore;
 use crate::feed::sync_service::SyncService;
+use crate::logging::logger::Logger;
 use crate::state::AppState;
 use crate::tasking::task_queue::TaskQueue;
 
@@ -41,6 +43,13 @@ fn db_path() -> std::path::PathBuf {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db = Arc::new(DatabaseManager::new(&db_path()).expect("Failed to initialize database"));
+
+    // Initialize the logger early so we can log startup events.
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("Mercury");
+    let logger = Arc::new(Logger::new(&data_dir));
+    let _ = logger.info("app_startup", "Application starting");
 
     let feed_store = Arc::new(SqliteFeedStore::new(db.clone()));
     let entry_store = Arc::new(SqliteEntryStore::new(db.clone()));
@@ -71,6 +80,7 @@ pub fn run() {
         sync_service,
         task_queue: Arc::new(TaskQueue::new()),
         agent_runtime: Arc::new(AgentRuntimeEngine::new()),
+        logger: Some(logger),
         config: Arc::new(RwLock::new(
             crate::commands::settings_commands::load_config_from_disk(),
         )),
@@ -171,6 +181,10 @@ pub fn run() {
             commands::settings_commands::test_provider_connection,
             commands::settings_commands::reveal_custom_template,
             commands::settings_commands::get_settings,
+            // Log commands
+            commands::log_commands::get_logs,
+            commands::log_commands::upload_logs,
+            commands::log_commands::clear_logs,
             // Window commands
             commands::window_commands::open_file_dialog,
             commands::window_commands::save_file_dialog,

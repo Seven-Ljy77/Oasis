@@ -294,6 +294,23 @@ export interface AppSettings {
 }
 
 // -----------------------------------------------------------------------------
+// Logging
+// -----------------------------------------------------------------------------
+
+export interface LogEntry {
+  timestamp: string;
+  level: "INFO" | "WARN" | "ERROR";
+  event: string;
+  message: string;
+  extra?: Record<string, unknown> | null;
+}
+
+export interface UploadLogsResponse {
+  uploaded: number;
+  status: string;
+}
+
+// -----------------------------------------------------------------------------
 // Sync / Bootstrap
 // -----------------------------------------------------------------------------
 

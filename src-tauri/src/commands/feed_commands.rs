@@ -169,6 +169,15 @@ pub async fn sync_feeds(
         }));
     }).await?;
 
+    // Log any sync failures.
+    for r in &results {
+        if let Some(ref err) = r.error {
+            if let Some(ref l) = state.logger {
+                let _ = l.warn("feed_sync_failed", &format!("Feed {} sync failed: {}", r.feed_id, err));
+            }
+        }
+    }
+
     Ok(results)
 }
 

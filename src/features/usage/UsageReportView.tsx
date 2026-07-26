@@ -48,9 +48,9 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
   // Build chart data from provider breakdown (simplified — daily buckets require additional API)
   const chartData = snapshot?.by_provider?.map((p) => ({
     date: p.provider_name,
-    "Prompt Tokens": Math.round(p.tokens * 0.6),
-    "Completion Tokens": Math.round(p.tokens * 0.4),
-    Requests: p.requests,
+    [t.usage.promptTokens]: Math.round(p.tokens * 0.6),
+    [t.usage.completionTokens]: Math.round(p.tokens * 0.4),
+    [t.usage.requests]: p.requests,
   })) ?? [];
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -137,14 +137,14 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             />
             <Bar
               yAxisId="left"
-              dataKey="Prompt Tokens"
+              dataKey={t.usage.promptTokens}
               stackId="tokens"
               fill="#93c5fd"
               radius={[0, 0, 0, 0]}
             />
             <Bar
               yAxisId="left"
-              dataKey="Completion Tokens"
+              dataKey={t.usage.completionTokens}
               stackId="tokens"
               fill="#3b82f6"
               radius={[4, 4, 0, 0]}
@@ -152,7 +152,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             <Line
               yAxisId="right"
               type="monotone"
-              dataKey="Requests"
+              dataKey={t.usage.requests}
               stroke="#f59e0b"
               strokeWidth={2}
               dot={{ fill: "#f59e0b", r: 3 }}
@@ -180,7 +180,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
           <div className="text-xl font-semibold text-green-600">
             {totalRequests > 0
               ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%`
-              : "N/A"}
+              : t.usage.notAvailable}
           </div>
         </div>
       </div>
@@ -196,7 +196,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0
                 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%`
-                : "N/A"}
+                : t.usage.notAvailable}
             </div>
           </div>
           <div>
@@ -204,7 +204,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0
                 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%`
-                : "N/A"}
+                : t.usage.notAvailable}
             </div>
           </div>
           <div>
@@ -212,7 +212,7 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
             <div className="text-base font-semibold text-slate-900">
               {totalRequests > 0
                 ? Math.round(totalTokens / totalRequests).toLocaleString()
-                : "N/A"}
+                : t.usage.notAvailable}
             </div>
           </div>
         </div>
@@ -228,13 +228,13 @@ const UsageReportView: React.FC<UsageReportViewProps> = ({
           <div>
             <div className="text-xs text-slate-400">{t.usage.successRate}</div>
             <div className={`text-base font-semibold ${totalRequests > 0 && totalSucceeded > 0 ? "text-green-600" : "text-slate-400"}`}>
-              {totalRequests > 0 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%` : "N/A"}
+              {totalRequests > 0 ? `${((totalSucceeded / totalRequests) * 100).toFixed(1)}%` : t.usage.notAvailable}
             </div>
           </div>
           <div>
             <div className="text-xs text-slate-400">{t.usage.avgTokensPerRequest}</div>
             <div className="text-base font-semibold text-slate-900">
-              {totalRequests > 0 ? Math.round(totalTokens / totalRequests).toLocaleString() : "N/A"}
+              {totalRequests > 0 ? Math.round(totalTokens / totalRequests).toLocaleString() : t.usage.notAvailable}
             </div>
           </div>
         </div>

@@ -28,6 +28,8 @@ import type {
   ThemePreset,
   ThemeMode,
   ThemeTokens,
+  LogEntry,
+  UploadLogsResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -399,3 +401,16 @@ export const getNote = (entryId: number): Promise<{ text: string } | null> =>
 
 export const saveNote = (entryId: number, text: string): Promise<void> =>
   invoke<void>("save_note", { entryId, text });
+
+// ---------------------------------------------------------------------------
+// Log commands
+// ---------------------------------------------------------------------------
+
+export const getLogs = (): Promise<LogEntry[]> =>
+  invoke<LogEntry[]>("get_logs", {});
+
+export const uploadLogs = (): Promise<UploadLogsResponse> =>
+  invoke<UploadLogsResponse>("upload_logs", {});
+
+export const clearLogs = (): Promise<void> =>
+  invoke<void>("clear_logs", {});

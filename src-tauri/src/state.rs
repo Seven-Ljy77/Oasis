@@ -14,6 +14,7 @@ use crate::db::summary_store::SqliteSummaryStore;
 use crate::db::tag_store::SqliteTagStore;
 use crate::db::translation_store::SqliteTranslationStore;
 use crate::feed::sync_service::SyncService;
+use crate::logging::logger::Logger;
 use crate::tasking::task_queue::TaskQueue;
 
 /// Global application state managed by Tauri.
@@ -32,6 +33,7 @@ pub struct AppState {
     pub sync_service: Arc<SyncService>,
     pub task_queue: Arc<TaskQueue>,
     pub agent_runtime: Arc<AgentRuntimeEngine>,
+    pub logger: Option<Arc<Logger>>,
     pub config: Arc<RwLock<AppConfig>>,
 }
 

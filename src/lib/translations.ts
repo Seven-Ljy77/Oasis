@@ -154,6 +154,7 @@ export interface TranslationDict {
     agents: string;
     digest: string;
     usage: string;
+    logs: string;
   };
   generalSettings: {
     language: string;
@@ -300,6 +301,30 @@ export interface TranslationDict {
     period2w: string;
     period1m: string;
     periodComparison: string;
+    notAvailable: string;
+  };
+  logs: {
+    title: string;
+    description: string;
+    uploadedMsg: string;
+    uploadFailed: string;
+    uploading: string;
+    uploadLogs: string;
+    clearing: string;
+    clearLogs: string;
+    refresh: string;
+    showing: string;
+    of: string;
+    entries: string;
+    loading: string;
+    noEntries: string;
+    timestamp: string;
+    level: string;
+    event: string;
+    message: string;
+    logDetails: string;
+    timezone: string;
+    additionalInfo: string;
   };
   status: {
     syncing: string;
@@ -473,6 +498,7 @@ export const translations: Record<Locale, TranslationDict> = {
       agents: "Agents",
       digest: "Digest",
       usage: "Usage",
+      logs: "Logs",
     },
     generalSettings: {
       language: "Language",
@@ -619,6 +645,30 @@ export const translations: Record<Locale, TranslationDict> = {
       period2w: "2 Weeks",
       period1m: "1 Month",
       periodComparison: "Period Comparison",
+      notAvailable: "N/A",
+    },
+    logs: {
+      title: "Logs",
+      description: "View, upload, and clear diagnostic logs for troubleshooting.",
+      uploadedMsg: "Uploaded {n} log entries successfully.",
+      uploadFailed: "Upload failed",
+      uploading: "Uploading...",
+      uploadLogs: "Upload Logs",
+      clearing: "Clearing...",
+      clearLogs: "Clear Logs",
+      refresh: "Refresh",
+      showing: "Showing",
+      of: "of",
+      entries: "entries",
+      loading: "Loading...",
+      noEntries: "No log entries found.",
+      timestamp: "Timestamp",
+      level: "Level",
+      event: "Event",
+      message: "Message",
+      logDetails: "Log Details",
+      timezone: "Times are displayed in local timezone.",
+      additionalInfo: "Additional Info",
     },
     status: {
       syncing: "Syncing...",
@@ -788,6 +838,7 @@ export const translations: Record<Locale, TranslationDict> = {
       agents: "智能体",
       digest: "文摘",
       usage: "用量",
+      logs: "日志",
     },
     generalSettings: {
       language: "语言",
@@ -934,6 +985,30 @@ export const translations: Record<Locale, TranslationDict> = {
       period2w: "2 周",
       period1m: "1 个月",
       periodComparison: "周期对比",
+      notAvailable: "暂无",
+    },
+    logs: {
+      title: "日志",
+      description: "查看、上传和清空诊断日志以进行故障排查。",
+      uploadedMsg: "已成功上传 {n} 条日志记录。",
+      uploadFailed: "上传失败",
+      uploading: "上传中...",
+      uploadLogs: "上传日志",
+      clearing: "清空中...",
+      clearLogs: "清空日志",
+      refresh: "刷新",
+      showing: "显示",
+      of: "/",
+      entries: "条",
+      loading: "加载中...",
+      noEntries: "暂无日志记录。",
+      timestamp: "时间戳",
+      level: "级别",
+      event: "事件",
+      message: "消息",
+      logDetails: "日志详情",
+      timezone: "时间以本地时区显示。",
+      additionalInfo: "附加信息",
     },
     status: {
       syncing: "同步中...",

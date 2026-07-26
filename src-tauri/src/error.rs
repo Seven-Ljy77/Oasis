@@ -45,6 +45,9 @@ pub enum AppError {
     #[error("Shell error: {0}")]
     Shell(String),
 
+    #[error("Logging error: {0}")]
+    Logging(String),
+
     #[error("Timeout: {0}")]
     Timeout(String),
 

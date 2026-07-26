@@ -78,19 +78,29 @@ pub async fn build_reader_html(
     if let Some(id) = entry_id {
         match try_build_from_cache(&state, &pipeline, id, &entry_url, &tokens).await {
             Ok(html) => return Ok(html),
-            Err(_) => {} // Cache miss or error — fall through to full build.
+            Err(e) => {
+                if let Some(ref l) = state.logger {
+                    let _ = l.warn("reader_cache_miss", &format!("Cache miss for entry {}: {}", id, e));
+                }
+            }
         }
     }
 
     // Fall through: full pipeline with DB persistence if entry_id is available.
-    if let Some(id) = entry_id {
+    let result = if let Some(id) = entry_id {
         let cs: &dyn crate::db::content_store::ContentStore = state.content_store.as_ref();
         pipeline
             .build_html_with_store(id, &entry_url, &tokens, cs)
             .await
     } else {
         pipeline.build_html(&entry_url, &tokens).await
+    };
+    if let Err(ref e) = result {
+        if let Some(ref l) = state.logger {
+            let _ = l.error("reader_build_failed", &format!("Build HTML for {} failed: {}", entry_url, e));
+        }
     }
+    result
 }
 
 /// Try to serve the reader HTML from the content store cache hierarchy.
