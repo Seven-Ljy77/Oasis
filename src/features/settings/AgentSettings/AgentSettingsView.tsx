@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
@@ -356,10 +356,11 @@ const AgentTab: React.FC = () => {
   const loadAgentProfile = useSettingsStore((s) => s.loadAgentProfile);
   const setAgentProfile = useSettingsStore((s) => s.setAgentProfile);
 
-  // Collect all models from all providers
-  const allModels = React.useMemo(() => {
+  // Collect all models from all providers (safely handle missing data).
+  const allModels = useMemo(() => {
     const result: Array<{ id: number; name: string; providerName: string }> = [];
-    for (const [providerIdStr, modelList] of Object.entries(models)) {
+    for (const [providerIdStr, modelList] of Object.entries(models ?? {})) {
+      if (!modelList || !Array.isArray(modelList)) continue;
       const providerId = Number(providerIdStr);
       const provider = providers.find((p) => p.id === providerId);
       for (const m of modelList) {
@@ -373,12 +374,15 @@ const AgentTab: React.FC = () => {
     return result;
   }, [models, providers]);
 
-  // Load models for all providers
-  React.useEffect(() => {
-    providers.forEach((p) => loadModels(p.id));
-  }, [providers.length > 0 ? providers[0]?.id : null, loadModels]);
+  // Load models for all providers on mount.
+  useEffect(() => {
+    if (providers.length > 0) {
+      providers.forEach((p) => loadModels(p.id));
+    }
+  }, [providers, loadModels]);
 
-  React.useEffect(() => {
+  // Load agent profiles on mount.
+  useEffect(() => {
     ["summary", "translation", "tagging"].forEach(loadAgentProfile);
   }, [loadAgentProfile]);
 
@@ -399,9 +403,10 @@ const AgentTab: React.FC = () => {
   const [selections, setSelections] = useState<Record<string, { primary: number | null; fallback: number | null }>>({});
 
   // Sync selections from loaded profiles
-  React.useEffect(() => {
+  useEffect(() => {
     const sync: Record<string, { primary: number | null; fallback: number | null }> = {};
-    for (const [type, profile] of Object.entries(agentProfiles)) {
+    for (const [type, profile] of Object.entries(agentProfiles ?? {})) {
+      if (!profile) continue;
       sync[type] = {
         primary: profile.primary_model_profile_id ?? null,
         fallback: profile.fallback_model_profile_id ?? null,
