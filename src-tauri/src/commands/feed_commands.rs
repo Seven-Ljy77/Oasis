@@ -8,7 +8,7 @@ use crate::feed::feed_parser::parse_feed;
 use crate::feed::feed_validator::{check_duplicate, validate_url};
 use crate::feed::opml_export::OpmlExporter;
 use crate::feed::opml_import::{ImportResult, OpmlImporter};
-use crate::feed::title_resolver::resolve_title;
+use crate::feed::title_resolver::{resolve_title_with_site, fetch_site_title};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -58,11 +58,19 @@ pub async fn add_feed(
         ));
     }
 
-    // 5. Resolve the feed title.
-    let resolved_title = resolve_title(
+    // 5. Resolve the feed title. If the feed XML didn't provide a title,
+    //    try fetching the site's HTML page.
+    let site_title: Option<String> = if parsed.title.is_none() {
+        if let Some(ref url) = parsed.site_url {
+            fetch_site_title(url).await.ok().flatten()
+        } else { None }
+    } else { None };
+
+    let resolved_title = resolve_title_with_site(
         title.as_deref(),
         parsed.title.as_deref(),
         parsed.site_url.as_deref(),
+        site_title.as_deref(),
     )?;
 
     let now = chrono::Utc::now().to_rfc3339();

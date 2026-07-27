@@ -52,18 +52,47 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
     }, 5000);
   }, [selectedEntryId]);
 
-  // Save on unmount or close
+  // Force-save helper (also used by parent components before export/share).
+  const flushSave = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (selectedEntryId && text !== lastSaved.current) {
+      setSaveStatus("saving");
+      saveNote(selectedEntryId, text)
+        .then(() => {
+          lastSaved.current = text;
+          setSaveStatus("saved");
+        })
+        .catch(() => setSaveStatus("error"));
+    }
+  }, [selectedEntryId, text]);
+
+  // Expose flushSave so parent can force-save before export / share.
+  useEffect(() => {
+    (window as any).__mercury_flush_note = flushSave;
+    return () => { delete (window as any).__mercury_flush_note; };
+  }, [flushSave]);
+
+  // Save on unmount, article switch, or panel close.
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        // Immediate save on unmount
-        if (selectedEntryId && text !== lastSaved.current) {
-          saveNote(selectedEntryId, text).catch(() => {});
-        }
-      }
+      flushSave();
     };
-  }, [selectedEntryId, text]);
+  }, [flushSave]);
+
+  // Save when the window loses focus (user switches apps) or before unload.
+  useEffect(() => {
+    const onBlur = () => flushSave();
+    const onBeforeUnload = () => flushSave();
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [flushSave]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {

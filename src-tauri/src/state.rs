@@ -74,7 +74,7 @@ fn default_sync_concurrency() -> u32 {
 }
 
 fn default_digest_template() -> String {
-    "default".into()
+    "customize".into()
 }
 
 impl Default for AppConfig {

@@ -34,6 +34,7 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
 
   const handleExport = async () => {
     if (!selectedEntryId) return;
+    (window as any).__mercury_flush_note?.();
     setExporting(true);
     try {
       const exportFolder = useSettingsStore.getState().settings.digest_export_folder;

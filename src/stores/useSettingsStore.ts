@@ -83,7 +83,7 @@ const defaultSettings: AppSettings = {
   usage_retention_months: 12,
   ai_tagging_enabled: false,
   digest_export_folder: null,
-  digest_template: "default",
+  digest_template: "customize",
 };
 
 const initialState = {

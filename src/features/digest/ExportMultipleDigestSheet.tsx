@@ -37,6 +37,7 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
 
   const handleExport = async () => {
     if (entryIds.length === 0) return;
+    (window as any).__mercury_flush_note?.();
     setExporting(true);
     try {
       const date = new Date().toISOString().slice(0, 10);

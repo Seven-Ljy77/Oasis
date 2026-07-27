@@ -21,12 +21,12 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
   const save = () => saveSettingsFn(useSettingsStore.getState().settings);
 
   const exportFolder = settings.digest_export_folder ?? "";
-  const templateName = settings.digest_template ?? "default";
+  const templateName = settings.digest_template ?? "customize";
   const templates = [
-    { value: "default", label: "Default" },
+    { value: "customize", label: "Customize" },
     { value: "minimal", label: "Minimal" },
     { value: "academic", label: "Academic" },
-    { value: "newsletter", label: "Newsletter Style" },
+    { value: "newsletter", label: "Newsletter" },
   ];
 
   return (
@@ -102,7 +102,7 @@ const DigestSettings: React.FC<DigestSettingsProps> = ({ className = "" }) => {
           size="sm"
           onClick={() => {
             // Map template name to template ID for revealing
-            const id = templateName === "default" ? "single-markdown" : templateName;
+            const id = templateName === "customize" ? "single-markdown" : templateName;
             revealCustomTemplate(`${id}.yaml`);
           }}
         >

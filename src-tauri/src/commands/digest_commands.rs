@@ -1,6 +1,7 @@
 use tauri::State;
 use rusqlite::params;
 
+use crate::digest::template::DigestTemplateStore;
 use crate::error::AppError;
 use crate::state::AppState;
 
@@ -58,8 +59,18 @@ pub async fn get_note(
     .map_err(|e| AppError::Database(e.to_string()))?
 }
 
-fn get_template(state: &AppState) -> String {
+fn get_template_id(state: &AppState) -> String {
     state.config.try_read().map(|c| c.digest_template.clone()).unwrap_or_else(|_| "default".into())
+}
+
+fn make_template_store() -> DigestTemplateStore {
+    let user_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("Mercury")
+        .join("prompts")
+        .to_string_lossy()
+        .to_string();
+    DigestTemplateStore::new(Some(user_dir))
 }
 
 #[tauri::command]
@@ -67,11 +78,11 @@ pub async fn share_digest(
     state: State<'_, AppState>,
     entry_id: i64,
 ) -> Result<String, AppError> {
-    let template = get_template(&state);
+    let template_id = get_template_id(&state);
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let conn = db.conn();
-        build_single_digest(&conn, entry_id, &template)
+        build_single_digest(&conn, entry_id, &template_id)
     })
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
@@ -83,11 +94,11 @@ pub async fn export_digest(
     entry_id: i64,
     path: String,
 ) -> Result<(), AppError> {
-    let template = get_template(&state);
+    let template_id = get_template_id(&state);
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let conn = db.conn();
-        let markdown = build_single_digest(&conn, entry_id, &template)?;
+        let markdown = build_single_digest(&conn, entry_id, &template_id)?;
         std::fs::write(&path, markdown)
             .map_err(|e| AppError::Digest(format!("Failed to write file: {}", e)))?;
         Ok(())
@@ -102,13 +113,13 @@ pub async fn export_multiple_digest(
     entry_ids: Vec<i64>,
     path: String,
 ) -> Result<(), AppError> {
-    let template = get_template(&state);
+    let template_id = get_template_id(&state);
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let conn = db.conn();
         let mut parts = vec![format!("# Digest — {}\n", chrono::Local::now().format("%Y-%m-%d"))];
         for &eid in &entry_ids {
-            match build_single_digest(&conn, eid, &template) {
+            match build_single_digest(&conn, eid, &template_id) {
                 Ok(md) => parts.push(format!("## {}\n\n{}", get_entry_title(&conn, eid), md)),
                 Err(_) => parts.push(format!("## Entry #{} (unavailable)\n", eid)),
             }
@@ -129,7 +140,7 @@ pub async fn export_multiple_digest(
 fn build_single_digest(
     conn: &rusqlite::Connection,
     entry_id: i64,
-    template: &str,
+    template_id: &str,
 ) -> Result<String, AppError> {
     let title = get_entry_title(conn, entry_id);
     let author = conn.query_row(
@@ -162,75 +173,19 @@ fn build_single_digest(
         |row| row.get::<_, Option<String>>(0),
     ).ok().flatten().unwrap_or_default();
 
-    match template {
-        "minimal" => {
-            let mut md = format!("# {}\n\n", title);
-            if !url.is_empty() { md.push_str(&format!("{}\n\n", url)); }
-            if let Some(s) = &summary {
-                for line in s.lines() { md.push_str(&format!("> {}\n", line)); }
-                md.push('\n');
-            }
-            if let Some(n) = &note {
-                md.push_str(n);
-                md.push('\n');
-            }
-            Ok(md)
-        }
-        "academic" => {
-            let mut md = format!("# {}\n\n", title);
-            if !author.is_empty() { md.push_str(&format!("**Author:** {}\n\n", author)); }
-            if !published.is_empty() { md.push_str(&format!("**Published:** {}\n\n", published)); }
-            if !url.is_empty() { md.push_str(&format!("**Source:** [{}]({})\n\n", url, url)); }
-            if let Some(s) = &summary {
-                md.push_str("## Abstract\n\n");
-                for line in s.lines() { md.push_str(&format!("> {}\n", line)); }
-                md.push('\n');
-            }
-            if let Some(n) = &note {
-                md.push_str("## Commentary\n\n");
-                md.push_str(n);
-                md.push('\n');
-            }
-            Ok(md)
-        }
-        "newsletter" => {
-            let mut md = format!("---\ntitle: \"{}\"\n", title);
-            if !author.is_empty() { md.push_str(&format!("author: \"{}\"\n", author)); }
-            if !published.is_empty() { md.push_str(&format!("date: \"{}\"\n", published)); }
-            if !url.is_empty() { md.push_str(&format!("url: \"{}\"\n", url)); }
-            md.push_str("---\n\n");
-            md.push_str(&format!("# {}\n\n", title));
-            md.push_str(&format!("*By {}*\n\n", author));
-            if let Some(s) = &summary {
-                md.push_str("## Highlights\n\n");
-                for line in s.lines() { md.push_str(&format!("- {}\n", line)); }
-                md.push('\n');
-            }
-            if let Some(n) = &note {
-                md.push_str("## Editor's Note\n\n");
-                md.push_str(n);
-                md.push('\n');
-            }
-            Ok(md)
-        }
-        _ => { // default
-            let mut md = format!("# {}\n\n", title);
-            if !author.is_empty() { md.push_str(&format!("*By {}*\n\n", author)); }
-            if !published.is_empty() { md.push_str(&format!("*Published: {}*\n\n", published)); }
-            if !url.is_empty() { md.push_str(&format!("[Read original]({})\n\n", url)); }
-            if let Some(s) = &summary {
-                md.push_str("## Summary\n\n");
-                for line in s.lines() { md.push_str(&format!("> {}\n", line)); }
-                md.push('\n');
-            }
-            if let Some(n) = &note {
-                md.push_str("## Notes\n\n");
-                md.push_str(n);
-                md.push('\n');
-            }
-            Ok(md)
-        }
-    }
+    // Load the template from the store and render with Tera.
+    let store = make_template_store();
+    let tpl = store.load(template_id)?;
+
+    let mut context = tera::Context::new();
+    context.insert("title", &title);
+    context.insert("author", &author);
+    context.insert("url", &url);
+    context.insert("published_at", &published);
+    if let Some(ref s) = summary { context.insert("summary", s); }
+    if let Some(ref n) = note { context.insert("note", n); }
+
+    tpl.render(&context)
 }
 
 fn get_entry_title(conn: &rusqlite::Connection, entry_id: i64) -> String {

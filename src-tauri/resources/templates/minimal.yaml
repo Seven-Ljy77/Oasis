@@ -1,0 +1,26 @@
+# Mercury Digest Template — Minimal (Single Article Markdown)
+# Ultra-minimal format: just the essentials.
+#
+# Available placeholders:
+#   {{title}}          — article title
+#   {{author}}         — article author
+#   {{url}}            — article URL
+#   {{summary}}        — AI-generated summary (may be empty)
+#   {{note}}           — user note (may be empty)
+
+id: "minimal"
+version: "1.0"
+template: |
+  # {{title}}
+
+  {{#url}}
+  {{url}}
+  {{/url}}
+
+  {{#summary}}
+  > {{summary}}
+  {{/summary}}
+
+  {{#note}}
+  {{note}}
+  {{/note}}

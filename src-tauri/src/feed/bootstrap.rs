@@ -6,7 +6,7 @@ use crate::db::models::Feed;
 use crate::error::AppError;
 use crate::feed::feed_parser::parse_feed;
 use crate::feed::opml_import::OpmlImporter;
-use crate::feed::title_resolver::resolve_title;
+use crate::feed::title_resolver::resolve_title_with_site;
 
 /// Result of the bootstrap process.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -77,10 +77,11 @@ pub async fn bootstrap_if_needed(
         // Resolve title. Skip the OPML outline title for bootstrap — it often
         // contains raw URLs / hostnames rather than human-readable names. Use the
         // parsed feed title instead (same behaviour as "force site name" import).
-        let resolved_title = resolve_title(
+        let resolved_title = resolve_title_with_site(
             None, // skip OPML title, use feed XML title
             parsed.title.as_deref(),
             parsed.site_url.as_deref(),
+            None, // bootstrap doesn't fetch site title (keeps it fast)
         )
         .unwrap_or_else(|_| parsed.title.clone().unwrap_or_else(|| outline.title.clone()));
 

@@ -26,6 +26,8 @@ const ShareDigestSheet: React.FC<ShareDigestSheetProps> = ({ open, onClose }) =>
 
   useEffect(() => {
     if (!selectedEntryId || !open) return;
+    // Flush any pending note before generating the digest.
+    (window as any).__mercury_flush_note?.();
     shareDigest(selectedEntryId).then(setDigestText).catch(() => {});
   }, [selectedEntryId, open]);
 

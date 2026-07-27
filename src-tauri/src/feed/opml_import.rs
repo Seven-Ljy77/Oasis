@@ -7,7 +7,7 @@ use crate::db::feed_store::{FeedStore, SqliteFeedStore};
 use crate::db::models::Feed;
 use crate::error::AppError;
 use crate::feed::feed_parser::parse_feed;
-use crate::feed::title_resolver::resolve_title;
+use crate::feed::title_resolver::{resolve_title_with_site, fetch_site_title};
 
 /// Represents a single RSS feed outline entry in an OPML file.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -320,20 +320,31 @@ async fn fetch_and_upsert_one(
             ));
         }
 
-        // Resolve the feed title.
+        // Resolve the feed title. If the feed XML didn't provide a title,
+        // try fetching the site's HTML page for a <title> or og:site_name.
+        let site_title: Option<String> = if parsed.title.is_none() {
+            if let Some(ref url) = parsed.site_url {
+                crate::feed::title_resolver::fetch_site_title(url).await.ok().flatten()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let resolved_title = if force_site_name {
-            // "Force site name": ignore the OPML outline title, use the feed's
-            // own title (from the XML) or fall back to the site hostname.
-            resolve_title(
+            resolve_title_with_site(
                 None, // skip OPML title — let the feed speak for itself
                 parsed.title.as_deref(),
                 parsed.site_url.as_deref(),
+                site_title.as_deref(),
             )?
         } else {
-            resolve_title(
+            resolve_title_with_site(
                 Some(&outline.title),
                 parsed.title.as_deref(),
                 parsed.site_url.as_deref(),
+                site_title.as_deref(),
             )?
         };
 
