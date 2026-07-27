@@ -2,7 +2,7 @@
 // Mercury — Root App component (three-column layout)
 // =============================================================================
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { I18nProvider } from "@/lib/i18n";
 import { useAppStore } from "@/stores/useAppStore";
 import { useFeedStore } from "@/stores/useFeedStore";
@@ -99,6 +99,10 @@ const AppShell: React.FC = () => {
   // Draggable column widths
   const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar", 280, 180, 450);
   const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist", 400, 280, 700);
+
+  // Column collapse state — when both collapsed, reader takes full screen
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [entriesCollapsed, setEntriesCollapsed] = useState(false);
 
   const renderSheet = () => {
     switch (activeSheet) {
@@ -212,16 +216,44 @@ const AppShell: React.FC = () => {
       {/* ---- Three-column layout ---- */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: sidebar (draggable width) */}
-        <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden">
-          <SidebarView />
-        </aside>
-        {sidebarDrag}
+        {!sidebarCollapsed && (
+          <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden">
+            <SidebarView />
+          </aside>
+        )}
+        {!sidebarCollapsed && sidebarDrag}
+
+        {/* Sidebar collapse/expand — small icon at top of column edge */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="flex-shrink-0 flex items-start justify-center pt-1 w-5 text-slate-400 hover:text-slate-600 transition-colors"
+          title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d={sidebarCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
+          </svg>
+        </button>
 
         {/* Center: entry list (draggable width) */}
-        <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border">
-          <EntryListView />
-        </div>
-        {centerDrag}
+        {!entriesCollapsed && (
+          <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border">
+            <EntryListView />
+          </div>
+        )}
+        {!entriesCollapsed && centerDrag}
+
+        {/* Entry list collapse/expand — small icon at top of column edge */}
+        <button
+          onClick={() => setEntriesCollapsed(!entriesCollapsed)}
+          className="flex-shrink-0 flex items-start justify-center pt-1 w-5 text-slate-400 hover:text-slate-600 transition-colors"
+          title={entriesCollapsed ? "Show entry list" : "Hide entry list"}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d={entriesCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
+          </svg>
+        </button>
 
         {/* Right: reader */}
         <div className="flex-1 h-full overflow-hidden">
