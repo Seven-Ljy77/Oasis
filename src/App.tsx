@@ -165,7 +165,7 @@ const AppShell: React.FC = () => {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          <span className="text-sm">Loading Mercury...</span>
+          <span className="text-sm">Loading Oasis...</span>
         </div>
       </div>
     );
@@ -236,7 +236,7 @@ const AppShell: React.FC = () => {
           {selectedEntryId ? ` | Article #${selectedEntryId}` : " | No selection"}
         </span>
         <span className="flex-1" />
-        <span>Mercury v0.1.0</span>
+        <span>Oasis v0.1.0</span>
       </footer>
 
       {/* ---- Overlay sheets ---- */}

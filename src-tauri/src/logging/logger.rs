@@ -2,7 +2,7 @@
 // Mercury — Logger
 //
 // Appends JSON log entries to logs/app.log. Thread-safe via Mutex.
-// Log directory is %LOCALAPPDATA%/Mercury/logs/ (created on first write).
+// Log directory is %LOCALAPPDATA%/Oasis/logs/ (created on first write).
 // =============================================================================
 
 use std::fs::{self, OpenOptions};

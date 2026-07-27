@@ -1,4 +1,4 @@
-# Mercury Digest Template — Single Article Markdown
+# Oasis Digest Template — Single Article Markdown
 # Uses Mustache-style {{placeholder}} and {{#section}}...{{/section}} conditionals.
 #
 # Available placeholders:

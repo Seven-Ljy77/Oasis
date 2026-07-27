@@ -139,7 +139,7 @@ impl OpenAIProvider {
             return Ok("local".to_string());
         }
         // Try Windows Credential Manager via keyring
-        match keyring::Entry::new("Mercury", &self.api_key_ref) {
+        match keyring::Entry::new("Oasis", &self.api_key_ref) {
             Ok(entry) => match entry.get_password() {
                 Ok(key) => {
                     if !key.is_empty() {

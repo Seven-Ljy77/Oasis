@@ -117,7 +117,7 @@ const FeedList: React.FC = () => {
     setMoreMenuOpen(false);
     const filePath = await dialog.save({
       filters: [{ name: "OPML Files", extensions: ["opml"] }],
-      defaultPath: "mercury-subscriptions.opml",
+      defaultPath: "oasis-subscriptions.opml",
     });
     if (filePath) {
       await exportOpml(filePath);

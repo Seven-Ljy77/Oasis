@@ -1,5 +1,5 @@
 [package]
-name = "mercury"
+name = "oasis"
 version = "0.1.0"
 description = "A local-first RSS reader with AI agent features"
 authors = ["Neo Lee"]
@@ -8,6 +8,10 @@ edition = "2024"
 [lib]
 name = "mercury_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "oasis"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

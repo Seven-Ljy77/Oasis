@@ -26,7 +26,7 @@ pub async fn add_feed(
     // 3. Fetch the feed XML.
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
-        .user_agent("Mercury/0.1 (RSS Reader)")
+        .user_agent("Oasis/0.1 (RSS Reader)")
         .build()
         .map_err(|e| AppError::Network(e.to_string()))?;
 

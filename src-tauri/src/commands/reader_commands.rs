@@ -27,6 +27,42 @@ pub struct ReaderThemeParams {
     pub theme_mode: Option<String>,
 }
 
+/// Resolve a potentially relative entry URL to an absolute URL using the
+/// entry's feed `feed_url` or `site_url` as the base.
+fn resolve_entry_url(state: &AppState, entry_id: Option<i64>, entry_url: &str) -> String {
+    // Already absolute — nothing to do.
+    if entry_url.contains("://") {
+        return entry_url.to_string();
+    }
+    // Try to resolve using the feed's URL from the database.
+    if let Some(id) = entry_id {
+        let db = state.db.clone();
+        let url = entry_url.to_string();
+        if let Ok(Some((maybe_site, feed))) = db.read(move |conn| {
+            use rusqlite::OptionalExtension;
+            conn.query_row(
+                "SELECT f.site_url, f.feed_url FROM entry e \
+                 JOIN feed f ON f.id = e.feed_id WHERE e.id = ?1",
+                rusqlite::params![id],
+                |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?)),
+            )
+            .optional()
+            .map_err(|e| AppError::Database(e.to_string()))
+        }) {
+            // Try site_url first (must be absolute). Fall back to feed_url.
+            let base_url = maybe_site
+                .filter(|s| s.contains("://"))
+                .unwrap_or(feed);
+            if let Ok(abs) = url::Url::parse(&base_url) {
+                if let Ok(resolved) = abs.join(&url) {
+                    return resolved.to_string();
+                }
+            }
+        }
+    }
+    entry_url.to_string()
+}
+
 #[tauri::command]
 pub async fn build_reader_html(
     state: State<'_, AppState>,
@@ -34,6 +70,9 @@ pub async fn build_reader_html(
     theme: Option<ReaderThemeParams>,
     entry_id: Option<i64>,
 ) -> Result<ReaderHTML, AppError> {
+    // Resolve relative entry URLs (e.g., `/posts/foo`) against the feed base.
+    let entry_url = resolve_entry_url(&state, entry_id, &entry_url);
+
     // Start from the appropriate base theme by appearance mode.
     let mut tokens = if let Some(ref t) = theme {
         match t.theme_mode.as_deref() {

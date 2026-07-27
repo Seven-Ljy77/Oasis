@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicepkg/vscode-tauri/main/schemas/desktop-schema.json",
-  "productName": "Mercury",
+  "productName": "Oasis",
   "version": "0.1.0",
-  "identifier": "net.paradigmx.mercury",
+  "identifier": "com.oasis.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Mercury",
+        "title": "Oasis",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

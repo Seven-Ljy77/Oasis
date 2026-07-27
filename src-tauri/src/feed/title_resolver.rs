@@ -5,7 +5,7 @@ use crate::error::AppError;
 static TITLE_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (compatible; Mercury/0.1; +https://github.com/neolee/mercury)")
+        .user_agent("Mozilla/5.0 (compatible; Oasis/0.1; +https://github.com/neolee/mercury)")
         .build()
         .expect("Failed to create title resolver HTTP client")
 });

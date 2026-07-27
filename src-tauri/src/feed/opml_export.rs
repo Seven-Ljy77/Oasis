@@ -10,7 +10,7 @@ impl OpmlExporter {
         let mut xml = String::from(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
              <opml version=\"2.0\">\n\
-             \x20 <head><title>Mercury Subscriptions</title></head>\n\
+             \x20 <head><title>Oasis Subscriptions</title></head>\n\
              \x20 <body>\n",
         );
 

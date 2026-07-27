@@ -8,8 +8,8 @@ use crate::usage::retention::{self, RetentionPolicy};
 fn config_path() -> std::path::PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("Mercury")
-        .join("mercury-config.json")
+        .join("Oasis")
+        .join("oasis-config.json")
 }
 
 /// Load config from disk, falling back to defaults.
@@ -114,7 +114,7 @@ pub async fn reveal_custom_template(
 ) -> Result<(), AppError> {
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("Mercury")
+        .join("Oasis")
         .join("prompts");
     std::fs::create_dir_all(&data_dir).ok();
     let path = data_dir.join(format!("{template_id}"));

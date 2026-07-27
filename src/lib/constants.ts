@@ -114,5 +114,5 @@ export const MAX_BADGE_COUNT = 9999;
 // App meta
 // ---------------------------------------------------------------------------
 
-export const APP_NAME = "Mercury";
+export const APP_NAME = "Oasis";
 export const APP_VERSION = "0.1.0";

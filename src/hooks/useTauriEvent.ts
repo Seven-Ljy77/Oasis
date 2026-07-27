@@ -51,9 +51,9 @@ export function useTauriEvent(
         callbackRef.current(customEvent.detail);
       };
 
-      window.addEventListener(`mercury:${eventName}`, handler);
+      window.addEventListener(`oasis:${eventName}`, handler);
       unlisten = () =>
-        window.removeEventListener(`mercury:${eventName}`, handler);
+        window.removeEventListener(`oasis:${eventName}`, handler);
     };
 
     setup();

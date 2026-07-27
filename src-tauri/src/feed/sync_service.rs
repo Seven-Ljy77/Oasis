@@ -70,7 +70,7 @@ impl SyncService {
         // Fetch the feed XML.
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent("Mercury/0.1 (RSS Reader)")
+            .user_agent("Oasis/0.1 (RSS Reader)")
             .build()
             .map_err(|e| AppError::Network(e.to_string()))?;
 
@@ -223,7 +223,7 @@ async fn sync_single_feed(
     // Fetch the feed XML.
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
-        .user_agent("Mercury/0.1 (RSS Reader)")
+        .user_agent("Oasis/0.1 (RSS Reader)")
         .build()
     {
         Ok(c) => c,

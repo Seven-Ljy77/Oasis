@@ -66,7 +66,7 @@ fn get_template_id(state: &AppState) -> String {
 fn make_template_store() -> DigestTemplateStore {
     let user_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("Mercury")
+        .join("Oasis")
         .join("prompts")
         .to_string_lossy()
         .to_string();

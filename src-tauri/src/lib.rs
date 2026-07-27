@@ -35,9 +35,9 @@ use crate::tasking::task_queue::TaskQueue;
 fn db_path() -> std::path::PathBuf {
     let dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("Mercury");
+        .join("Oasis");
     std::fs::create_dir_all(&dir).ok();
-    dir.join("mercury.db")
+    dir.join("oasis.db")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -47,7 +47,7 @@ pub fn run() {
     // Initialize the logger early so we can log startup events.
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("Mercury");
+        .join("Oasis");
     let logger = Arc::new(Logger::new(&data_dir));
     let _ = logger.info("app_startup", "Application starting");
 
@@ -211,5 +211,5 @@ pub fn run() {
             commands::window_commands::open_in_browser,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Mercury");
+        .expect("error while running Oasis");
 }
