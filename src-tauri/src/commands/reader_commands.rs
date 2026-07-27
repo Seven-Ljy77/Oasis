@@ -77,7 +77,7 @@ pub async fn build_reader_html(
     let mut tokens = if let Some(ref t) = theme {
         match t.theme_mode.as_deref() {
             Some("forceDark") => ThemeTokens::dark(),
-            Some("forceEyecare") => ThemeTokens::eyecare(),
+            Some("forceEyecare") | Some("eyecare") => ThemeTokens::eyecare(),
             _ => ThemeTokens::default(),
         }
     } else {

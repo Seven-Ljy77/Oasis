@@ -73,7 +73,7 @@ const ReaderSettings: React.FC = () => {
           {t.theme.appearance}
         </label>
         <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5 w-fit">
-          {(["auto", "forceLight", "forceDark"] as ThemeMode[]).map((mode) => (
+          {(["auto", "forceLight", "forceDark", "eyecare"] as ThemeMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setThemeMode(mode)}
@@ -83,7 +83,7 @@ const ReaderSettings: React.FC = () => {
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {mode === "auto" ? t.theme.auto : mode === "forceLight" ? t.theme.light : t.theme.dark}
+              {mode === "auto" ? t.theme.auto : mode === "forceLight" ? t.theme.light : mode === "forceDark" ? t.theme.dark : t.theme.eyeCare}
             </button>
           ))}
         </div>
