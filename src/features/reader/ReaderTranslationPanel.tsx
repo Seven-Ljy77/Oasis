@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useI18n } from "@/lib/i18n";
 import { useResizableHeight } from "@/hooks/useResizableHeight";
-import { startTranslation, getTranslationSegments, buildTranslationHTML } from "@/lib/ipc";
+import { startTranslation, getTranslationSegments } from "@/lib/ipc";
 import Button from "@/components/ui/Button";
 
 const ReaderTranslationPanel: React.FC = () => {
@@ -18,15 +18,80 @@ const ReaderTranslationPanel: React.FC = () => {
   const setTranslationTargetLanguage = useReaderStore((s) => s.setTranslationTargetLanguage);
   const translationConcurrency = useReaderStore((s) => s.translationConcurrency);
   const setTranslationConcurrency = useReaderStore((s) => s.setTranslationConcurrency);
-  const translationPromptStrategy = useReaderStore((s) => s.translationPromptStrategy);
-  const setTranslationPromptStrategy = useReaderStore((s) => s.setTranslationPromptStrategy);
-  const translationProgress = useReaderStore((s) => s.translationProgress);
   const setTranslationProgress = useReaderStore((s) => s.setTranslationProgress);
 
-  const [collapsed, setCollapsed] = useState(false); // start expanded
+  const [collapsed, setCollapsed] = useState(false);
   const [translationLoading, setTranslationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const translationHTML = useReaderStore((s) => s.translationHTML);
+  const [segmentCount, setSegmentCount] = useState(0);
+  const cancelledRef = useRef(false);
+
+  // When bilingual is toggled, broadcast to iframe to show/hide all originals.
+  useEffect(() => {
+    const iframe = document.querySelector('iframe[title="Reader content"]') as HTMLIFrameElement | null;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage(
+        { type: "oasis-toggle-bilingual", showOriginal: translationBilingual },
+        "*",
+      );
+    }
+  }, [translationBilingual]);
+
+  const handleStart = async () => {
+    if (!selectedEntryId) return;
+    setError(null);
+    setTranslationLoading(true);
+    setSegmentCount(0);
+    cancelledRef.current = false;
+    try {
+      await startTranslation(selectedEntryId, translationTargetLanguage);
+      const pollSegments = async () => {
+        if (cancelledRef.current) return;
+        const segs = await getTranslationSegments(selectedEntryId, translationTargetLanguage);
+        if (!segs || segs.length === 0) return;
+        if (cancelledRef.current) return;
+        const iframe = document.querySelector('iframe[title="Reader content"]') as HTMLIFrameElement | null;
+        const completedCount = segs.filter((s: any) => s.translated_text).length;
+        if (completedCount > 0 && iframe?.contentWindow) {
+          for (const seg of segs) {
+            if (seg.translated_text) {
+              iframe.contentWindow.postMessage(
+                {
+                  type: "oasis-translation",
+                  orderIndex: seg.order_index,
+                  text: seg.translated_text,
+                  showOriginal: useReaderStore.getState().translationBilingual,
+                },
+                "*",
+              );
+            }
+          }
+        }
+        setSegmentCount(completedCount);
+        setTranslationProgress({ completed: completedCount, total: segs.length });
+      };
+      await pollSegments();
+      for (let i = 0; i < 10 && !cancelledRef.current; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        await pollSegments();
+      }
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setTranslationLoading(false);
+    }
+  };
+
+  const handleClear = () => {
+    cancelledRef.current = true;
+    const iframe = document.querySelector('iframe[title="Reader content"]') as HTMLIFrameElement | null;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage({ type: "oasis-clear-translations" }, "*");
+    }
+    setTranslationEnabled(false);
+    setSegmentCount(0);
+    setTranslationProgress(null);
+  };
 
   const languages = [
     { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -43,144 +108,86 @@ const ReaderTranslationPanel: React.FC = () => {
     { value: "vi", label: "Vietnamese" },
   ];
 
-  const handleStart = async () => {
-    if (!selectedEntryId) return;
-    setError(null);
-    setTranslationLoading(true);
-
-    try {
-      const result: any = await startTranslation(selectedEntryId, translationTargetLanguage);
-      const total = result?.total_segments ?? 0;
-      useReaderStore.setState({ translationSegments: result?.segments ?? [] });
-      setTranslationProgress({ completed: total, total });
-      if (total > 0) {
-        try {
-          const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage, translationBilingual);
-          useReaderStore.setState({ translationHTML: html });
-        } catch { /* ok if HTML build fails */ }
-      } else if ((result as any)?.error) {
-        setError((result as any).error);
-      } else {
-        setError("Translation produced 0 segments — article content may be too short or LLM call failed");
-      }
-    } catch (e: any) {
-      const msg = typeof e === "string" ? e : e?.message || e?.error || (e && typeof e === "object" ? JSON.stringify(e) : String(e));
-      setError(msg);
-    } finally {
-      setTranslationLoading(false);
-    }
-  };
-
-  const getStatusText = () => {
-    if (translationLoading) return "Translating...";
-    if (translationProgress) return `Translation complete: ${translationProgress.total} segments`;
-    if (translationEnabled) return "Translation ready — click Start to begin";
-    return "Translation disabled";
-  };
-
-  // Collapsed toggle bar
-  if (collapsed) {
-    return (
-      <button
-        onClick={() => setCollapsed(false)}
-        className="h-10 border-t border-border bg-surface-secondary flex items-center gap-2 px-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-surface-tertiary transition-colors w-full"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-        </svg>
-        <span>{t.translation.title}</span>
-        {translationProgress && <span className="text-xs text-green-500 ml-auto">{translationProgress.total} segments</span>}
-        {translationLoading && <span className="text-xs text-accent ml-auto">{t.translation.translating}</span>}
-      </button>
-    );
-  }
+  const statusText = translationLoading
+    ? `${t.translation.translating} (${segmentCount} segments)`
+    : segmentCount > 0
+      ? `${t.translation.completed}: ${segmentCount} segments`
+      : t.translation.ready;
 
   return (
-    <div ref={panelRef as any} className="border-t border-border bg-surface flex flex-col" style={{ maxHeight: "40vh" }}>
+    <div ref={panelRef as any} className="border-t border-border bg-surface-secondary flex flex-col">
       {dragHandle}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
-        <button onClick={() => setCollapsed(true)} className="p-0.5 rounded hover:bg-surface-tertiary">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2">
         <h3 className="text-sm font-semibold text-slate-700">{t.translation.title}</h3>
-        <div className="flex-1" />
-      </div>
-      <div className="p-4 space-y-3 overflow-y-auto">
-
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-600">
-          {translationBilingual ? t.translation.bilingual : t.translation.title}
-        </span>
-        <Button variant="primary" size="sm" onClick={handleStart} disabled={!selectedEntryId || translationLoading}>
-          {translationLoading ? t.translation.translating : t.translation.start}
-        </Button>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.targetLanguage}</label>
-        <select
-          value={translationTargetLanguage}
-          onChange={(e) => setTranslationTargetLanguage(e.target.value)}
-          className="w-full h-8 px-2 text-xs rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
-        >
-          {languages.map((l) => (
-            <option key={l.value} value={l.value}>{l.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <label className="flex items-center gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={translationBilingual}
-          onChange={async (e) => {
-            setTranslationBilingual(e.target.checked);
-            if (selectedEntryId && translationProgress) {
-              try {
-                const html = await buildTranslationHTML(selectedEntryId, translationTargetLanguage, e.target.checked);
-                useReaderStore.setState({ translationHTML: html });
-              } catch {}
-            }
-          }}
-          className="rounded border-slate-300 text-accent w-3.5 h-3.5"
-        />
-        <span className="text-sm text-slate-600">{t.translation.bilingual}</span>
-      </label>
-
-      <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.concurrency}: {translationConcurrency}</label>
-        <input
-          type="range" min="1" max="5" step="1"
-          value={translationConcurrency}
-          onChange={(e) => setTranslationConcurrency(parseInt(e.target.value))}
-          className="w-full h-1.5 bg-surface-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.promptStrategy}</label>
-        <div className="flex gap-1 bg-surface-tertiary rounded-lg p-0.5">
+        <div className="flex items-center gap-2">
+          {segmentCount > 0 && !translationLoading && (
+            <button
+              onClick={handleClear}
+              className="text-xs text-red-500 hover:text-red-600 transition-colors"
+            >
+              {t.common.clear}
+            </button>
+          )}
           <button
-            onClick={() => setTranslationPromptStrategy("standard")}
-            className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
-              translationPromptStrategy === "standard" ? "bg-surface text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}>{t.translation.standard}</button>
-          <button
-            onClick={() => setTranslationPromptStrategy("hy_mt_optimized")}
-            className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
-              translationPromptStrategy === "hy_mt_optimized" ? "bg-surface text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}>{t.translation.hyMtOpt}</button>
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-0.5 rounded hover:bg-surface-tertiary text-slate-400 transition-colors"
+          >
+            <svg className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      <div className="text-xs text-slate-400 pt-1 border-t border-border/50">{getStatusText()}</div>
+      {!collapsed && (
+        <div className="p-4 space-y-3 overflow-y-auto">
+          <div>
+            <Button variant="primary" size="sm" onClick={handleStart} disabled={!selectedEntryId || translationLoading}>
+              {translationLoading ? t.translation.translating : t.translation.start}
+            </Button>
+          </div>
 
-      {error && (
-        <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.targetLanguage}</label>
+            <select
+              value={translationTargetLanguage}
+              onChange={(e) => setTranslationTargetLanguage(e.target.value)}
+              className="w-full h-8 px-2 text-xs rounded-md border border-border bg-surface focus:border-accent focus:outline-none"
+            >
+              {languages.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={translationBilingual}
+              onChange={(e) => setTranslationBilingual(e.target.checked)}
+              className="rounded border-slate-300 text-accent"
+            />
+            <span className="text-sm text-slate-600">{t.translation.bilingual}</span>
+          </label>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t.translation.concurrency}: {translationConcurrency}</label>
+            <input
+              type="range" min="1" max="5" step="1"
+              value={translationConcurrency}
+              onChange={(e) => setTranslationConcurrency(parseInt(e.target.value))}
+              className="w-full h-1.5 bg-surface-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
+            />
+          </div>
+
+          {/* Status text */}
+          <p className="text-xs text-slate-400">{statusText}</p>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
       )}
-      </div>
     </div>
   );
 };

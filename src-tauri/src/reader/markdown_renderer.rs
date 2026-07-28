@@ -166,10 +166,63 @@ hr {{
   margin: 2em 0;
   opacity: 0.3;
 }}
+
+/* ---- Translation injected blocks ---- */
+.oasis-trans {{
+  margin-top: 0.5em;
+  margin-bottom: 1.5em;
+  padding-left: 0.75em;
+  border-left: 3px solid #22c55e;
+  color: var(--reader-text-secondary);
+}}
 </style>
 </head>
 <body>
 {body_html}
+<script>
+(function() {{
+  var idx = 0;
+  // Number all block elements EXCEPT blockquote — its inner elements
+  // (p, li, etc.) are numbered individually so translations nest correctly.
+  document.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6').forEach(function(el) {{
+    el.setAttribute('data-segment-id', '' + idx);
+    idx++;
+  }});
+  window.addEventListener('message', function(e) {{
+    if (!e.data || e.data.type !== 'oasis-translation') return;
+    var seg = e.data;
+    var el = document.querySelector('[data-segment-id="' + seg.orderIndex + '"]');
+    if (!el) return;
+    var old = el.nextElementSibling;
+    if (old && old.classList.contains('oasis-trans')) old.remove();
+    var div = document.createElement('div');
+    div.className = 'oasis-trans';
+    div.textContent = seg.text;
+    el.insertAdjacentElement('afterend', div);
+  }});
+
+  // Bilingual toggle: only affects elements that already have a translation.
+  window.addEventListener('message', function(e) {{
+    if (e.data && e.data.type === 'oasis-toggle-bilingual') {{
+      document.querySelectorAll('[data-segment-id]').forEach(function(el) {{
+        var next = el.nextElementSibling;
+        if (next && next.classList.contains('oasis-trans')) {{
+          el.style.display = e.data.showOriginal ? '' : 'none';
+        }}
+      }});
+    }}
+  }});
+  // Also handle clearing all translations.
+  window.addEventListener('message', function(e) {{
+    if (e.data && e.data.type === 'oasis-clear-translations') {{
+      document.querySelectorAll('.oasis-trans').forEach(function(d) {{ d.remove(); }});
+      document.querySelectorAll('[data-segment-id]').forEach(function(el) {{
+        el.style.display = '';
+      }});
+    }}
+  }});
+}})();
+</script>
 </body>
 </html>"#
     );

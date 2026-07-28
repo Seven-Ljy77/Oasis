@@ -42,8 +42,6 @@ impl SegmentExtractor {
         let has_html_tags = Selector::parse("p").ok()
             .and_then(|s| document.select(&s).next()).is_some()
             || Selector::parse("li").ok()
-            .and_then(|s| document.select(&s).next()).is_some()
-            || Selector::parse("blockquote").ok()
             .and_then(|s| document.select(&s).next()).is_some();
 
         if has_html_tags {
@@ -81,22 +79,9 @@ impl SegmentExtractor {
                 }
             }
 
-            // Extract blockquotes
-            if let Ok(sel) = Selector::parse("blockquote") {
-                for el in document.select(&sel) {
-                    let text = collect_text(&el);
-                    if text.is_empty() { continue; }
-                    let hash = Self::content_hash(&text);
-                    segments.push(TextSegment {
-                        segment_id: format!("bq-{}", order),
-                        source_text: text,
-                        order_index: order,
-                        element_path: "blockquote".to_string(),
-                        content_hash: hash,
-                    });
-                    order += 1;
-                }
-            }
+            // Note: we intentionally skip <blockquote> as a whole segment.
+            // Its inner <p>/<li> elements are already captured above, keeping
+            // the order_index aligned with the reader iframe DOM numbering.
         } else {
             // Plain text / Markdown fallback: split by double newlines (paragraphs),
             // then by single newlines if only one paragraph found

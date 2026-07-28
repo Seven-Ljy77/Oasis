@@ -381,7 +381,9 @@ pub async fn start_translation(
     let entry = state.entry_store.load_by_id(entry_id).await?;
     let title = entry.as_ref().and_then(|e| e.title.clone());
     let summary_text = entry.as_ref().and_then(|e| e.summary.clone()).unwrap_or_default();
-    // Try content table markdown for richer translation source
+    // Try content table markdown for richer translation source.
+    // Render the markdown to HTML first so the segment extractor can find
+    // <p>/<li>/<h1> elements whose order matches the rendered reader DOM.
     let content = {
         let db = state.db.clone();
         let eid = entry_id;
@@ -398,6 +400,20 @@ pub async fn start_translation(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
     }
+    .map(|md| {
+        // Prepend the article title as a markdown heading so the segment
+        // extractor sees it at index 0, matching the reader iframe DOM.
+        let md_with_title = match &title {
+            Some(t) if !t.is_empty() => format!("# {}\n\n{}", t, md),
+            _ => md,
+        };
+        let mut opts = comrak::ComrakOptions::default();
+        opts.extension.table = true;
+        opts.extension.strikethrough = true;
+        opts.extension.tasklist = true;
+        opts.extension.autolink = true;
+        comrak::markdown_to_html(&md_with_title, &opts)
+    })
     .unwrap_or(summary_text);
 
     let request = crate::agent::translation::executor::TranslationRunRequest {

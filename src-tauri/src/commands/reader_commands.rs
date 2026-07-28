@@ -5,6 +5,13 @@ use crate::reader::pipeline::{DefaultReaderPipeline, PipelineVersions, ReaderHTM
 use crate::reader::theme::ThemeTokens;
 use crate::state::AppState;
 
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 /// Build a reader-mode HTML document for the given article.
 ///
 /// When `entry_id` is provided the pipeline will attempt to use cached
@@ -73,6 +80,30 @@ pub async fn build_reader_html(
     // Resolve relative entry URLs (e.g., `/posts/foo`) against the feed base.
     let entry_url = resolve_entry_url(&state, entry_id, &entry_url);
 
+    // Look up the entry title for the reader heading.
+    let title: Option<String> = if let Some(id) = entry_id {
+        let db = state.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.read(|conn| {
+                use rusqlite::OptionalExtension;
+                conn.query_row(
+                    "SELECT title FROM entry WHERE id = ?1",
+                    rusqlite::params![id],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()
+                .map_err(|e| AppError::Database(e.to_string()))
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .ok()
+        .flatten()
+        .flatten()
+    } else {
+        None
+    };
+
     // Start from the appropriate base theme by appearance mode.
     let mut tokens = if let Some(ref t) = theme {
         match t.theme_mode.as_deref() {
@@ -116,7 +147,12 @@ pub async fn build_reader_html(
     // If entry_id is provided, try the full 5-tier cache hierarchy first.
     if let Some(id) = entry_id {
         match try_build_from_cache(&state, &pipeline, id, &entry_url, &tokens).await {
-            Ok(html) => return Ok(html),
+            Ok(mut html) => {
+                if let Some(ref t) = title {
+                    html.html = html.html.replace("<body>", &format!("<body>\n<h1>{}</h1>", html_escape(t)));
+                }
+                return Ok(html);
+            }
             Err(e) => {
                 if let Some(ref l) = state.logger {
                     let _ = l.warn("reader_cache_miss", &format!("Cache miss for entry {}: {}", id, e));
@@ -126,7 +162,7 @@ pub async fn build_reader_html(
     }
 
     // Fall through: full pipeline with DB persistence if entry_id is available.
-    let result = if let Some(id) = entry_id {
+    let mut result = if let Some(id) = entry_id {
         let cs: &dyn crate::db::content_store::ContentStore = state.content_store.as_ref();
         pipeline
             .build_html_with_store(id, &entry_url, &tokens, cs)
@@ -137,6 +173,14 @@ pub async fn build_reader_html(
     if let Err(ref e) = result {
         if let Some(ref l) = state.logger {
             let _ = l.error("reader_build_failed", &format!("Build HTML for {} failed: {}", entry_url, e));
+        }
+    }
+    // Inject the entry title as <h1> at the top of the reader body so it
+    // is numbered as segment 0, aligning with the Rust segment extractor.
+    if let Ok(ref mut reader_html) = result {
+        if let Some(ref t) = title {
+            let title_tag = format!("<h1>{}</h1>", html_escape(t));
+            reader_html.html = reader_html.html.replace("<body>", &format!("<body>\n{}", title_tag));
         }
     }
     result

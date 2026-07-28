@@ -119,6 +119,11 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
       {/* Clear translation */}
       <button
         onClick={() => {
+          // Notify iframe to remove translation blocks.
+          const iframe = document.querySelector('iframe[title="Reader content"]') as HTMLIFrameElement | null;
+          if (iframe?.contentWindow) {
+            iframe.contentWindow.postMessage({ type: "oasis-clear-translations" }, "*");
+          }
           useReaderStore.setState({
             translationEnabled: false,
             translationHTML: null,

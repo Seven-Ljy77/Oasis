@@ -215,45 +215,75 @@ const AppShell: React.FC = () => {
 
       {/* ---- Three-column layout ---- */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: sidebar (draggable width) */}
-        {!sidebarCollapsed && (
-          <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden">
-            <SidebarView />
-          </aside>
-        )}
-        {!sidebarCollapsed && sidebarDrag}
-
-        {/* Sidebar collapse/expand — small icon at top of column edge */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="flex-shrink-0 flex items-start justify-center pt-1 w-5 text-slate-400 hover:text-slate-600 transition-colors"
-          title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d={sidebarCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
-          </svg>
-        </button>
-
-        {/* Center: entry list (draggable width) */}
-        {!entriesCollapsed && (
-          <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border">
-            <EntryListView />
+        {/* Left: sidebar */}
+        {sidebarCollapsed ? (
+          <div className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2">
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+              title="Show sidebar"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
+        ) : (
+          <>
+            <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col">
+              <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50">
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+                  title="Hide sidebar"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <SidebarView />
+              </div>
+            </aside>
+            {sidebarDrag}
+          </>
         )}
-        {!entriesCollapsed && centerDrag}
 
-        {/* Entry list collapse/expand — small icon at top of column edge */}
-        <button
-          onClick={() => setEntriesCollapsed(!entriesCollapsed)}
-          className="flex-shrink-0 flex items-start justify-center pt-1 w-5 text-slate-400 hover:text-slate-600 transition-colors"
-          title={entriesCollapsed ? "Show entry list" : "Hide entry list"}
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d={entriesCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
-          </svg>
-        </button>
+        {/* Center: entry list */}
+        {entriesCollapsed ? (
+          <div className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2">
+            <button
+              onClick={() => setEntriesCollapsed(false)}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+              title="Show entry list"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <>
+            <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col">
+              <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50">
+                <button
+                  onClick={() => setEntriesCollapsed(true)}
+                  className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+                  title="Hide entry list"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <EntryListView />
+              </div>
+            </div>
+            {centerDrag}
+          </>
+        )}
 
         {/* Right: reader */}
         <div className="flex-1 h-full overflow-hidden">
