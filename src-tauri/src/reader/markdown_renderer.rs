@@ -184,7 +184,11 @@ hr {{
   var idx = 0;
   // Number all block elements EXCEPT blockquote — its inner elements
   // (p, li, etc.) are numbered individually so translations nest correctly.
+  // Skip elements with very little text (e.g. image-only paragraphs) so the
+  // numbering matches the Rust segment extractor, which also skips them.
   document.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6').forEach(function(el) {{
+    var text = (el.textContent || '').replace(/\s+/g, '').trim();
+    if (text.length < 2) return; // skip images, empty elements
     el.setAttribute('data-segment-id', '' + idx);
     idx++;
   }});
