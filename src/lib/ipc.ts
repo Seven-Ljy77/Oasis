@@ -339,6 +339,9 @@ export const exportDigest = (entryId: number, path: string): Promise<void> =>
 export const exportMultipleDigest = (entryIds: number[], path: string): Promise<void> =>
   invoke<void>("export_multiple_digest", { entryIds, path });
 
+export const exportArticles = (entryIds: number[], path: string): Promise<void> =>
+  invoke<void>("export_articles", { entryIds, path });
+
 export const revealCustomTemplate = (templateId: string): Promise<void> =>
   invoke<void>("reveal_custom_template", { templateId });
 

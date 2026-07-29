@@ -52,6 +52,7 @@ export interface TranslationDict {
     exportMultipleDigest: string;
     multiSelect: string;
     exitMultiSelect: string;
+    exportArticles: string;
     noArticles: string;
     selectFeedHint: string;
     selected: string;
@@ -398,6 +399,7 @@ export const translations: Record<Locale, TranslationDict> = {
       exportMultipleDigest: "Export Multiple Digest",
       multiSelect: "Multi-select",
       exitMultiSelect: "Exit multi-select",
+      exportArticles: "Export Articles",
       noArticles: "No articles to display",
       selectFeedHint: "Select a feed or adjust your filters",
       selected: "selected",
@@ -740,6 +742,7 @@ export const translations: Record<Locale, TranslationDict> = {
       exportMultipleDigest: "导出多篇文摘",
       multiSelect: "多选",
       exitMultiSelect: "退出多选",
+      exportArticles: "导出原文",
       noArticles: "没有可显示的文章",
       selectFeedHint: "选择一个订阅源或调整筛选条件",
       selected: "已选择",
