@@ -25,7 +25,6 @@ const EntryListView: React.FC = () => {
   const toggleSelectEntry = useAppStore((s) => s.toggleSelectEntry);
   const enterMultiSelect = useAppStore((s) => s.enterMultiSelect);
   const exitMultiSelect = useAppStore((s) => s.exitMultiSelect);
-  const openSheet = useAppStore((s) => s.openSheet);
   const selectFeedGlobal = useAppStore((s) => s.selectFeed);
 
   const entries = useEntryStore((s) => s.entries);
@@ -299,19 +298,6 @@ const EntryListView: React.FC = () => {
                   className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                 >
                   {t.entryList.deleteAll}
-                </button>
-                <div className="border-t border-border my-1" />
-                <button
-                  onClick={() => { openSheet("exportDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
-                >
-                  {t.entryList.exportDigest}
-                </button>
-                <button
-                  onClick={() => { openSheet("exportMultipleDigest"); setMoreMenuOpen(false); setMoreMenuPinned(false); }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-surface-tertiary"
-                >
-                  {t.entryList.exportMultipleDigest}
                 </button>
               </div>
             )}
