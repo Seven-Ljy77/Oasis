@@ -67,9 +67,13 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Escape: Close sheets/search (works even in editable fields)
+      // Escape: Exit multi-select first, then close sheets/search (works even in editable fields)
       if (e.key === "Escape") {
-        const { searchOpen, activeSheet, closeSheet } = useAppStore.getState();
+        const { multiSelectMode, exitMultiSelect, searchOpen, activeSheet, closeSheet } = useAppStore.getState();
+        if (multiSelectMode) {
+          exitMultiSelect();
+          return;
+        }
         if (searchOpen) {
           setSearchOpen(false);
         } else if (activeSheet) {
