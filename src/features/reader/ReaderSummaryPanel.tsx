@@ -88,6 +88,15 @@ const ReaderSummaryPanel: React.FC = () => {
     }
   };
 
+  // Auto-summary: when enabled and entry changes, auto-generate after 1s debounce.
+  useEffect(() => {
+    if (!summaryAutoEnabled || !selectedEntryId) return;
+    const timer = setTimeout(() => {
+      handleGenerate();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [selectedEntryId, summaryAutoEnabled]);
+
   const handleCopy = () => {
     if (summaryText) navigator.clipboard.writeText(summaryText);
   };
@@ -116,15 +125,6 @@ const ReaderSummaryPanel: React.FC = () => {
       {dragHandle}
       {/* Header row */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-secondary">
-        <button
-          onClick={() => setSummaryOpen(false)}
-          className="p-0.5 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
         {/* Target language */}
         <select
           value={summaryTargetLanguage}
@@ -183,6 +183,14 @@ const ReaderSummaryPanel: React.FC = () => {
         <Button variant="ghost" size="sm" onClick={handleClear} disabled={!summaryText}>
           {t.summary.clear}
         </Button>
+        <button
+          onClick={() => useReaderStore.setState({ activePanel: null })}
+          className="p-0.5 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors ml-1"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       {/* Meta row */}
