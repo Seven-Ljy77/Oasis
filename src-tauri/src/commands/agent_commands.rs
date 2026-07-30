@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
-use crate::agent::provider::{validate_provider_base_url, LLMProvider, OpenAIProvider};
+use std::collections::HashMap;
+
+use crate::agent::provider::{validate_provider_base_url, LLMMessage, LLMProvider, LLMRequest, OpenAIProvider};
 use crate::agent::request_tracker::AgentRequestSlot;
 use crate::agent::route::RouteResolver;
 use crate::agent::summary::executor::{SummaryExecutor, SummaryRunEvent, SummaryRunRequest};
@@ -910,6 +912,73 @@ pub async fn start_translation(
             Err(e)
         }
     }
+}
+
+/// Translate a single piece of text (word, phrase, or sentence).
+/// Returns the translated text directly — no segments, no database writes.
+#[tauri::command]
+pub async fn translate_text(
+    state: State<'_, AppState>,
+    text: String,
+    target_language: String,
+) -> Result<String, AppError> {
+    let resolver = RouteResolver::new(state.agent_config_store.clone());
+    let routes = resolver
+        .resolve_route(&AgentTaskKind::Translation, None, None)
+        .await?;
+    let route = routes
+        .first()
+        .ok_or_else(|| AppError::Config("No translation model configured".to_string()))?;
+
+    let provider = build_provider(
+        state.agent_config_store.clone() as Arc<dyn AgentConfigStore>,
+        route,
+    )
+    .await?;
+
+    let template = {
+        let mut store = state.prompt_template_store.lock().map_err(|e| {
+            AppError::Agent(format!("Template store lock: {e}"))
+        })?;
+        store.load("translation.default")?
+    };
+
+    let lang_display = match target_language.as_str() {
+        "zh-CN" => "Chinese (Simplified)",
+        "zh-TW" | "zh-Hant" => "Chinese (Traditional)",
+        "en" => "English",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        "fr" => "French",
+        "de" => "German",
+        "es" => "Spanish",
+        "pt" => "Portuguese",
+        "ru" => "Russian",
+        "ar" => "Arabic",
+        "hi" => "Hindi",
+        "it" => "Italian",
+        "vi" => "Vietnamese",
+        other => other,
+    };
+    let mut vars = HashMap::new();
+    vars.insert("targetLanguageDisplayName".to_string(), lang_display.to_string());
+    vars.insert("sourceText".to_string(), text);
+    let user = template.render(&vars)?;
+
+    let request = LLMRequest {
+        model: route.model_name.clone(),
+        messages: vec![LLMMessage {
+            role: "user".to_string(),
+            content: user,
+        }],
+        temperature: Some(0.3),
+        top_p: Some(0.95),
+        max_tokens: Some(1000),
+        stream: false,
+    };
+
+    let response = provider.complete(&request).await?;
+    Ok(response.content)
 }
 
 #[tauri::command]

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";
 import { useI18n } from "@/lib/i18n";
+import { translateText } from "@/lib/ipc";
 import ReaderToolbar from "./ReaderToolbar";
 import ReaderWebView from "./ReaderWebView";
 import ReaderSummaryPanel from "./ReaderSummaryPanel";
@@ -110,6 +111,39 @@ const ReaderDetailView: React.FC = () => {
     buildReaderHTML,
   ]);
 
+  const readerAreaRef = useRef<HTMLDivElement>(null);
+
+  // ---- Word / selection translation ----
+  const [wordPopup, setWordPopup] = useState<{ text: string, result: string, x: number, y: number } | null>(null);
+  const [wordLoading, setWordLoading] = useState(false);
+
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === "oasis-word-translate") {
+        const txt: string = e.data.text || "";
+        // Convert iframe-relative mouse coords to reader-container-relative
+        const rArea = readerAreaRef.current;
+        const iframe = rArea?.querySelector("iframe");
+        const iframeRect = iframe?.getBoundingClientRect();
+        const x = (e.data.x ?? 200) + (iframeRect?.left ?? 0) - (rArea?.getBoundingClientRect().left ?? 0);
+        const y = (e.data.y ?? 200) + (iframeRect?.top ?? 0) - (rArea?.getBoundingClientRect().top ?? 0);
+        setWordPopup({ text: txt, result: "", x, y });
+        setWordLoading(true);
+        translateText(txt, useReaderStore.getState().translationTargetLanguage)
+          .then((res) => {
+            setWordPopup((prev) => prev ? { ...prev, result: res } : null);
+            setWordLoading(false);
+          })
+          .catch(() => {
+            setWordPopup((prev) => prev ? { ...prev, result: "(Translation failed)" } : null);
+            setWordLoading(false);
+          });
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   const showPanel = (panel: typeof activePanel) => {
     setActivePanel(activePanel === panel ? null : panel);
   };
@@ -206,7 +240,7 @@ const ReaderDetailView: React.FC = () => {
       </div>
 
       {/* ---- Reader content ---- */}
-      <div className="flex-1 overflow-hidden">
+      <div ref={readerAreaRef} className="flex-1 overflow-hidden">
         {readingMode === "dual" ? (
           <div className="flex h-full">
             <div className="flex-1 border-r border-border">
@@ -239,6 +273,48 @@ const ReaderDetailView: React.FC = () => {
           onNoteStateChange={handleNoteStateChange}
         />
       )}
+
+      {/* ---- Word translation popup ---- */}
+      {wordPopup && (() => {
+        // Clamp popup to stay inside the reader area (viewport coords).
+        const r = readerAreaRef.current?.getBoundingClientRect();
+        const popW = 260, popH = 100;
+        const left = r ? Math.max(r.left + 8, Math.min(r.right - popW - 8, wordPopup.x + (r?.left ?? 0))) : wordPopup.x;
+        const top = r ? Math.max(r.top + 8, Math.min(r.bottom - popH - 8, wordPopup.y + (r?.top ?? 0) + 20)) : wordPopup.y + 20;
+        return (
+        <div
+          className="fixed z-[120] bg-surface border border-border rounded-xl shadow-lg p-3.5 max-w-[260px] animate-in zoom-in-95 fade-in"
+          style={{ left, top }}
+        >
+          {/* Arrow pointing up toward selection */}
+          <div className="absolute -top-1.5 left-4 w-3 h-3 bg-surface border-l border-t border-border rotate-45" />
+
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <span className="text-[11px] text-slate-400 italic truncate leading-tight">
+              "{wordPopup.text}"
+            </span>
+            <button onClick={() => setWordPopup(null)}
+              className="text-slate-300 hover:text-slate-500 flex-shrink-0 transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {wordLoading ? (
+            <div className="flex items-center gap-2 text-slate-400 text-sm">
+              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Translating...
+            </div>
+          ) : (
+            <p className="text-sm text-slate-800 leading-relaxed">{wordPopup.result}</p>
+          )}
+        </div>
+        );
+      })()}
     </div>
   );
 };

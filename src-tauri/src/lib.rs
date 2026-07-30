@@ -154,6 +154,7 @@ pub fn run() {
             // Agent task dispatch
             commands::agent_commands::start_summary,
             commands::agent_commands::start_translation,
+            commands::agent_commands::translate_text,
             commands::agent_commands::start_tagging_panel,
             commands::agent_commands::cancel_agent,
             commands::agent_commands::start_batch_tagging,

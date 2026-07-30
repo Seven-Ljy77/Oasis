@@ -307,6 +307,9 @@ export const startTranslation = (
     requestId,
   });
 
+export const translateText = (text: string, targetLanguage: string): Promise<string> =>
+  invoke<string>("translate_text", { text, targetLanguage });
+
 export const buildTranslationHTML = (
   entryId: number,
   targetLanguage: string,
