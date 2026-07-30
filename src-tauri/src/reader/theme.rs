@@ -54,6 +54,24 @@ pub enum ThemeMode {
 }
 
 impl ThemeTokens {
+    pub fn paper() -> Self {
+        Self {
+            font_family: "'Merriweather', Georgia, serif".into(),
+            font_size: 18,
+            line_height: 1.8,
+            max_width: 720,
+            background_color: "#fffdf7".into(),
+            primary_text_color: "#1a1a1a".into(),
+            secondary_text_color: "#5c5c5c".into(),
+            link_color: "#b45309".into(),
+            blockquote_border_color: "#d97706".into(),
+            code_background_color: "#fef3c7".into(),
+            paragraph_spacing: 1.5,
+            heading_scale: 1.2,
+            code_border_radius: 4.0,
+        }
+    }
+
     /// Dark theme preset — swaps all colors for comfortable reading on dark backgrounds.
     pub fn dark() -> Self {
         Self {
@@ -90,6 +108,19 @@ impl ThemeTokens {
             heading_scale: 1.3,
             code_border_radius: 6.0,
         }
+    }
+
+    pub fn apply_appearance(&mut self, appearance: &Self) {
+        self.background_color.clone_from(&appearance.background_color);
+        self.primary_text_color
+            .clone_from(&appearance.primary_text_color);
+        self.secondary_text_color
+            .clone_from(&appearance.secondary_text_color);
+        self.link_color.clone_from(&appearance.link_color);
+        self.blockquote_border_color
+            .clone_from(&appearance.blockquote_border_color);
+        self.code_background_color
+            .clone_from(&appearance.code_background_color);
     }
 
     /// Generate CSS from theme tokens for injection into reader HTML.

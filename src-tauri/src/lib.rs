@@ -16,6 +16,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::agent::prompt_template::PromptTemplateStore;
+use crate::agent::request_tracker::LatestRequestTracker;
 use crate::agent::runtime::AgentRuntimeEngine;
 use crate::db::agent_config_store::SqliteAgentConfigStore;
 use crate::db::agent_task_store::SqliteAgentTaskStore;
@@ -99,6 +100,7 @@ pub fn run() {
         sync_service,
         task_queue: Arc::new(TaskQueue::new()),
         agent_runtime: Arc::new(AgentRuntimeEngine::new()),
+        agent_request_tracker: Arc::new(LatestRequestTracker::default()),
         logger: Some(logger),
         config: Arc::new(RwLock::new(
             crate::commands::settings_commands::load_config_from_disk(),
@@ -187,7 +189,6 @@ pub fn run() {
             commands::digest_commands::share_digest,
             commands::digest_commands::export_digest,
             commands::digest_commands::export_multiple_digest,
-            commands::digest_commands::export_articles,
             // Usage commands
             commands::usage_commands::fetch_provider_report,
             commands::usage_commands::fetch_model_report,

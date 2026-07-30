@@ -97,8 +97,8 @@ const AppShell: React.FC = () => {
   const mergeSourceTagName = useAppStore((s) => s.mergeSourceTagName);
 
   // Draggable column widths
-  const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar-v2", 240, 180, 360);
-  const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist-v2", 340, 250, 550);
+  const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar", 280, 180, 450);
+  const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist", 400, 280, 700);
 
   // Column collapse state — when both collapsed, reader takes full screen
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

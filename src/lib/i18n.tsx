@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import type { Locale, TranslationDict } from "@/lib/translations";
 import { translations } from "@/lib/translations";
 import { useSettingsStore } from "@/stores/useSettingsStore";
@@ -17,21 +17,21 @@ function resolveLocale(raw: string | undefined): Locale {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
+  const configuredLanguage = useSettingsStore((state) => state.settings.language);
   const [locale, setLocale] = useState<Locale>(() =>
-    resolveLocale(useSettingsStore.getState().settings.language),
+    resolveLocale(configuredLanguage),
   );
 
-  const mounted = useRef(false);
+  useEffect(() => {
+    setLocale(resolveLocale(configuredLanguage));
+  }, [configuredLanguage]);
 
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      return;
-    }
     const store = useSettingsStore.getState();
     if (store.settings.language !== locale) {
+      const nextSettings = { ...store.settings, language: locale };
       store.updateSetting("language", locale);
-      store.saveSettings(store.settings);
+      void store.saveSettings(nextSettings);
     }
   }, [locale]);
 

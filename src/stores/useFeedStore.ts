@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import type { Feed } from "@/lib/types";
 import * as ipc from "@/lib/ipc";
+import { useSidebarStore } from "./useSidebarStore";
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -111,7 +112,6 @@ export const useFeedStore = create<FeedState>()((set, get) => ({
       // Reload feeds after import
       await get().loadFeeds();
       // Refresh sidebar counts
-      const { useSidebarStore } = await import("./useSidebarStore");
       await useSidebarStore.getState().loadCounts();
       return result;
     } catch (err) {

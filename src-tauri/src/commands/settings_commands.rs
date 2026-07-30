@@ -57,16 +57,22 @@ pub async fn save_settings(
     settings: AppConfig,
 ) -> Result<(), AppError> {
     let retention_months = settings.usage_retention_months;
-    {
-        let mut current = state.config.write().await;
-        *current = settings.clone();
-    }
+    let mut current = state.config.write().await;
+    let previous = current.clone();
+    *current = settings.clone();
 
-    // Persist to disk
+    // Keep the write guard until persistence finishes so overlapping UI
+    // updates cannot write the settings file out of order.
     let settings_clone = settings.clone();
-    tokio::task::spawn_blocking(move || save_config_to_disk(&settings_clone))
+    let persist_result = tokio::task::spawn_blocking(move || save_config_to_disk(&settings_clone))
         .await
-        .map_err(|e| AppError::Unknown(format!("{e}")))??;
+        .map_err(|e| AppError::Unknown(format!("{e}")))
+        .and_then(|result| result);
+    if let Err(error) = persist_result {
+        *current = previous;
+        return Err(error);
+    }
+    drop(current);
 
     // Apply retention policy immediately
     let policy = match retention_months {
@@ -112,15 +118,25 @@ pub async fn reveal_custom_template(
     _state: State<'_, AppState>,
     template_id: String,
 ) -> Result<(), AppError> {
+    let default = match template_id.as_str() {
+        "single-markdown.yaml" => include_str!("../../resources/templates/single-markdown.yaml"),
+        "minimal.yaml" => include_str!("../../resources/templates/minimal.yaml"),
+        "academic.yaml" => include_str!("../../resources/templates/academic.yaml"),
+        "newsletter.yaml" => include_str!("../../resources/templates/newsletter.yaml"),
+        _ => {
+            return Err(AppError::InvalidInput(
+                "Unknown digest template".to_string(),
+            ));
+        }
+    };
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("Oasis")
         .join("prompts");
     std::fs::create_dir_all(&data_dir).ok();
-    let path = data_dir.join(format!("{template_id}"));
+    let path = data_dir.join(&template_id);
     // Create default template if it doesn't exist
     if !path.exists() {
-        let default = include_str!("../../resources/templates/single-markdown.yaml");
         std::fs::write(&path, default)
             .map_err(|e| AppError::Config(format!("Cannot create template: {e}")))?;
     }

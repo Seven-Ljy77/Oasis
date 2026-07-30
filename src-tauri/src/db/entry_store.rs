@@ -15,9 +15,6 @@ pub trait EntryStore: Send + Sync {
     /// Load a page of entries matching the given query.
     async fn load_page(&self, query: EntryListQuery) -> Result<EntryPage, AppError>;
 
-    /// Load the next page of entries after the given cursor.
-    async fn load_next_page(&self, cursor: PageCursor) -> Result<EntryPage, AppError>;
-
     /// Mark or unmark entries as read.
     async fn mark_read(&self, ids: &[i64], is_read: bool) -> Result<(), AppError>;
 
@@ -145,15 +142,29 @@ fn build_where_clause(query: &EntryListQuery) -> (String, Vec<Box<dyn rusqlite::
 
     // Keyset cursor: (published_at, created_at, id) tuple comparison
     if let Some(ref cursor) = query.cursor {
-        let p = param_values.len() + 1;
-        let c = param_values.len() + 2;
-        let i = param_values.len() + 3;
-        conditions.push(format!(
-            "(e.published_at < ?{p} OR (e.published_at = ?{p} AND e.created_at < ?{c}) OR (e.published_at = ?{p} AND e.created_at = ?{c} AND e.id < ?{i}))",
-        ));
-        param_values.push(Box::new(cursor.published_at.clone()));
-        param_values.push(Box::new(cursor.created_at.clone()));
-        param_values.push(Box::new(cursor.id));
+        if let Some(ref published_at) = cursor.published_at {
+            let p = param_values.len() + 1;
+            let c = param_values.len() + 2;
+            let i = param_values.len() + 3;
+            conditions.push(format!(
+                "(e.published_at IS NULL OR e.published_at < ?{p} OR \
+                 (e.published_at = ?{p} AND e.created_at < ?{c}) OR \
+                 (e.published_at = ?{p} AND e.created_at = ?{c} AND e.id < ?{i}))",
+            ));
+            param_values.push(Box::new(published_at.clone()));
+            param_values.push(Box::new(cursor.created_at.clone()));
+            param_values.push(Box::new(cursor.id));
+        } else {
+            let c = param_values.len() + 1;
+            let i = param_values.len() + 2;
+            conditions.push(format!(
+                "(e.published_at IS NULL AND \
+                 (e.created_at < ?{c} OR \
+                 (e.created_at = ?{c} AND e.id < ?{i})))",
+            ));
+            param_values.push(Box::new(cursor.created_at.clone()));
+            param_values.push(Box::new(cursor.id));
+        }
     }
 
     let where_clause = conditions.join(" AND ");
@@ -223,15 +234,6 @@ impl EntryStore for SqliteEntryStore {
         })
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
-    }
-
-    async fn load_next_page(&self, cursor: PageCursor) -> Result<EntryPage, AppError> {
-        // Delegate to load_page with a query that has this cursor and default limit
-        let query = EntryListQuery {
-            cursor: Some(cursor),
-            ..EntryListQuery::default()
-        };
-        self.load_page(query).await
     }
 
     async fn mark_read(&self, ids: &[i64], is_read: bool) -> Result<(), AppError> {
@@ -340,7 +342,7 @@ impl EntryStore for SqliteEntryStore {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             db.read(|conn| {
-                let like = format!("%{}%", &text);
+                let like = format!("%{}%", text);
 
                 let search_condition = match scope {
                     SearchScope::TitleOnly => "e.title LIKE ?1".to_string(),
@@ -388,7 +390,6 @@ impl EntryStore for SqliteEntryStore {
         feed_id: i64,
         entries: &[EntryUpsertData],
     ) -> Result<usize, AppError> {
-        let feed_id = feed_id;
         let entries: Vec<EntryUpsertData> = entries.to_vec();
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
@@ -434,14 +435,13 @@ impl EntryStore for SqliteEntryStore {
         tokio::task::spawn_blocking(move || {
             db.write(|conn| {
                 let (where_clause, mut param_values) = build_where_clause(&query);
-                // Prepend the is_read value as the first parameter.
-                let mut all_params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(is_read)];
-                all_params.append(&mut param_values);
-                let param_refs = params_from_vec(&all_params);
+                let read_parameter = param_values.len() + 1;
+                param_values.push(Box::new(is_read));
+                let param_refs = params_from_vec(&param_values);
 
                 let sql = format!(
-                    "UPDATE entry SET is_read = ?1 WHERE id IN (SELECT e.id FROM entry e {})",
-                    where_clause
+                    "UPDATE entry SET is_read = ?{read_parameter} \
+                     WHERE id IN (SELECT e.id FROM entry e {where_clause})"
                 );
                 let rows = conn
                     .execute(&sql, &param_refs[..])
@@ -473,5 +473,116 @@ impl EntryStore for SqliteEntryStore {
         })
         .await
         .map_err(|e| AppError::Database(e.to_string()))?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{EntryStore, SqliteEntryStore};
+    use crate::db::manager::DatabaseManager;
+    use crate::db::query_builder::EntryListQuery;
+
+    #[tokio::test]
+    async fn keyset_pagination_preserves_filters_and_handles_null_dates() {
+        let path =
+            std::env::temp_dir().join(format!("oasis-entries-{}.db", uuid::Uuid::new_v4()));
+
+        {
+            let db = Arc::new(DatabaseManager::new(&path).unwrap());
+            db.write(|conn| {
+                conn.execute_batch(
+                    "INSERT INTO feed (id, title, feed_url) VALUES
+                         (1, 'One', 'https://one.example/feed'),
+                         (2, 'Two', 'https://two.example/feed');
+                     INSERT INTO entry
+                         (id, feed_id, guid, title, published_at, created_at) VALUES
+                         (1, 1, 'a', 'A', '2024-03-01', '2024-03-01'),
+                         (2, 1, 'b', 'B', '2024-02-01', '2024-02-01'),
+                         (3, 1, 'c', 'C', NULL, '2024-01-03'),
+                         (4, 1, 'd', 'D', NULL, '2024-01-02'),
+                         (5, 1, 'e', 'E', NULL, '2024-01-01'),
+                         (6, 2, 'other', 'Other', '2025-01-01', '2025-01-01');",
+                )?;
+                Ok(())
+            })
+            .unwrap();
+
+            let store = SqliteEntryStore::new(db.clone());
+            let mut query = EntryListQuery {
+                feed_id: Some(1),
+                limit: 2,
+                ..EntryListQuery::default()
+            };
+
+            let first = store.load_page(query.clone()).await.unwrap();
+            assert_eq!(
+                first.entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+                vec![1, 2]
+            );
+
+            query.cursor = first.next_cursor;
+            let second = store.load_page(query.clone()).await.unwrap();
+            assert_eq!(
+                second
+                    .entries
+                    .iter()
+                    .map(|entry| entry.id)
+                    .collect::<Vec<_>>(),
+                vec![3, 4]
+            );
+            assert!(second.next_cursor.as_ref().unwrap().published_at.is_none());
+
+            query.cursor = second.next_cursor;
+            let third = store.load_page(query).await.unwrap();
+            assert_eq!(
+                third.entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+                vec![5]
+            );
+            assert!(third.next_cursor.is_none());
+            assert!(
+                first
+                    .entries
+                    .iter()
+                    .chain(second.entries.iter())
+                    .chain(third.entries.iter())
+                    .all(|entry| entry.feed_id == 1)
+            );
+
+            let marked = store
+                .mark_all_read(
+                    &EntryListQuery {
+                        feed_id: Some(1),
+                        ..EntryListQuery::default()
+                    },
+                    true,
+                )
+                .await
+                .unwrap();
+            assert_eq!(marked, 5);
+            let (selected_read, other_read): (i64, i64) = db
+                .read(|conn| {
+                    Ok((
+                        conn.query_row(
+                            "SELECT COUNT(*) FROM entry WHERE feed_id = 1 AND is_read = 1",
+                            [],
+                            |row| row.get(0),
+                        )?,
+                        conn.query_row(
+                            "SELECT COUNT(*) FROM entry WHERE feed_id = 2 AND is_read = 1",
+                            [],
+                            |row| row.get(0),
+                        )?,
+                    ))
+                })
+                .unwrap();
+            assert_eq!(selected_read, 5);
+            assert_eq!(other_read, 0);
+        }
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("db-shm"));
+        let _ = std::fs::remove_file(path.with_extension("db-wal"));
     }
 }

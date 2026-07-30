@@ -182,6 +182,14 @@ hr {{
 <script>
 (function() {{
   var idx = 0;
+  document.addEventListener('click', function(e) {{
+    var target = e.target;
+    var link = target && target.closest ? target.closest('a[href]') : null;
+    if (!link || !/^https?:$/i.test(link.protocol)) return;
+    e.preventDefault();
+    window.parent.postMessage({{ type: 'oasis-open-link', url: link.href }}, '*');
+  }});
+
   // Number all block elements EXCEPT blockquote — its inner elements
   // (p, li, etc.) are numbered individually so translations nest correctly.
   // Skip elements with very little text (e.g. image-only paragraphs) so the
@@ -203,6 +211,7 @@ hr {{
     div.className = 'oasis-trans';
     div.textContent = seg.text;
     el.insertAdjacentElement('afterend', div);
+    el.style.display = seg.showOriginal === false ? 'none' : '';
   }});
 
   // Bilingual toggle: only affects elements that already have a translation.

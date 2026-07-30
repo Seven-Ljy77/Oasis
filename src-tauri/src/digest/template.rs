@@ -110,11 +110,11 @@ impl DigestTemplateStore {
             }
         }
 
-        // Only check user directory for customisable template IDs.
-        if template_id == "customize" || template_id == "single-markdown" {
+        // Every template exposed by the settings UI can be customised. The
+        // "customize" option is the user-facing alias for single-markdown.
+        if let Some(file_name) = template_file_name(template_id) {
             if let Some(ref dir) = self.user_dir {
-                let user_path = std::path::Path::new(dir)
-                    .join("single-markdown.yaml");
+                let user_path = std::path::Path::new(dir).join(file_name);
                 if user_path.exists() {
                     let yaml_str = std::fs::read_to_string(&user_path)
                         .map_err(|e| AppError::Digest(format!("Cannot read user template: {}", e)))?;
@@ -182,6 +182,16 @@ impl DigestTemplateStore {
             "academic".into(),
             "newsletter".into(),
         ]
+    }
+}
+
+fn template_file_name(template_id: &str) -> Option<&'static str> {
+    match template_id {
+        "customize" | "default" | "single-markdown" => Some("single-markdown.yaml"),
+        "minimal" => Some("minimal.yaml"),
+        "academic" => Some("academic.yaml"),
+        "newsletter" => Some("newsletter.yaml"),
+        _ => None,
     }
 }
 

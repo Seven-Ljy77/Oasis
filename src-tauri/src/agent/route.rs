@@ -3,6 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::db::agent_config_store::AgentConfigStore;
+use crate::db::models::AgentModelProfile;
 use crate::error::AppError;
 use super::AgentTaskKind;
 
@@ -10,11 +11,16 @@ use super::AgentTaskKind;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteCandidate {
     pub provider_name: String,
+    pub provider_base_url: String,
     pub model_name: String,
     pub provider_profile_id: i64,
     pub model_profile_id: i64,
     pub priority: u32,
     pub is_fallback: bool,
+    pub temperature: Option<f64>,
+    pub top_p: Option<f64>,
+    pub max_tokens: Option<i32>,
+    pub is_streaming: bool,
 }
 
 /// Resolves model routing using the agent profile + model + provider config.
@@ -62,17 +68,22 @@ impl RouteResolver {
 
         // Add primary candidate
         if let Some(mid) = primary_model_id {
-            if let Some((provider_name, model_name)) =
+            if let Some((provider_name, provider_base_url, provider_profile_id, model)) =
                 find_model_info(&providers, &self.config_store, mid).await?
             {
-                if model_supports(&self.config_store, mid, capability_field).await? {
+                if model_supports(&model, capability_field) {
                     candidates.push(RouteCandidate {
                         provider_name,
-                        model_name,
-                        provider_profile_id: 0, // will be refined by caller if needed
+                        provider_base_url,
+                        model_name: model.model_name,
+                        provider_profile_id,
                         model_profile_id: mid,
                         priority: 0,
                         is_fallback: false,
+                        temperature: model.temperature,
+                        top_p: model.top_p,
+                        max_tokens: model.max_tokens,
+                        is_streaming: model.is_streaming,
                     });
                 }
             }
@@ -81,17 +92,22 @@ impl RouteResolver {
         // Add fallback candidate
         if let Some(mid) = fallback_model_id {
             if mid != primary_model_id.unwrap_or(0) {
-                if let Some((provider_name, model_name)) =
+                if let Some((provider_name, provider_base_url, provider_profile_id, model)) =
                     find_model_info(&providers, &self.config_store, mid).await?
                 {
-                    if model_supports(&self.config_store, mid, capability_field).await? {
+                    if model_supports(&model, capability_field) {
                         candidates.push(RouteCandidate {
                             provider_name,
-                            model_name,
-                            provider_profile_id: 0,
+                            provider_base_url,
+                            model_name: model.model_name,
+                            provider_profile_id,
                             model_profile_id: mid,
                             priority: 1,
                             is_fallback: true,
+                            temperature: model.temperature,
+                            top_p: model.top_p,
+                            max_tokens: model.max_tokens,
+                            is_streaming: model.is_streaming,
                         });
                     }
                 }
@@ -142,11 +158,16 @@ impl RouteResolver {
                 if supports {
                     candidates.push(RouteCandidate {
                         provider_name: provider.name.clone(),
+                        provider_base_url: provider.base_url.clone(),
                         model_name: model.model_name.clone(),
                         provider_profile_id: provider.id,
                         model_profile_id: model.id,
                         priority: if model.is_default { 0 } else { 1 },
                         is_fallback: !model.is_default,
+                        temperature: model.temperature,
+                        top_p: model.top_p,
+                        max_tokens: model.max_tokens,
+                        is_streaming: model.is_streaming,
                     });
                 }
             }
@@ -171,12 +192,20 @@ async fn find_model_info(
     providers: &[crate::db::models::AgentProviderProfile],
     store: &Arc<dyn AgentConfigStore>,
     model_id: i64,
-) -> Result<Option<(String, String)>, AppError> {
+) -> Result<Option<(String, String, i64, AgentModelProfile)>, AppError> {
     for provider in providers {
+        if !provider.is_enabled {
+            continue;
+        }
         let models = store.load_models(provider.id, false).await?;
         for model in &models {
-            if model.id == model_id {
-                return Ok(Some((provider.name.clone(), model.model_name.clone())));
+            if model.id == model_id && model.is_enabled {
+                return Ok(Some((
+                    provider.name.clone(),
+                    provider.base_url.clone(),
+                    provider.id,
+                    model.clone(),
+                )));
             }
         }
     }
@@ -184,26 +213,11 @@ async fn find_model_info(
 }
 
 /// Check whether a model supports a given capability.
-async fn model_supports(
-    store: &Arc<dyn AgentConfigStore>,
-    model_id: i64,
-    capability: &str,
-) -> Result<bool, AppError> {
-    // We need to load models for all providers. Use a simpler approach:
-    // load all providers, then their models, find the model.
-    let providers = store.load_providers(false).await?;
-    for provider in &providers {
-        let models = store.load_models(provider.id, false).await?;
-        for model in &models {
-            if model.id == model_id {
-                return Ok(match capability {
-                    "supports_summary" => model.supports_summary,
-                    "supports_translation" => model.supports_translation,
-                    "supports_tagging" => model.supports_tagging,
-                    _ => false,
-                });
-            }
-        }
+fn model_supports(model: &AgentModelProfile, capability: &str) -> bool {
+    match capability {
+        "supports_summary" => model.supports_summary,
+        "supports_translation" => model.supports_translation,
+        "supports_tagging" => model.supports_tagging,
+        _ => false,
     }
-    Ok(false)
 }

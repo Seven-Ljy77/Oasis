@@ -101,22 +101,6 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
   startBatchTagging: async (entryIds) => {
     try {
       const { task_id } = await ipc.startBatchTagging(entryIds);
-      set((s) => ({
-        agentState: {
-          ...s.agentState,
-          active_runs: [
-            ...s.agentState.active_runs,
-            {
-              task_id,
-              entry_id: 0, // batch, not tied to single entry
-              task_kind: "tagging_batch" as AgentTaskKind,
-              phase: "waiting" as AgentRunPhase,
-              status_text: null,
-              progress: { completed: 0, total: entryIds.length },
-            },
-          ],
-        },
-      }));
       return task_id;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

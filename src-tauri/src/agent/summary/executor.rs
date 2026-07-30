@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::agent::provider::{LLMMessage, LLMProvider, LLMRequest};
 use crate::agent::prompt_template::PromptTemplateStore;
-use crate::agent::route::RouteResolver;
+use crate::agent::request_tracker::LatestRequestContext;
+use crate::agent::route::{RouteCandidate, RouteResolver};
 use crate::agent::AgentTaskKind;
 use crate::db::summary_store::SummaryStore;
 use crate::error::AppError;
@@ -17,6 +18,8 @@ pub struct SummaryRunRequest {
     pub entry_id: i64,
     pub target_language: String,
     pub detail_level: String,
+    /// Skip an existing cached summary and generate a fresh result.
+    pub force: bool,
     /// The article title and content to summarize (provided by caller).
     pub title: String,
     pub content: String,
@@ -65,21 +68,28 @@ impl SummaryExecutor {
     pub async fn execute(
         &self,
         request: &SummaryRunRequest,
+        request_context: Option<&LatestRequestContext>,
+        route_override: Option<&RouteCandidate>,
         on_event: impl Fn(SummaryRunEvent) + Send + 'static,
     ) -> Result<(), AppError> {
         // 1. Check cache
-        let cached = self
-            .summary_store
-            .load_by_slot(request.entry_id, &request.target_language, &request.detail_level)
-            .await?;
-        if let Some(cached) = cached {
-            on_event(SummaryRunEvent::Terminal {
-                entry_id: request.entry_id,
-                full_text: cached.text,
-                target_language: request.target_language.clone(),
-                detail_level: request.detail_level.clone(),
-            });
-            return Ok(());
+        if !request.force {
+            let cached = self
+                .summary_store
+                .load_by_slot(request.entry_id, &request.target_language, &request.detail_level)
+                .await?;
+            if let Some(cached) = cached {
+                if let Some(context) = request_context {
+                    context.ensure_current().await?;
+                }
+                on_event(SummaryRunEvent::Terminal {
+                    entry_id: request.entry_id,
+                    full_text: cached.text,
+                    target_language: request.target_language.clone(),
+                    detail_level: request.detail_level.clone(),
+                });
+                return Ok(());
+            }
         }
 
         on_event(SummaryRunEvent::Started {
@@ -87,13 +97,18 @@ impl SummaryExecutor {
         });
 
         // 2. Resolve route
-        let candidates = self
-            .resolver
-            .resolve_route(&AgentTaskKind::Summary, None, None)
-            .await?;
-        let route = candidates
-            .first()
-            .ok_or_else(|| AppError::Config("No model configured for summary".to_string()))?;
+        let resolved_routes;
+        let route = if let Some(route) = route_override {
+            route
+        } else {
+            resolved_routes = self
+                .resolver
+                .resolve_route(&AgentTaskKind::Summary, None, None)
+                .await?;
+            resolved_routes.first().ok_or_else(|| {
+                AppError::Config("No model configured for summary".to_string())
+            })?
+        };
 
         // 3. Load and render prompt template
         let template = {
@@ -128,47 +143,74 @@ impl SummaryExecutor {
         let llm_request = LLMRequest {
             model: route.model_name.clone(),
             messages,
-            temperature: Some(0.5),
-            top_p: Some(0.9),
-            max_tokens: Some(2000),
-            stream: true,
+            temperature: route.temperature.or(Some(0.5)),
+            top_p: route.top_p.or(Some(0.9)),
+            max_tokens: route
+                .max_tokens
+                .and_then(|value| u32::try_from(value).ok())
+                .or(Some(2000)),
+            stream: route.is_streaming,
         };
 
-        // 5. Stream tokens
-        let mut stream = self.provider.stream(&llm_request).await?;
         let mut full_text = String::new();
-
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
-                Ok(chunk) => {
-                    if !chunk.content_delta.is_empty() {
-                        on_event(SummaryRunEvent::Token {
-                            entry_id: request.entry_id,
-                            token: chunk.content_delta.clone(),
-                        });
-                        full_text.push_str(&chunk.content_delta);
+        if route.is_streaming {
+            // 5. Stream tokens
+            let mut stream = self.provider.stream(&llm_request).await?;
+            let mut completed = false;
+            while let Some(chunk_result) = stream.next().await {
+                match chunk_result {
+                    Ok(chunk) => {
+                        if !chunk.content_delta.is_empty() {
+                            on_event(SummaryRunEvent::Token {
+                                entry_id: request.entry_id,
+                                token: chunk.content_delta.clone(),
+                            });
+                            full_text.push_str(&chunk.content_delta);
+                        }
+                        if chunk.is_complete {
+                            completed = true;
+                            break;
+                        }
                     }
-                    if chunk.is_complete {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    return Err(e);
+                    Err(e) => return Err(e),
                 }
             }
+            if !completed {
+                return Err(AppError::Network(
+                    "LLM stream ended before completion".to_string(),
+                ));
+            }
+        } else {
+            let response = self.provider.complete(&llm_request).await?;
+            full_text = response.content;
+            on_event(SummaryRunEvent::Token {
+                entry_id: request.entry_id,
+                token: full_text.clone(),
+            });
+        }
+        if full_text.trim().is_empty() {
+            return Err(AppError::Agent(
+                "LLM returned an empty summary".to_string(),
+            ));
         }
 
         // 6. Save to DB
         let summary = crate::db::models::SummaryResult {
             id: 0,
-            task_run_id: 0,
+            task_run_id: None,
             entry_id: request.entry_id,
             target_language: request.target_language.clone(),
             detail_level: request.detail_level.clone(),
             text: full_text.clone(),
             created_at: String::new(),
         };
-        self.summary_store.save(&summary).await?;
+        if let Some(context) = request_context {
+            context
+                .run_if_current(|| self.summary_store.save(&summary))
+                .await?;
+        } else {
+            self.summary_store.save(&summary).await?;
+        }
 
         // 7. Emit terminal
         on_event(SummaryRunEvent::Terminal {

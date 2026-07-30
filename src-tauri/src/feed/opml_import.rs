@@ -7,7 +7,7 @@ use crate::db::feed_store::{FeedStore, SqliteFeedStore};
 use crate::db::models::Feed;
 use crate::error::AppError;
 use crate::feed::feed_parser::parse_feed;
-use crate::feed::title_resolver::{resolve_title_with_site, fetch_site_title};
+use crate::feed::title_resolver::resolve_title_with_site;
 
 /// Represents a single RSS feed outline entry in an OPML file.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -173,8 +173,6 @@ impl OpmlImporter {
             let added = added.clone();
             let skipped = skipped.clone();
             let outline = outline.clone();
-            let replace = replace;
-            let force_site_name = force_site_name;
             let total_feeds = total;
             let handle = app_handle.clone();
 
@@ -266,7 +264,7 @@ impl OpmlImporter {
         // Collect results from all tasks.
         while let Some(result) = join_set.join_next().await {
             match result {
-                Ok((title, Ok(()))) => {}
+                Ok((_title, Ok(()))) => {}
                 Ok((_title, Err(err_msg))) => {
                     errors.push(err_msg);
                 }

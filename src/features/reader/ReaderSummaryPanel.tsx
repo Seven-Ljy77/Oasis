@@ -22,6 +22,9 @@ const ReaderSummaryPanel: React.FC = () => {
   const setSummaryAutoEnabled = useReaderStore((s) => s.setSummaryAutoEnabled);
   const summaryText = useReaderStore((s) => s.summaryText);
   const summaryHTML = useReaderStore((s) => s.summaryHTML);
+  const summaryResult = useReaderStore((s) => s.summaryResult);
+  const summaryError = useReaderStore((s) => s.summaryError);
+  const clearSummary = useReaderStore((s) => s.clearSummary);
   const setSummaryText = useReaderStore((s) => s.setSummaryText);
   const summaryLoading = useReaderStore((s) => s.summaryLoading);
   const setSummaryLoading = useReaderStore((s) => s.setSummaryLoading);
@@ -30,7 +33,13 @@ const ReaderSummaryPanel: React.FC = () => {
   const loadSummary = useReaderStore((s) => s.loadSummary);
 
   const [streamingDots, setStreamingDots] = useState("");
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const generatedAt = summaryResult?.created_at
+    ? new Date(
+        summaryResult.created_at.includes("T")
+          ? summaryResult.created_at
+          : summaryResult.created_at.replace(" ", "T") + "Z",
+      ).toLocaleTimeString()
+    : null;
 
   // Simulated streaming animation
   useEffect(() => {
@@ -43,10 +52,32 @@ const ReaderSummaryPanel: React.FC = () => {
 
   // Listen for streaming summary tokens from backend
   useEffect(() => {
-    const unlisten = listen<{ entry_id: number; token: string; is_complete: boolean }>(
+    const unlisten = listen<{
+      entry_id: number;
+      request_id: string;
+      target_language: string;
+      detail_level: string;
+      token: string;
+      reset?: boolean;
+      is_complete: boolean;
+    }>(
       "summary-token",
       (event) => {
-        if (event.payload.is_complete) {
+        const reader = useReaderStore.getState();
+        if (
+          event.payload.entry_id !== useEntryStore.getState().selectedEntryId ||
+          event.payload.request_id !== reader.summaryRequestId ||
+          event.payload.target_language !== reader.summaryTargetLanguage ||
+          event.payload.detail_level !== reader.summaryDetailLevel
+        ) {
+          return;
+        }
+        if (event.payload.reset) {
+          setSummaryText("");
+        } else if (event.payload.is_complete) {
+          if (event.payload.token) {
+            setSummaryText(event.payload.token);
+          }
           setSummaryLoading(false);
         } else {
           const current = useReaderStore.getState().summaryText;
@@ -78,18 +109,18 @@ const ReaderSummaryPanel: React.FC = () => {
     { value: "detailed", label: t.summary.detailed },
   ];
 
-  const handleGenerate = async () => {
-    if (!selectedEntryId) return;
+  const handleGenerate = async (force: boolean) => {
+    if (!selectedEntryId || useReaderStore.getState().summaryLoading) return;
     setSummaryText("");
-    setSummaryError(null);
     setSummaryLoading(true);
     try {
-      await loadSummary(selectedEntryId, summaryDetailLevel);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message
-        : typeof err === "string" ? err
-        : JSON.stringify(err);
-      setSummaryError(msg);
+      await loadSummary(
+        selectedEntryId,
+        summaryTargetLanguage,
+        summaryDetailLevel,
+        force,
+      );
+    } catch {
       setSummaryLoading(false);
     }
   };
@@ -98,17 +129,17 @@ const ReaderSummaryPanel: React.FC = () => {
   useEffect(() => {
     if (!summaryAutoEnabled || !selectedEntryId) return;
     const timer = setTimeout(() => {
-      handleGenerate();
+      void handleGenerate(false);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [selectedEntryId, summaryAutoEnabled]);
+  }, [selectedEntryId, summaryAutoEnabled, summaryTargetLanguage, summaryDetailLevel]);
 
   const handleCopy = () => {
     if (summaryText) navigator.clipboard.writeText(summaryText);
   };
 
   const handleClear = () => {
-    setSummaryText("");
+    clearSummary();
   };
 
   if (!summaryOpen) {
@@ -135,6 +166,7 @@ const ReaderSummaryPanel: React.FC = () => {
         <select
           value={summaryTargetLanguage}
           onChange={(e) => setSummaryTargetLanguage(e.target.value)}
+          disabled={summaryLoading}
           className="h-7 px-1.5 text-xs rounded border border-border bg-surface focus:border-accent focus:outline-none"
         >
           {languages.map((l) => (
@@ -150,6 +182,7 @@ const ReaderSummaryPanel: React.FC = () => {
             <button
               key={dl.value}
               onClick={() => setSummaryDetailLevel(dl.value)}
+              disabled={summaryLoading}
               className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
                 summaryDetailLevel === dl.value
                   ? "bg-surface text-slate-900 shadow-sm"
@@ -175,18 +208,23 @@ const ReaderSummaryPanel: React.FC = () => {
         <div className="flex-1" />
 
         {/* Action buttons */}
-        <Button variant="ghost" size="sm" onClick={handleGenerate} loading={summaryLoading}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void handleGenerate(true)}
+          loading={summaryLoading}
+        >
           {t.summary.generate}
         </Button>
-        {summaryLoading && (
-          <Button variant="ghost" size="sm" onClick={() => setSummaryLoading(false)}>
-            {t.summary.abort}
-          </Button>
-        )}
         <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!summaryText}>
           {t.summary.copy}
         </Button>
-        <Button variant="ghost" size="sm" onClick={handleClear} disabled={!summaryText}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleClear}
+          disabled={!summaryText || summaryLoading}
+        >
           {t.summary.clear}
         </Button>
         <button
@@ -204,26 +242,28 @@ const ReaderSummaryPanel: React.FC = () => {
         <div className="px-3 py-1 text-[10px] text-slate-400 border-b border-border/50 flex items-center gap-3">
           <span>{t.summary.targetLanguage}: {languages.find((l) => l.value === summaryTargetLanguage)?.label}</span>
           <span>{t.summary.detailLevel}: {summaryDetailLevel}</span>
-          <span>Generated: {new Date().toLocaleTimeString()}</span>
+          {generatedAt && <span>Generated: {generatedAt}</span>}
         </div>
       )}
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto p-4">
-        {summaryLoading && (
+        {summaryError && (
+          <div className="text-sm text-red-500 text-center pb-3">
+            {summaryError}
+          </div>
+        )}
+        {summaryLoading && !summaryText && (
           <div className="text-sm text-slate-500 italic animate-pulse">
             {t.summary.generating}{streamingDots}
           </div>
         )}
-        {summaryError && (
-          <div className="text-sm text-red-500 text-center py-4">{summaryError}</div>
-        )}
-        {!summaryLoading && !summaryError && !summaryText && (
+        {!summaryLoading && !summaryText && !summaryError && (
           <div className="text-sm text-slate-400 text-center py-4">
             {t.summary.ready}
           </div>
         )}
-        {!summaryLoading && summaryText && (
+        {summaryText && (
           <div className="prose prose-sm max-w-none text-slate-700 text-sm leading-relaxed">
             {summaryHTML ? (
               <div dangerouslySetInnerHTML={{ __html: summaryHTML }} />

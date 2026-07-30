@@ -114,7 +114,10 @@ mod tests {
                     .filter(|c| !c.is_ascii_whitespace() || *c == ' ')
                     .count();
 
-                println!("Raw HTML size: {} bytes", raw_len);
+                println!(
+                    "Raw HTML size: {} bytes, {} non-whitespace chars",
+                    raw_len, raw_text_len
+                );
 
                 match extract_article_content(&raw_html) {
                     Ok(cleaned) => {
@@ -131,7 +134,7 @@ mod tests {
                         println!("Cleaned:  {} bytes (reduction: {:.0}%)", content_len, reduction);
                         println!("Text:     {} chars", text_len);
                         println!("First 300 chars of text:");
-                        println!("  {}", &cleaned.text_content.chars().take(300).collect::<String>());
+                        println!("  {}", cleaned.text_content.chars().take(300).collect::<String>());
                         println!("PASS");
                     }
                     Err(e) => println!("Extraction failed: {:?}", e),
@@ -254,7 +257,7 @@ cargo add tokio serde serde_json</code></pre>
         println!("Text content size: {} chars", result.text_content.len());
         println!(
             "Text preview: {}...",
-            &result.text_content.chars().take(200).collect::<String>()
+            result.text_content.chars().take(200).collect::<String>()
         );
     }
 

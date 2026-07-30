@@ -102,9 +102,12 @@ impl TaggingExecutor {
         let llm_request = LLMRequest {
             model: route.model_name.clone(),
             messages,
-            temperature: Some(0.7),
-            top_p: Some(0.95),
-            max_tokens: Some(300),
+            temperature: route.temperature.or(Some(0.7)),
+            top_p: route.top_p.or(Some(0.95)),
+            max_tokens: route
+                .max_tokens
+                .and_then(|value| u32::try_from(value).ok())
+                .or(Some(300)),
             stream: false,
         };
 

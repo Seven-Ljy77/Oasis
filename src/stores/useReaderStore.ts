@@ -37,7 +37,7 @@ export interface ReaderState {
   translationHTML: string | null;
   entryTitle: string | null;
   readingMode: ReadingMode;
-  readerCache: Map<string, string>;  // URL -> rendered HTML, max 30 entries
+  readerCache: Map<string, string>;  // entry + theme -> rendered HTML, max 30 entries
 
   // Banner
   bannerMessage: string | null;
@@ -48,6 +48,8 @@ export interface ReaderState {
   activePanel: ReaderPanel;
   summaryOpen: boolean;
   summaryResult: SummaryResult | null;
+  summaryEntryId: number | null;
+  summaryRequestId: string | null;
   summaryText: string;
   summaryHTML: string;
   summaryTargetLanguage: string;
@@ -65,6 +67,7 @@ export interface ReaderState {
   translationPromptStrategy: string;
   translationProgress: { completed: number; total: number } | null;
   translationSegments: TranslationSegmentData[];
+  translationRequestId: string | null;
   translationLoading: boolean;
   translationError: string | null;
 
@@ -88,6 +91,7 @@ export interface ReaderState {
   resetTheme: () => void;
 
   buildReaderHTML: (entryUrl: string, entryId?: number, bypassCache?: boolean) => Promise<void>;
+  invalidateReaderContent: () => void;
   buildTranslationHTML: (entryId: number, targetLang: string) => Promise<void>;
   setTranslationHTML: (html: string | null) => void;
 
@@ -108,7 +112,13 @@ export interface ReaderState {
   setSummaryAutoEnabled: (enabled: boolean) => void;
   setSummaryText: (text: string) => void;
   setSummaryLoading: (loading: boolean) => void;
-  loadSummary: (entryId: number, detailLevel?: string) => Promise<void>;
+  clearSummary: () => void;
+  loadSummary: (
+    entryId: number,
+    targetLanguage: string,
+    detailLevel: string,
+    force?: boolean,
+  ) => Promise<void>;
 
   // Translation
   setTranslationEnabled: (enabled: boolean) => void;
@@ -140,16 +150,46 @@ function loadPref<T>(key: string, parse: (raw: string) => T, fallback: T): T {
   }
 }
 
+function getSystemTheme(): "light" | "dark" {
+  return typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+const initialThemePreset = loadPref(
+  "mercury-theme-preset",
+  (value) => value as ThemePreset,
+  DEFAULT_THEME_PRESET,
+);
+
 const initialState = {
-  themePreset: loadPref("mercury-theme-preset", (v) => v as ThemePreset, DEFAULT_THEME_PRESET),
+  themePreset: initialThemePreset,
   themeMode: loadPref("mercury-theme-mode", (v) => v as ThemeMode, "auto" as ThemeMode),
-  effectiveTheme: "light" as "light" | "dark",
-  themeTokens: DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET],
+  effectiveTheme: getSystemTheme(),
+  themeTokens: DEFAULT_THEME_TOKENS[initialThemePreset],
   quickStyle: loadPref("mercury-quick-style", (v) => v, "none"),
-  fontFamily: loadPref("mercury-font-family", (v) => v, "Georgia, serif"),
-  fontSize: loadPref("mercury-font-size", (v) => Number(v) || 16, 16),
-  lineHeight: loadPref("mercury-line-height", (v) => Number(v) || 1.8, 1.8),
-  contentWidth: loadPref("mercury-content-width", (v) => Number(v) || 720, 720),
+  fontFamily: loadPref(
+    "mercury-font-family",
+    (v) => v,
+    DEFAULT_THEME_TOKENS[initialThemePreset].fontFamily,
+  ),
+  fontSize: loadPref(
+    "mercury-font-size",
+    (v) => Number(v) || DEFAULT_THEME_TOKENS[initialThemePreset].fontSize,
+    DEFAULT_THEME_TOKENS[initialThemePreset].fontSize,
+  ),
+  lineHeight: loadPref(
+    "mercury-line-height",
+    (v) => Number(v) || DEFAULT_THEME_TOKENS[initialThemePreset].lineHeight,
+    DEFAULT_THEME_TOKENS[initialThemePreset].lineHeight,
+  ),
+  contentWidth: loadPref(
+    "mercury-content-width",
+    (v) => Number(v) || DEFAULT_THEME_TOKENS[initialThemePreset].contentMaxWidth,
+    DEFAULT_THEME_TOKENS[initialThemePreset].contentMaxWidth,
+  ),
 
   readerHTML: null as string | null,
   readerLoading: false,
@@ -165,6 +205,8 @@ const initialState = {
   activePanel: null as ReaderPanel,
   summaryOpen: false as boolean,
   summaryResult: null as SummaryResult | null,
+  summaryEntryId: null as number | null,
+  summaryRequestId: null as string | null,
   summaryText: "" as string,
   summaryHTML: "" as string,
   summaryTargetLanguage: "zh-CN" as string,
@@ -181,6 +223,7 @@ const initialState = {
   translationPromptStrategy: "standard" as string,
   translationProgress: null as { completed: number; total: number } | null,
   translationSegments: [] as TranslationSegmentData[],
+  translationRequestId: null as string | null,
   translationLoading: false,
   translationError: null as string | null,
 
@@ -189,6 +232,9 @@ const initialState = {
 
   openPanel: null as ReaderPanel,
 };
+
+let latestReaderRequestId = 0;
+let latestSummaryRequestId = 0;
 
 // ---------------------------------------------------------------------------
 // Store
@@ -200,22 +246,43 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
   // Theme
   setThemePreset: (preset) => {
     const tokens = DEFAULT_THEME_TOKENS[preset];
-    set({ themePreset: preset, themeTokens: tokens });
-    // Persist preference
-    try { localStorage.setItem("mercury-theme-preset", preset); } catch {}
+    set({
+      themePreset: preset,
+      themeTokens: tokens,
+      fontFamily: tokens.fontFamily,
+      fontSize: tokens.fontSize,
+      lineHeight: tokens.lineHeight,
+      contentWidth: tokens.contentMaxWidth,
+    });
+    try {
+      localStorage.setItem("mercury-theme-preset", preset);
+      localStorage.setItem("mercury-font-family", tokens.fontFamily);
+      localStorage.setItem("mercury-font-size", String(tokens.fontSize));
+      localStorage.setItem("mercury-line-height", String(tokens.lineHeight));
+      localStorage.setItem("mercury-content-width", String(tokens.contentMaxWidth));
+    } catch {}
   },
   setThemeMode: (mode) => {
-    set({ themeMode: mode });
-    const root = document.documentElement;
-    root.classList.remove("force-light", "force-dark", "force-eyecare");
-    let resolved = mode;
-    if (mode === "auto") {
-      const systemDark = getComputedStyle(root).getPropertyValue("--system-is-dark").trim();
-      resolved = systemDark === "1" ? "forceDark" : "forceLight";
+    const effectiveTheme =
+      mode === "forceDark"
+        ? "dark"
+        : mode === "auto"
+          ? getSystemTheme()
+          : "light";
+    set({ themeMode: mode, effectiveTheme });
+    if (typeof document !== "undefined") {
+      const root = document.documentElement;
+      root.classList.remove("force-light", "force-dark", "force-eyecare");
+      const resolved =
+        mode === "auto"
+          ? effectiveTheme === "dark"
+            ? "forceDark"
+            : "forceLight"
+          : mode;
+      if (resolved === "forceDark") root.classList.add("force-dark");
+      else if (resolved === "forceLight") root.classList.add("force-light");
+      else if (resolved === "eyecare") root.classList.add("force-eyecare");
     }
-    if (resolved === "forceDark") root.classList.add("force-dark");
-    else if (resolved === "forceLight") root.classList.add("force-light");
-    else if (resolved === "eyecare") root.classList.add("force-eyecare");
     try { localStorage.setItem("mercury-theme-mode", mode); } catch {}
   },
   setEffectiveTheme: (theme) => set({ effectiveTheme: theme }),
@@ -240,22 +307,51 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
     set({ contentWidth: width });
     try { localStorage.setItem("mercury-content-width", String(width)); } catch {}
   },
-  resetTheme: () => set({
-    themePreset: DEFAULT_THEME_PRESET,
-    themeTokens: DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET],
-    quickStyle: "none",
-    fontFamily: "Georgia, serif",
-    fontSize: 16,
-    lineHeight: 1.8,
-    contentWidth: 720,
-  }),
+  resetTheme: () => {
+    const tokens = DEFAULT_THEME_TOKENS[DEFAULT_THEME_PRESET];
+    set({
+      themePreset: DEFAULT_THEME_PRESET,
+      themeTokens: tokens,
+      quickStyle: "none",
+      fontFamily: tokens.fontFamily,
+      fontSize: tokens.fontSize,
+      lineHeight: tokens.lineHeight,
+      contentWidth: tokens.contentMaxWidth,
+    });
+    try {
+      localStorage.setItem("mercury-theme-preset", DEFAULT_THEME_PRESET);
+      localStorage.setItem("mercury-quick-style", "none");
+      localStorage.setItem("mercury-font-family", tokens.fontFamily);
+      localStorage.setItem("mercury-font-size", String(tokens.fontSize));
+      localStorage.setItem("mercury-line-height", String(tokens.lineHeight));
+      localStorage.setItem("mercury-content-width", String(tokens.contentMaxWidth));
+    } catch {}
+  },
 
   // Content
   buildReaderHTML: async (entryUrl, entryId, bypassCache?: boolean) => {
-    const cache = get().readerCache;
-    // Check cache first — instant for recently viewed articles
+    const requestId = ++latestReaderRequestId;
+    const state = get();
+    let resolvedMode = state.themeMode;
+    if (resolvedMode === "auto") {
+      resolvedMode = state.effectiveTheme === "dark"
+        ? "forceDark"
+        : "forceLight";
+    }
+    const theme = {
+      themePreset: state.themePreset,
+      fontFamily: state.fontFamily,
+      fontSize: state.fontSize,
+      lineHeight: state.lineHeight,
+      contentWidth: state.contentWidth,
+      quickStyle: state.quickStyle,
+      themeMode: resolvedMode,
+    };
+    const cacheKey = JSON.stringify([entryId ?? entryUrl, theme]);
+    const cache = state.readerCache;
+
     if (!bypassCache) {
-      const cached = cache.get(entryUrl);
+      const cached = cache.get(cacheKey);
       if (cached) {
         set({ readerHTML: cached, readerLoading: false });
         return;
@@ -264,36 +360,32 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
 
     set({ readerLoading: true });
     try {
-      // Resolve "auto" mode to actual system preference
-      let resolvedMode = get().themeMode;
-      if (resolvedMode === "auto") {
-        resolvedMode = window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "forceDark"
-          : "forceLight";
-      }
-      const theme = {
-        fontFamily: get().fontFamily,
-        fontSize: get().fontSize,
-        lineHeight: get().lineHeight,
-        contentWidth: get().contentWidth,
-        quickStyle: get().quickStyle,
-        themeMode: resolvedMode,
-      };
       const result = await ipc.buildReaderHTML(entryUrl, entryId, theme);
-      set({ readerHTML: result.html, readerLoading: false });
+      if (requestId === latestReaderRequestId) {
+        set({ readerHTML: result.html, readerLoading: false });
+      }
 
       // Cache the result (LRU: evict oldest if over 30 entries)
-      const next = new Map(cache);
-      next.set(entryUrl, result.html);
-      while (next.size > 30) {
-        const oldest = next.keys().next().value;
-        if (oldest) next.delete(oldest);
-      }
-      set({ readerCache: next });
+      set((current) => {
+        const next = new Map(current.readerCache);
+        next.delete(cacheKey);
+        next.set(cacheKey, result.html);
+        while (next.size > 30) {
+          const oldest = next.keys().next().value;
+          if (oldest) next.delete(oldest);
+        }
+        return { readerCache: next };
+      });
     } catch (err) {
       console.error("buildReaderHTML:", err);
-      set({ readerLoading: false });
+      if (requestId === latestReaderRequestId) {
+        set({ readerLoading: false });
+      }
     }
+  },
+  invalidateReaderContent: () => {
+    latestReaderRequestId += 1;
+    set({ readerHTML: null, readerLoading: false });
   },
   buildTranslationHTML: async (entryId, targetLang) => {
     try {
@@ -321,30 +413,123 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
 
   // Summary
   setSummaryOpen: (open) => set({ summaryOpen: open }),
-  setSummaryTargetLanguage: (lang) => set({ summaryTargetLanguage: lang }),
-  setSummaryDetailLevel: (level) => set({ summaryDetailLevel: level }),
+  setSummaryTargetLanguage: (lang) =>
+    set((state) =>
+      state.summaryTargetLanguage === lang
+        ? {}
+        : {
+            summaryTargetLanguage: lang,
+            summaryResult: null,
+            summaryEntryId: null,
+            summaryRequestId: null,
+            summaryText: "",
+            summaryHTML: "",
+            summaryLoading: false,
+            summaryError: null,
+          },
+    ),
+  setSummaryDetailLevel: (level) =>
+    set((state) =>
+      state.summaryDetailLevel === level
+        ? {}
+        : {
+            summaryDetailLevel: level,
+            summaryResult: null,
+            summaryEntryId: null,
+            summaryRequestId: null,
+            summaryText: "",
+            summaryHTML: "",
+            summaryLoading: false,
+            summaryError: null,
+          },
+    ),
   setSummaryAutoEnabled: (enabled) => set({ summaryAutoEnabled: enabled }),
   setSummaryText: (text) => set({ summaryText: text }),
   setSummaryLoading: (loading) => set({ summaryLoading: loading }),
-  loadSummary: async (entryId, detailLevel) => {
-    set({ summaryLoading: true, summaryError: null });
+  clearSummary: () =>
+    set({
+      summaryResult: null,
+      summaryEntryId: null,
+      summaryRequestId: null,
+      summaryText: "",
+      summaryHTML: "",
+      summaryLoading: false,
+      summaryError: null,
+    }),
+  loadSummary: async (entryId, targetLanguage, detailLevel, force = false) => {
+    const requestId = "summary-" + ++latestSummaryRequestId;
+    set({
+      summaryLoading: true,
+      summaryError: null,
+      summaryEntryId: entryId,
+      summaryRequestId: requestId,
+      summaryResult: null,
+      summaryText: "",
+      summaryHTML: "",
+    });
+    const isCurrentRequest = () => {
+      const current = get();
+      return (
+        current.summaryRequestId === requestId &&
+        current.summaryEntryId === entryId &&
+        current.summaryTargetLanguage === targetLanguage &&
+        current.summaryDetailLevel === detailLevel
+      );
+    };
     try {
-      const result = await ipc.getSummary(entryId);
+      const result = force
+        ? null
+        : await ipc.getSummary(entryId, targetLanguage, detailLevel);
+      if (!isCurrentRequest()) return;
       if (!result) {
-        const generated: any = await ipc.generateSummary(entryId, detailLevel);
-        set({ summaryText: generated?.text ?? "", summaryHTML: generated?.html ?? "", summaryLoading: false });
+        const generated = await ipc.generateSummary(
+          entryId,
+          targetLanguage,
+          detailLevel,
+          requestId,
+          force,
+        );
+        if (!isCurrentRequest()) return;
+        set({
+          summaryResult: generated.result ?? null,
+          summaryText: generated.text ?? "",
+          summaryHTML: generated.html ?? "",
+          summaryLoading: false,
+        });
       } else {
-        set({ summaryResult: result, summaryText: result.text ?? "", summaryLoading: false });
+        if (!isCurrentRequest()) return;
+        set({
+          summaryResult: result,
+          summaryText: result.text ?? "",
+          summaryHTML: result.html ?? "",
+          summaryLoading: false,
+        });
       }
     } catch (err) {
-      set({ summaryError: String(err), summaryLoading: false });
+      if (isCurrentRequest()) {
+        set({ summaryError: String(err), summaryLoading: false });
+      }
     }
   },
 
   // Translation
   setTranslationEnabled: (enabled) => set({ translationEnabled: enabled }),
   setTranslationBilingual: (bilingual) => set({ translationBilingual: bilingual }),
-  setTranslationTargetLanguage: (lang) => set({ translationTargetLanguage: lang, translationTargetLang: lang }),
+  setTranslationTargetLanguage: (lang) =>
+    set((state) =>
+      state.translationTargetLanguage === lang
+        ? {}
+        : {
+            translationTargetLanguage: lang,
+            translationTargetLang: lang,
+            translationHTML: null,
+            translationSegments: [],
+            translationRequestId: null,
+            translationProgress: null,
+            translationLoading: false,
+            translationError: null,
+          },
+    ),
   setTranslationConcurrency: (n) => set({ translationConcurrency: n }),
   setTranslationPromptStrategy: (strategy) => set({ translationPromptStrategy: strategy }),
   setTranslationProgress: (progress) => set({ translationProgress: progress }),
@@ -366,25 +551,31 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
     catch (err) { set({ noteSaveState: "error" }); }
   },
 
-  resetReaderState: () => set({
-    readerHTML: null, readerLoading: false, entryTitle: null, readingMode: "reader",
-    summaryResult: null, summaryText: "", summaryHTML: "", translationSegments: [],
-    noteText: "", openPanel: null, activePanel: null,
-    bannerMessage: null, bannerAction: null,
-  }),
+  resetReaderState: () => {
+    latestReaderRequestId += 1;
+    set({
+      readerHTML: null, readerLoading: false, entryTitle: null, readingMode: "reader",
+      summaryResult: null, summaryEntryId: null, summaryRequestId: null,
+      summaryText: "", summaryHTML: "", summaryLoading: false, summaryError: null,
+      translationSegments: [], translationRequestId: null,
+      translationProgress: null, translationLoading: false, translationError: null,
+      noteText: "", openPanel: null, activePanel: null,
+      bannerMessage: null, bannerAction: null,
+    });
+  },
 }));
 
 // Listen for system color-scheme changes when in Auto mode.
-if (typeof window !== "undefined") {
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
     const store = useReaderStore.getState();
     if (store.themeMode !== "auto") return;
-    // Re-apply with a small delay to let CSS update the --system-is-dark property.
-    setTimeout(() => {
+    const effectiveTheme = event.matches ? "dark" : "light";
+    useReaderStore.setState({ effectiveTheme });
+    if (typeof document !== "undefined") {
       const root = document.documentElement;
-      const systemDark = getComputedStyle(root).getPropertyValue("--system-is-dark").trim();
       root.classList.remove("force-light", "force-dark");
-      root.classList.add(systemDark === "1" ? "force-dark" : "force-light");
-    }, 50);
+      root.classList.add(event.matches ? "force-dark" : "force-light");
+    }
   });
 }

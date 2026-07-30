@@ -11,7 +11,7 @@ impl PipelineVersions {
     /// Version of the content extraction / readability algorithm.
     pub const READABILITY: i32 = crate::reader::readability::READABILITY_VERSION;
     /// Version of the HTML-to-Markdown converter.
-    pub const MARKDOWN: i32 = 1;
+    pub const MARKDOWN: i32 = 2;
 }
 
 /// Rendered reader HTML ready for WebView display.
@@ -135,8 +135,11 @@ impl DefaultReaderPipeline {
             .await?;
 
         // 6. Render Markdown to themed reader HTML.
-        let reader_html =
-            crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, None)?;
+        let reader_html = crate::reader::markdown_renderer::markdown_to_reader_html(
+            &markdown,
+            theme,
+            Some(entry_url),
+        )?;
 
         Ok(ReaderHTML {
             html: reader_html,
@@ -153,6 +156,7 @@ impl DefaultReaderPipeline {
         theme: &ThemeTokens,
         content_store: &dyn ContentStore,
     ) -> Result<ReaderHTML, AppError> {
+        let base_url = cached.document_base_url.as_deref();
         let action = self.rebuild_action(
             None,                         // cached_html_version
             false,                        // has_cached_html (checked separately)
@@ -187,8 +191,11 @@ impl DefaultReaderPipeline {
                     )
                     .await?;
 
-                let html =
-                    crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, None)?;
+                let html = crate::reader::markdown_renderer::markdown_to_reader_html(
+                    &markdown,
+                    theme,
+                    base_url,
+                )?;
                 Ok(ReaderHTML {
                     html,
                     theme_fingerprint: String::new(),
@@ -214,8 +221,11 @@ impl DefaultReaderPipeline {
                     )
                     .await?;
 
-                let html =
-                    crate::reader::markdown_renderer::markdown_to_reader_html(&markdown, theme, None)?;
+                let html = crate::reader::markdown_renderer::markdown_to_reader_html(
+                    &markdown,
+                    theme,
+                    base_url,
+                )?;
                 Ok(ReaderHTML {
                     html,
                     theme_fingerprint: String::new(),
@@ -280,5 +290,99 @@ impl ReaderPipeline for DefaultReaderPipeline {
         // Use default theme tokens when only a CSS string is provided.
         let theme = ThemeTokens::default();
         crate::reader::markdown_renderer::markdown_to_reader_html(markdown, &theme, None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+
+    use super::{DefaultReaderPipeline, PipelineVersions};
+    use crate::db::content_store::ContentStore;
+    use crate::db::models::{Content, ContentHTMLCache};
+    use crate::error::AppError;
+    use crate::reader::theme::ThemeTokens;
+
+    struct NoopContentStore;
+
+    #[async_trait]
+    impl ContentStore for NoopContentStore {
+        async fn load(&self, _entry_id: i64) -> Result<Option<Content>, AppError> {
+            Ok(None)
+        }
+
+        async fn upsert_source(
+            &self,
+            _entry_id: i64,
+            _html: &str,
+            _document_base_url: Option<&str>,
+            _pipeline_type: &str,
+        ) -> Result<(), AppError> {
+            Ok(())
+        }
+
+        async fn upsert_artifacts(
+            &self,
+            _entry_id: i64,
+            _cleaned_html: Option<&str>,
+            _readability_title: Option<&str>,
+            _readability_byline: Option<&str>,
+            _readability_version: Option<i32>,
+            _markdown: Option<&str>,
+            _markdown_version: Option<i32>,
+            _display_mode: &str,
+        ) -> Result<(), AppError> {
+            Ok(())
+        }
+
+        async fn invalidate_layer(
+            &self,
+            _entry_id: i64,
+            _target: &str,
+        ) -> Result<(), AppError> {
+            Ok(())
+        }
+
+        async fn load_cache(
+            &self,
+            _entry_id: i64,
+            _theme_id: &str,
+        ) -> Result<Option<ContentHTMLCache>, AppError> {
+            Ok(None)
+        }
+    }
+
+    #[tokio::test]
+    async fn cache_rebuild_preserves_document_base_url() {
+        let cached = Content {
+            id: 1,
+            entry_id: 7,
+            html: None,
+            cleaned_html: Some("<p>Cached article</p>".to_string()),
+            readability_title: None,
+            readability_byline: None,
+            readability_version: Some(PipelineVersions::READABILITY),
+            markdown: None,
+            markdown_version: None,
+            display_mode: "cleaned".to_string(),
+            document_base_url: Some("https://example.com/articles/post".to_string()),
+            pipeline_type: "default".to_string(),
+            resolved_intermediate_content: None,
+            created_at: String::new(),
+        };
+
+        let result = DefaultReaderPipeline
+            .build_html_from_cache(
+                cached.entry_id,
+                &cached,
+                &ThemeTokens::default(),
+                &NoopContentStore,
+            )
+            .await
+            .unwrap();
+
+        assert!(result
+            .html
+            .contains("<base href=\"https://example.com/articles/post\">"));
     }
 }

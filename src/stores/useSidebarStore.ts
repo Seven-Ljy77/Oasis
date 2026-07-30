@@ -60,7 +60,6 @@ export const useSidebarStore = create<SidebarState>((set) => ({
   loadCounts: async () => {
     try {
       const proj = await ipc.getSidebarProjection();
-      console.log("[loadCounts] projection:", proj);
       set({
         totalUnread: proj.total_unread,
         starredCount: proj.total_starred,

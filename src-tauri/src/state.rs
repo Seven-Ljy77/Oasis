@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::agent::prompt_template::PromptTemplateStore;
+use crate::agent::request_tracker::LatestRequestTracker;
 use crate::agent::runtime::AgentRuntimeEngine;
 use crate::db::agent_config_store::SqliteAgentConfigStore;
 use crate::db::agent_task_store::SqliteAgentTaskStore;
@@ -33,6 +34,7 @@ pub struct AppState {
     pub sync_service: Arc<SyncService>,
     pub task_queue: Arc<TaskQueue>,
     pub agent_runtime: Arc<AgentRuntimeEngine>,
+    pub agent_request_tracker: Arc<LatestRequestTracker>,
     pub logger: Option<Arc<Logger>>,
     pub config: Arc<RwLock<AppConfig>>,
 }

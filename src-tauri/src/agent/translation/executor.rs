@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 
 use crate::agent::failure::{classify, is_retryable, retry_delay};
 use crate::agent::prompt_template::PromptTemplateStore;
 use crate::agent::provider::{LLMMessage, LLMProvider, LLMRequest};
-use crate::agent::route::RouteResolver;
-use crate::agent::translation::segment::SegmentExtractor;
+use crate::agent::route::{RouteCandidate, RouteResolver};
+use crate::agent::request_tracker::LatestRequestContext;
+use crate::agent::translation::segment::{SegmentExtractor, TextSegment};
 use crate::agent::AgentTaskKind;
 use crate::db::translation_store::TranslationStore;
 use crate::error::AppError;
@@ -33,7 +35,9 @@ pub enum TranslationRunEvent {
     SegmentCompleted {
         entry_id: i64,
         segment_id: String,
+        order_index: usize,
         translated_text: String,
+        total_segments: usize,
     },
     Completed { entry_id: i64, total_segments: usize },
     Failed { entry_id: i64, error: String },
@@ -66,6 +70,8 @@ impl TranslationExecutor {
     pub async fn execute(
         &self,
         request: &TranslationRunRequest,
+        request_context: Option<&LatestRequestContext>,
+        route_override: Option<&RouteCandidate>,
         on_event: impl Fn(TranslationRunEvent) + Send + Sync + 'static,
     ) -> Result<(), AppError> {
         let on_event = Arc::new(on_event);
@@ -73,21 +79,7 @@ impl TranslationExecutor {
         // 1. Extract segments
         let mut segments = SegmentExtractor::extract(&request.content)?;
 
-        // Add synthetic header segment for title
-        if let Some(ref title) = request.title {
-            let hash = SegmentExtractor::content_hash(title);
-            segments.insert(0, crate::agent::translation::segment::TextSegment {
-                segment_id: "header".to_string(),
-                source_text: title.clone(),
-                order_index: 0,
-                element_path: "header".to_string(),
-                content_hash: hash,
-            });
-            // Re-index remaining segments
-            for (i, seg) in segments.iter_mut().enumerate() {
-                seg.order_index = i;
-            }
-        }
+        prepend_title_segment(&mut segments, request.title.as_deref());
 
         let composite_hash = SegmentExtractor::composite_hash(&segments);
 
@@ -96,18 +88,19 @@ impl TranslationExecutor {
             .translation_store
             .load(request.entry_id, &request.target_language)
             .await?;
-        if let Some((ref result, _)) = cached {
-            if result.source_content_hash == composite_hash
-                && result.run_status == "succeeded"
-            {
-                // Return cached segments
-                let total = cached.as_ref().map_or(0, |(_, segs)| segs.len());
-                on_event(TranslationRunEvent::Completed {
-                    entry_id: request.entry_id,
-                    total_segments: total,
-                });
-                return Ok(());
+        if let Some((ref result, _)) = cached
+            && result.source_content_hash == composite_hash
+            && result.run_status == "succeeded"
+        {
+            if let Some(context) = request_context {
+                context.ensure_current().await?;
             }
+            let total = cached.as_ref().map_or(0, |(_, segs)| segs.len());
+            on_event(TranslationRunEvent::Completed {
+                entry_id: request.entry_id,
+                total_segments: total,
+            });
+            return Ok(());
         }
 
         on_event(TranslationRunEvent::Started {
@@ -115,13 +108,18 @@ impl TranslationExecutor {
         });
 
         // 3. Resolve route
-        let candidates = self
-            .resolver
-            .resolve_route(&AgentTaskKind::Translation, None, None)
-            .await?;
-        let route = candidates
-            .first()
-            .ok_or_else(|| AppError::Config("No model configured for translation".to_string()))?;
+        let resolved_routes;
+        let route = if let Some(route) = route_override {
+            route
+        } else {
+            resolved_routes = self
+                .resolver
+                .resolve_route(&AgentTaskKind::Translation, None, None)
+                .await?;
+            resolved_routes.first().ok_or_else(|| {
+                AppError::Config("No model configured for translation".to_string())
+            })?
+        };
 
         // 4. Load prompt template
         let template = {
@@ -148,6 +146,13 @@ impl TranslationExecutor {
             let target_lang = target_language.clone();
             let on_event = Arc::clone(&on_event);
             let model = route.model_name.clone();
+            let temperature = route.temperature.or(Some(0.3));
+            let top_p = route.top_p.or(Some(0.95));
+            let max_tokens = route
+                .max_tokens
+                .and_then(|value| u32::try_from(value).ok())
+                .or(Some(2000));
+            let is_streaming = route.is_streaming;
             let prev_text = if i > 0 {
                 segments[i - 1].source_text.clone()
             } else {
@@ -179,25 +184,27 @@ impl TranslationExecutor {
                 let llm_request = LLMRequest {
                     model,
                     messages,
-                    temperature: Some(0.3),
-                    top_p: Some(0.95),
-                    max_tokens: Some(2000),
-                    stream: false,
+                    temperature,
+                    top_p,
+                    max_tokens,
+                    stream: is_streaming,
                 };
 
                 // Call provider with retry
                 let mut attempt = 0u32;
                 loop {
-                    match provider.complete(&llm_request).await {
-                        Ok(response) => {
+                    match complete_translation_segment(provider.as_ref(), &llm_request).await {
+                        Ok(translated_text) => {
                             on_event(TranslationRunEvent::SegmentCompleted {
                                 entry_id,
                                 segment_id: seg.segment_id.clone(),
-                                translated_text: response.content.clone(),
+                                order_index: seg.order_index,
+                                translated_text: translated_text.clone(),
+                                total_segments: total,
                             });
                             return Ok::<_, AppError>((
                                 seg.segment_id.clone(),
-                                response.content,
+                                translated_text,
                             ));
                         }
                         Err(e) => {
@@ -235,28 +242,26 @@ impl TranslationExecutor {
             }
         }
 
-        if results.is_empty() {
-            if let Some(err) = first_error {
-                return Err(AppError::Agent(err));
-            }
-            return Err(AppError::Agent("All translation segments failed".to_string()));
-        }
+        let failure = if results.is_empty() {
+            Some(first_error.unwrap_or_else(|| "All translation segments failed".to_string()))
+        } else {
+            first_error
+        };
 
         // 7. Save checkpoint
         let db_segments: Vec<crate::db::models::TranslationSegment> = results
             .iter()
-            .enumerate()
-            .map(|(i, (seg_id, text))| crate::db::models::TranslationSegment {
+            .filter_map(|(seg_id, text)| {
+                let source = segments.iter().find(|segment| &segment.segment_id == seg_id)?;
+                Some(crate::db::models::TranslationSegment {
                 id: 0,
                 translation_result_id: 0,
                 segment_id: seg_id.clone(),
-                source_text: segments
-                    .iter()
-                    .find(|s| &s.segment_id == seg_id)
-                    .map_or(String::new(), |s| s.source_text.clone()),
+                source_text: source.source_text.clone(),
                 translated_text: text.clone(),
-                order_index: i as i32,
+                order_index: source.order_index as i32,
                 status: "completed".to_string(),
+                })
             })
             .collect();
 
@@ -267,13 +272,30 @@ impl TranslationExecutor {
             target_language: request.target_language.clone(),
             source_content_hash: composite_hash,
             segmenter_version: "1".to_string(),
-            run_status: "succeeded".to_string(),
+            run_status: if failure.is_some() {
+                "failed".to_string()
+            } else {
+                "succeeded".to_string()
+            },
             created_at: String::new(),
         };
 
-        self.translation_store
-            .save_checkpoint(&result, &db_segments)
-            .await?;
+        if let Some(context) = request_context {
+            context
+                .run_if_current(|| {
+                    self.translation_store
+                        .save_checkpoint(&result, &db_segments)
+                })
+                .await?;
+        } else {
+            self.translation_store
+                .save_checkpoint(&result, &db_segments)
+                .await?;
+        }
+
+        if let Some(error) = failure {
+            return Err(AppError::Agent(error));
+        }
 
         on_event(TranslationRunEvent::Completed {
             entry_id: request.entry_id,
@@ -281,5 +303,87 @@ impl TranslationExecutor {
         });
 
         Ok(())
+    }
+}
+
+fn prepend_title_segment(segments: &mut Vec<TextSegment>, title: Option<&str>) {
+    let Some(title) = title.filter(|title| !title.trim().is_empty()) else {
+        return;
+    };
+
+    segments.insert(
+        0,
+        TextSegment {
+            segment_id: "header".to_string(),
+            source_text: title.to_string(),
+            order_index: 0,
+            element_path: "header".to_string(),
+            content_hash: SegmentExtractor::content_hash(title),
+        },
+    );
+    for (index, segment) in segments.iter_mut().enumerate() {
+        segment.order_index = index;
+    }
+}
+
+async fn complete_translation_segment(
+    provider: &dyn LLMProvider,
+    request: &LLMRequest,
+) -> Result<String, AppError> {
+    let text = if request.stream {
+        let mut stream = provider.stream(request).await?;
+        let mut text = String::new();
+        let mut completed = false;
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk?;
+            text.push_str(&chunk.content_delta);
+            if chunk.is_complete {
+                completed = true;
+                break;
+            }
+        }
+        if !completed {
+            return Err(AppError::Network(
+                "LLM stream ended before completing a translation segment".to_string(),
+            ));
+        }
+        text
+    } else {
+        provider.complete(request).await?.content
+    };
+
+    if text.trim().is_empty() {
+        return Err(AppError::Agent(
+            "LLM returned an empty translation segment".to_string(),
+        ));
+    }
+    Ok(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{prepend_title_segment, SegmentExtractor};
+
+    #[test]
+    fn blank_title_does_not_create_synthetic_segment() {
+        let mut segments = SegmentExtractor::extract("<p>Article body</p>").unwrap();
+
+        prepend_title_segment(&mut segments, Some(" \t\r\n "));
+
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].source_text, "Article body");
+        assert_eq!(segments[0].order_index, 0);
+    }
+
+    #[test]
+    fn non_empty_title_is_prepended_and_segments_are_reindexed() {
+        let mut segments = SegmentExtractor::extract("<p>Article body</p>").unwrap();
+
+        prepend_title_segment(&mut segments, Some("Article title"));
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].segment_id, "header");
+        assert_eq!(segments[0].source_text, "Article title");
+        assert_eq!(segments[1].order_index, 1);
     }
 }

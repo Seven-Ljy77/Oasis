@@ -128,6 +128,10 @@ const ReaderToolbar: React.FC<ReaderToolbarProps> = ({
             translationEnabled: false,
             translationHTML: null,
             translationSegments: [],
+            translationRequestId: null,
+            translationProgress: null,
+            translationLoading: false,
+            translationError: null,
           });
         }}
         className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary transition-colors"

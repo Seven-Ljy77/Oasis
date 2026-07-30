@@ -45,6 +45,7 @@ const ProviderTab: React.FC = () => {
   const addProvider = useSettingsStore((s) => s.addProvider);
   const updateProvider = useSettingsStore((s) => s.updateProvider);
   const deleteProvider = useSettingsStore((s) => s.deleteProvider);
+  const archiveProvider = useSettingsStore((s) => s.archiveProvider);
   const testModel = useSettingsStore((s) => s.testModel);
 
   React.useEffect(() => {
@@ -55,33 +56,10 @@ const ProviderTab: React.FC = () => {
     ? providers
     : [];
 
-  // Add form state
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [newKey, setNewKey] = useState("");
-
-  // Edit form state — provider id being edited, or null
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editUrl, setEditUrl] = useState("");
-  const [editKey, setEditKey] = useState("");
-
-  const openEdit = (p: AgentProviderProfile) => {
-    setEditingId(p.id);
-    setEditName(p.name);
-    setEditUrl(p.base_url);
-    setEditKey(p.api_key_ref);
-    // Close add form if open
-    setShowAdd(false);
-  };
-
-  const closeEdit = () => {
-    setEditingId(null);
-    setEditName("");
-    setEditUrl("");
-    setEditKey("");
-  };
 
   const handleAdd = async () => {
     const result = await addProvider(newName, newUrl, newKey);
@@ -93,30 +71,15 @@ const ProviderTab: React.FC = () => {
     }
   };
 
-  const handleUpdate = async () => {
-    if (editingId === null) return;
-    const provider = providers.find((p) => p.id === editingId);
-    if (!provider) return;
-    await updateProvider(editingId, {
-      ...provider,
-      name: editName,
-      base_url: editUrl,
-      api_key_ref: editKey,
-    });
-    await loadProviders();
-    closeEdit();
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-medium text-slate-700">{t.agentSettings.providers}</h4>
-        <Button variant="secondary" size="sm" onClick={() => { setShowAdd(!showAdd); closeEdit(); }}>
+        <Button variant="secondary" size="sm" onClick={() => setShowAdd(!showAdd)}>
           {t.agentSettings.addProvider}
         </Button>
       </div>
 
-      {/* Add form */}
       {showAdd && (
         <div className="mb-3 p-3 border border-border rounded-lg space-y-2 bg-surface-secondary">
           <input
@@ -161,85 +124,51 @@ const ProviderTab: React.FC = () => {
         </thead>
         <tbody>
           {displayProviders.map((p) => (
-            <React.Fragment key={p.id}>
-              <tr className="border-b border-border/50">
-                <td className="py-2 pr-4 text-slate-700">{p.name}</td>
-                <td className="py-2 pr-4 text-slate-500 text-xs">{p.base_url}</td>
-                <td className="py-2 pr-4">
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded ${
-                      p.is_enabled
-                        ? "bg-green-50 text-green-600"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {p.is_enabled ? "Active" : t.common.disabled}
+            <tr key={p.id} className="border-b border-border/50">
+              <td className="py-2 pr-4 text-slate-700">{p.name}</td>
+              <td className="py-2 pr-4 text-slate-500 text-xs">{p.base_url}</td>
+              <td className="py-2 pr-4">
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded ${
+                    p.is_enabled
+                      ? "bg-green-50 text-green-600"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {p.is_enabled ? "Active" : t.common.disabled}
+                </span>
+              </td>
+              <td className="py-2 pr-4">
+                {p.is_default && (
+                  <span className="text-xs bg-accent-muted text-accent px-1.5 py-0.5 rounded">
+                    Default
                   </span>
-                </td>
-                <td className="py-2 pr-4">
-                  {p.is_default && (
-                    <span className="text-xs bg-accent-muted text-accent px-1.5 py-0.5 rounded">
-                      Default
-                    </span>
-                  )}
-                </td>
-                <td className="py-2">
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>{t.common.edit}</Button>
-                    <Button variant="ghost" size="sm" onClick={async () => {
-                      const models = useSettingsStore.getState().models[p.id] ?? [];
-                      if (models.length > 0) {
-                        const ok = await testModel(models[0].id);
-                        alert(ok ? "Connection successful" : "Connection failed");
-                      } else {
-                        alert("No models configured for this provider");
-                      }
-                    }}>{t.agentSettings.testConnection}</Button>
-                    <Button variant="ghost" size="sm" onClick={async () => {
-                      await updateProvider(p.id, { ...p, is_default: true });
-                      loadProviders();
-                    }}>{t.agentSettings.setDefault}</Button>
-                    <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>{t.common.delete}</Button>
-                  </div>
-                </td>
-              </tr>
-              {/* Edit form — inline below the row */}
-              {editingId === p.id && (
-                <tr key={`edit-${p.id}`}>
-                  <td colSpan={5} className="py-2">
-                    <div className="p-3 border border-accent/30 rounded-lg space-y-2 bg-surface-secondary">
-                      <input
-                        placeholder={t.agentSettings.name}
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
-                      />
-                      <input
-                        placeholder={t.agentSettings.baseUrl}
-                        value={editUrl}
-                        onChange={(e) => setEditUrl(e.target.value)}
-                        className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
-                      />
-                      <input
-                        type="password"
-                        placeholder={t.agentSettings.apiKey}
-                        value={editKey}
-                        onChange={(e) => setEditKey(e.target.value)}
-                        className="w-full h-7 px-2 text-xs rounded border border-border focus:border-accent focus:outline-none"
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="sm" onClick={closeEdit}>
-                          {t.common.cancel}
-                        </Button>
-                        <Button variant="primary" size="sm" onClick={handleUpdate}>
-                          {t.common.save}
-                        </Button>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
+                )}
+              </td>
+              <td className="py-2">
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    const newName = prompt("New name:", p.name);
+                    if (newName) await updateProvider(p.id, { name: newName });
+                    loadProviders();
+                  }}>{t.common.edit}</Button>
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    const models = useSettingsStore.getState().models[p.id] ?? [];
+                    if (models.length > 0) {
+                      const ok = await testModel(models[0].id);
+                      alert(ok ? "Connection successful" : "Connection failed");
+                    } else {
+                      alert("No models configured for this provider");
+                    }
+                  }}>{t.agentSettings.testConnection}</Button>
+                  <Button variant="ghost" size="sm" onClick={async () => {
+                    await updateProvider(p.id, { is_default: true });
+                    loadProviders();
+                  }}>{t.agentSettings.setDefault}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>{t.common.delete}</Button>
+                </div>
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>

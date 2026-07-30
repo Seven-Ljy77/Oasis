@@ -11,6 +11,14 @@ use crate::feed::opml_import::{ImportResult, OpmlImporter};
 use crate::feed::title_resolver::{resolve_title_with_site, fetch_site_title};
 use crate::state::AppState;
 
+fn feed_http_client() -> Result<reqwest::Client, AppError> {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("Oasis/0.1 (RSS Reader)")
+        .build()
+        .map_err(|error| AppError::Network(error.to_string()))
+}
+
 #[tauri::command]
 pub async fn add_feed(
     state: State<'_, AppState>,
@@ -24,11 +32,7 @@ pub async fn add_feed(
     check_duplicate(&normalized_url, state.feed_store.as_ref()).await?;
 
     // 3. Fetch the feed XML.
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .user_agent("Oasis/0.1 (RSS Reader)")
-        .build()
-        .map_err(|e| AppError::Network(e.to_string()))?;
+    let client = feed_http_client()?;
 
     let response = client
         .get(&normalized_url)
@@ -196,15 +200,24 @@ pub async fn probe_feed(
 ) -> Result<serde_json::Value, AppError> {
     let normalized_url = crate::feed::feed_validator::validate_url(&url)?;
 
-    let client = reqwest::Client::new();
-    let xml = client
+    let client = feed_http_client()?;
+    let response = client
         .get(&normalized_url)
         .send()
         .await
-        .map_err(|e| AppError::Network(e.to_string()))?
+        .map_err(|e| AppError::Network(format!("Failed to probe feed: {e}")))?;
+
+    if !response.status().is_success() {
+        return Err(AppError::Network(format!(
+            "Feed server returned HTTP {}",
+            response.status()
+        )));
+    }
+
+    let xml = response
         .text()
         .await
-        .map_err(|e| AppError::Network(e.to_string()))?;
+        .map_err(|e| AppError::Network(format!("Failed to read response: {e}")))?;
 
     let parsed = parse_feed(&xml)?;
 
