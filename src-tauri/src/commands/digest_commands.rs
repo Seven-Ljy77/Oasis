@@ -135,6 +135,64 @@ pub async fn export_multiple_digest(
     .map_err(|e| AppError::Database(e.to_string()))?
 }
 
+#[tauri::command]
+pub async fn export_articles(
+    state: State<'_, AppState>,
+    entry_ids: Vec<i64>,
+    path: String,
+) -> Result<(), AppError> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = db.conn();
+        let mut parts = vec![format!("# Articles — {}\n", chrono::Local::now().format("%Y-%m-%d"))];
+        for &eid in &entry_ids {
+            let title = get_entry_title(&conn, eid);
+            let url = conn.query_row(
+                "SELECT url FROM entry WHERE id = ?1", params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            ).ok().flatten().unwrap_or_default();
+
+            let author = conn.query_row(
+                "SELECT author FROM entry WHERE id = ?1", params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            ).ok().flatten().unwrap_or_default();
+
+            let markdown = conn.query_row(
+                "SELECT markdown FROM content WHERE entry_id = ?1", params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            ).ok().flatten().unwrap_or_default();
+
+            let published = conn.query_row(
+                "SELECT published_at FROM entry WHERE id = ?1", params![eid],
+                |row| row.get::<_, Option<String>>(0),
+            ).ok().flatten().unwrap_or_default();
+
+            parts.push(format!("## {}\n", title));
+            if !author.is_empty() { parts.push(format!("*{}*\n", author)); }
+            if !url.is_empty() { parts.push(format!("[{}]({})\n", url, url)); }
+            if !published.is_empty() { parts.push(format!("*Published: {}*\n", published)); }
+            parts.push(String::new());
+            if !markdown.is_empty() {
+                parts.push(markdown);
+            } else {
+                let summary = conn.query_row(
+                    "SELECT summary FROM entry WHERE id = ?1", params![eid],
+                    |row| row.get::<_, Option<String>>(0),
+                ).ok().flatten().unwrap_or_default();
+                if !summary.is_empty() { parts.push(summary); }
+                else { parts.push("*No content available*\n".to_string()); }
+            }
+            parts.push(String::new());
+        }
+        let markdown = parts.join("\n");
+        std::fs::write(&path, markdown)
+            .map_err(|e| AppError::Digest(format!("Failed to write file: {}", e)))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

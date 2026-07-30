@@ -189,6 +189,7 @@ pub fn run() {
             commands::digest_commands::share_digest,
             commands::digest_commands::export_digest,
             commands::digest_commands::export_multiple_digest,
+            commands::digest_commands::export_articles,
             // Usage commands
             commands::usage_commands::fetch_provider_report,
             commands::usage_commands::fetch_model_report,
