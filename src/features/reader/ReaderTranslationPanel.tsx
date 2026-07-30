@@ -75,7 +75,10 @@ const ReaderTranslationPanel: React.FC = () => {
         await pollSegments();
       }
     } catch (err) {
-      setError(String(err));
+      const msg = err instanceof Error ? err.message
+        : typeof err === "string" ? err
+        : JSON.stringify(err);
+      setError(msg);
     } finally {
       setTranslationLoading(false);
     }

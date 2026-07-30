@@ -47,7 +47,13 @@ const ReaderTaggingPanel: React.FC = () => {
       setNlpSuggestions(nlp);
       setErrorMsg(errors.length > 0 ? errors[0].name : null);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message
+        : typeof err === "string" ? err
+        : JSON.stringify(err);
+      setErrorMsg(msg);
+      setLoading(false);
+    });
   }, [open, selectedEntryId]);
 
   // Build list of existing tags NOT yet assigned to this entry

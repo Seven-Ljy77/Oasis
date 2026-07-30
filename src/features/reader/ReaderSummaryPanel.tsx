@@ -30,6 +30,7 @@ const ReaderSummaryPanel: React.FC = () => {
   const loadSummary = useReaderStore((s) => s.loadSummary);
 
   const [streamingDots, setStreamingDots] = useState("");
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   // Simulated streaming animation
   useEffect(() => {
@@ -80,10 +81,15 @@ const ReaderSummaryPanel: React.FC = () => {
   const handleGenerate = async () => {
     if (!selectedEntryId) return;
     setSummaryText("");
+    setSummaryError(null);
     setSummaryLoading(true);
     try {
       await loadSummary(selectedEntryId, summaryDetailLevel);
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message
+        : typeof err === "string" ? err
+        : JSON.stringify(err);
+      setSummaryError(msg);
       setSummaryLoading(false);
     }
   };
@@ -209,7 +215,10 @@ const ReaderSummaryPanel: React.FC = () => {
             {t.summary.generating}{streamingDots}
           </div>
         )}
-        {!summaryLoading && !summaryText && (
+        {summaryError && (
+          <div className="text-sm text-red-500 text-center py-4">{summaryError}</div>
+        )}
+        {!summaryLoading && !summaryError && !summaryText && (
           <div className="text-sm text-slate-400 text-center py-4">
             {t.summary.ready}
           </div>
