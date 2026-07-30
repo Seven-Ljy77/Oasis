@@ -5,7 +5,16 @@ import { useI18n } from "@/lib/i18n";
 import { searchCategorized, type CategorizedSearchResults } from "@/lib/ipc";
 import type { EntryListItem } from "@/lib/types";
 
-const CATEGORIES: { key: keyof CategorizedSearchResults; label: string; icon: string; color: string }[] = [
+type CategoryKey = keyof CategorizedSearchResults;
+
+interface Category {
+  key: CategoryKey;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+const CATEGORIES: Category[] = [
   { key: "by_content", label: "Articles", icon: "M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z", color: "text-amber-500" },
   { key: "by_tag", label: "Tags", icon: "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z", color: "text-purple-500" },
   { key: "by_note", label: "Notes", icon: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z", color: "text-blue-500" },
@@ -21,7 +30,7 @@ const SearchModal: React.FC = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CategorizedSearchResults>({ by_content: [], by_tag: [], by_note: [] });
   const [loading, setLoading] = useState(false);
-  const [activeCat, setActiveCat] = useState<number>(0);
+  const [activeCat, setActiveCat] = useState<CategoryKey>("by_content");
   const [activeIdx, setActiveIdx] = useState<number>(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -31,19 +40,19 @@ const SearchModal: React.FC = () => {
     if (searchOpen) {
       setQuery("");
       setResults({ by_content: [], by_tag: [], by_note: [] });
-      setActiveCat(0);
+      setActiveCat("by_content");
       setActiveIdx(-1);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [searchOpen]);
 
-  // Debounced search across all three dimensions
+  // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = query.trim();
     if (!trimmed) {
       setResults({ by_content: [], by_tag: [], by_note: [] });
-      setActiveCat(0);
+      setActiveCat("by_content");
       setActiveIdx(-1);
       setSearchText("");
       return;
@@ -54,7 +63,9 @@ const SearchModal: React.FC = () => {
       try {
         const res = await searchCategorized(trimmed);
         setResults(res);
-        setActiveCat(0);
+        // Auto-select first non-empty category
+        const firstNonEmpty = CATEGORIES.find((c) => res[c.key].length > 0);
+        setActiveCat(firstNonEmpty?.key ?? "by_content");
         setActiveIdx(-1);
       } catch {
         setResults({ by_content: [], by_tag: [], by_note: [] });
@@ -70,7 +81,7 @@ const SearchModal: React.FC = () => {
   const close = useCallback(() => {
     setQuery("");
     setResults({ by_content: [], by_tag: [], by_note: [] });
-    setActiveCat(0);
+    setActiveCat("by_content");
     setActiveIdx(-1);
     setSearchText("");
     setSearchOpen(false);
@@ -81,39 +92,17 @@ const SearchModal: React.FC = () => {
     close();
   }, [selectEntry, close]);
 
-  // Flatten active results for keyboard nav
-  const activeList = results[CATEGORIES[activeCat].key];
+  const activeList = results[activeCat];
+  const totalResults = CATEGORIES.reduce((sum, c) => sum + results[c.key].length, 0);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") { close(); return; }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (activeIdx < activeList.length - 1) {
-        setActiveIdx((p) => p + 1);
-      } else if (activeCat < CATEGORIES.length - 1) {
-        // Move to next category
-        for (let c = activeCat + 1; c < CATEGORIES.length; c++) {
-          if (results[CATEGORIES[c].key].length > 0) {
-            setActiveCat(c);
-            setActiveIdx(0);
-            break;
-          }
-        }
-      }
+      setActiveIdx((p) => Math.min(p + 1, activeList.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (activeIdx > 0) {
-        setActiveIdx((p) => p - 1);
-      } else if (activeCat > 0) {
-        // Move to previous category
-        for (let c = activeCat - 1; c >= 0; c--) {
-          if (results[CATEGORIES[c].key].length > 0) {
-            setActiveCat(c);
-            setActiveIdx(results[CATEGORIES[c].key].length - 1);
-            break;
-          }
-        }
-      }
+      setActiveIdx((p) => Math.max(p - 1, -1));
     } else if (e.key === "Enter" && activeIdx >= 0 && activeIdx < activeList.length) {
       handleSelect(activeList[activeIdx]);
     }
@@ -121,23 +110,20 @@ const SearchModal: React.FC = () => {
 
   if (!searchOpen) return null;
 
-  const totalResults = CATEGORIES.reduce((sum, c) => sum + results[c.key].length, 0);
-
   return (
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center pt-12 pb-12 px-4"
       role="dialog" aria-modal="true"
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[3px]" onClick={close} />
 
-      {/* Panel */}
+      {/* Outer panel */}
       <div
-        className="relative w-full max-w-3xl bg-white border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-4xl bg-white border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
         style={{ maxHeight: "calc(100vh - 6rem)" }}
         onKeyDown={handleKeyDown}
       >
-        {/* Search input */}
+        {/* ---- Top search bar ---- */}
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
           <svg className="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -167,55 +153,87 @@ const SearchModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Results body — scrollable */}
-        <div className="flex-1 overflow-y-auto">
-          {!query.trim() && (
-            <p className="px-5 py-16 text-sm text-slate-400 text-center">
-              Type to search articles, tags, and notes...
-            </p>
-          )}
-          {query.trim() && !loading && totalResults === 0 && (
-            <p className="px-5 py-16 text-sm text-slate-400 text-center">
-              {t.common.noData}
-            </p>
-          )}
-          {CATEGORIES.map((cat, catIdx) => {
-            const items = results[cat.key];
-            if (items.length === 0) return null;
-            return (
-              <div key={cat.key}>
-                {/* Category header */}
-                <div className="flex items-center gap-2 px-5 py-2 bg-surface-secondary border-b border-border/50 sticky top-0">
-                  <svg className={`w-4 h-4 ${cat.color} flex-shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* ---- Two-column body ---- */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left sidebar */}
+          <div className="w-52 flex-shrink-0 border-r border-border bg-surface-secondary/50 flex flex-col">
+            {CATEGORIES.map((cat) => {
+              const count = results[cat.key].length;
+              const isActive = activeCat === cat.key;
+              return (
+                <button
+                  key={cat.key}
+                  onClick={() => { setActiveCat(cat.key); setActiveIdx(-1); }}
+                  disabled={count === 0}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors border-b border-border/30 ${
+                    isActive
+                      ? "bg-accent-muted text-accent font-medium border-r-2 border-r-accent"
+                      : count > 0
+                        ? "text-slate-700 hover:bg-surface-tertiary"
+                        : "text-slate-300 cursor-default"
+                  }`}
+                >
+                  <svg className={`w-4 h-4 flex-shrink-0 ${count > 0 ? cat.color : "text-slate-300"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={cat.icon} />
                   </svg>
-                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{cat.label}</span>
-                  <span className="text-[10px] text-slate-400 ml-auto">{items.length}</span>
+                  <span className="flex-1 text-left">{cat.label}</span>
+                  {query.trim() && (
+                    <span className={`text-xs ${isActive ? "text-accent" : "text-slate-400"}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {/* Spacer to push items to top */}
+            <div className="flex-1" />
+          </div>
+
+          {/* Right results panel */}
+          <div className="flex-1 overflow-y-auto">
+            {!query.trim() && (
+              <p className="px-5 py-16 text-sm text-slate-400 text-center">
+                Type to search articles, tags, and notes...
+              </p>
+            )}
+            {query.trim() && !loading && totalResults === 0 && (
+              <p className="px-5 py-16 text-sm text-slate-400 text-center">
+                {t.common.noData}
+              </p>
+            )}
+            {query.trim() && activeList.length > 0 && (
+              <>
+                {/* Right header */}
+                <div className="flex items-center gap-2 px-5 py-2.5 bg-surface-secondary border-b border-border sticky top-0 z-10">
+                  <svg className={`w-4 h-4 ${CATEGORIES.find((c) => c.key === activeCat)!.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={CATEGORIES.find((c) => c.key === activeCat)!.icon} />
+                  </svg>
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                    {CATEGORIES.find((c) => c.key === activeCat)!.label}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{activeList.length} matches</span>
                 </div>
                 {/* Items */}
-                {items.map((entry, idx) => {
-                  const isActive = catIdx === activeCat && idx === activeIdx;
-                  return (
-                    <button
-                      key={entry.id}
-                      onClick={() => handleSelect(entry)}
-                      className={`w-full text-left px-5 py-3 border-b border-border/30 hover:bg-surface-secondary transition-colors ${
-                        isActive ? "bg-accent-muted" : ""
-                      }`}
-                    >
-                      <div className="text-sm text-slate-800 font-medium truncate">{entry.title || "Untitled"}</div>
-                      {entry.summary && (
-                        <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{entry.summary}</div>
-                      )}
-                      {entry.feed_title && (
-                        <div className="text-[10px] text-slate-400 mt-1">{entry.feed_title}</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+                {activeList.map((entry, idx) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => handleSelect(entry)}
+                    className={`w-full text-left px-5 py-3 border-b border-border/30 hover:bg-surface-secondary transition-colors ${
+                      idx === activeIdx ? "bg-accent-muted" : ""
+                    }`}
+                  >
+                    <div className="text-sm text-slate-800 font-medium truncate">{entry.title || "Untitled"}</div>
+                    {entry.summary && (
+                      <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{entry.summary}</div>
+                    )}
+                    {entry.feed_title && (
+                      <div className="text-[10px] text-slate-400 mt-1">{entry.feed_title}</div>
+                    )}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
