@@ -133,6 +133,7 @@ pub fn run() {
             commands::entry_commands::delete_all_entries,
             commands::entry_commands::delete_entry,
             commands::entry_commands::search_entries,
+            commands::entry_commands::search_categorized,
             // Reader commands
             commands::reader_commands::build_reader_html,
             commands::reader_commands::get_available_fonts,

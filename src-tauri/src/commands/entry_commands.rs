@@ -1,4 +1,5 @@
 use tauri::State;
+use rusqlite::params;
 
 use crate::db::entry_store::{EntryStore, SearchScope};
 use crate::db::models::EntryListItem;
@@ -136,4 +137,89 @@ pub async fn search_entries(
     };
 
     state.entry_store.search(&text, search_scope).await
+}
+
+/// Results grouped by match category.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategorizedSearchResults {
+    pub by_content: Vec<EntryListItem>,
+    pub by_tag: Vec<EntryListItem>,
+    pub by_note: Vec<EntryListItem>,
+}
+
+#[tauri::command]
+pub async fn search_categorized(
+    state: State<'_, AppState>,
+    text: String,
+) -> Result<CategorizedSearchResults, AppError> {
+    let trimmed = text.trim().to_string();
+    if trimmed.is_empty() {
+        return Ok(CategorizedSearchResults {
+            by_content: vec![],
+            by_tag: vec![],
+            by_note: vec![],
+        });
+    }
+    let like = format!("%{}%", &trimmed);
+    let db = state.db.clone();
+
+    tokio::task::spawn_blocking(move || {
+        db.read(|conn| {
+            // 1. Articles matching title / summary / content
+            let by_content = search_entry_list(conn,
+                "e.title LIKE ?1 OR e.summary LIKE ?1 OR e.id IN (SELECT entry_id FROM content WHERE markdown LIKE ?1)",
+                &like,
+            )?;
+
+            // 2. Articles whose tags match the search text
+            let by_tag = search_entry_list(conn,
+                "e.id IN (SELECT et.entry_id FROM entry_tag et JOIN tag t ON et.tag_id = t.id WHERE t.name LIKE ?1)",
+                &like,
+            )?;
+
+            // 3. Articles whose notes match the search text
+            let by_note = search_entry_list(conn,
+                "e.id IN (SELECT entry_id FROM entry_note WHERE markdown_text LIKE ?1)",
+                &like,
+            )?;
+
+            Ok(CategorizedSearchResults { by_content, by_tag, by_note })
+        })
+    })
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+}
+
+fn search_entry_list(
+    conn: &rusqlite::Connection,
+    condition: &str,
+    like: &str,
+) -> Result<Vec<EntryListItem>, AppError> {
+    let sql = format!(
+        "SELECT e.id, e.feed_id, e.title, e.author, e.url, e.published_at, e.summary, \
+         e.is_read, e.is_starred, f.title AS feed_title, e.created_at \
+         FROM entry e JOIN feed f ON e.feed_id = f.id \
+         WHERE e.is_deleted = 0 AND {} \
+         ORDER BY e.published_at DESC LIMIT 50",
+        condition,
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let entries = stmt
+        .query_map(params![like], |row| {
+            Ok(EntryListItem {
+                id: row.get(0)?,
+                feed_id: row.get(1)?,
+                title: row.get(2)?,
+                author: row.get(3)?,
+                url: row.get(4)?,
+                published_at: row.get(5)?,
+                summary: row.get(6)?,
+                is_read: row.get(7)?,
+                is_starred: row.get(8)?,
+                feed_title: row.get(9)?,
+                created_at: row.get(10)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(entries)
 }

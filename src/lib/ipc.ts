@@ -112,6 +112,15 @@ export const searchEntries = (
 ): Promise<EntryListItem[]> =>
   invoke<EntryListItem[]>("search_entries", { text, scope });
 
+export interface CategorizedSearchResults {
+  by_content: EntryListItem[];
+  by_tag: EntryListItem[];
+  by_note: EntryListItem[];
+}
+
+export const searchCategorized = (text: string): Promise<CategorizedSearchResults> =>
+  invoke<CategorizedSearchResults>("search_categorized", { text });
+
 // ---------------------------------------------------------------------------
 // Reader commands
 // ---------------------------------------------------------------------------
