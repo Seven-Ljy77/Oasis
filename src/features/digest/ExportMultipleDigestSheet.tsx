@@ -3,6 +3,7 @@ import { useEntryStore } from "@/stores/useEntryStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useI18n } from "@/lib/i18n";
 import { exportMultipleDigest } from "@/lib/ipc";
+import { flushPendingNoteDraft } from "@/lib/noteDraft";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,7 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
   const entries = useEntryStore((s) => s.entries);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggle = (id: number) => {
     const next = new Set(selected);
@@ -37,9 +39,10 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
 
   const handleExport = async () => {
     if (entryIds.length === 0) return;
-    (window as any).__mercury_flush_note?.();
     setExporting(true);
+    setError(null);
     try {
+      await flushPendingNoteDraft(entryIds);
       const date = new Date().toISOString().slice(0, 10);
       const exportFolder = useSettingsStore.getState().settings.digest_export_folder;
       const filename = `digest-${date}.md`;
@@ -56,6 +59,7 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
       }
     } catch (e) {
       console.error("Export failed:", e);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setExporting(false);
     }
@@ -94,6 +98,8 @@ const ExportMultipleDigestSheet: React.FC<ExportMultipleDigestSheetProps> = ({ o
             <p className="px-3 py-4 text-sm text-slate-400 text-center">{t.entryList.noArticles}</p>
           )}
         </div>
+
+        {error && <p className="text-xs text-red-500 break-words">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>

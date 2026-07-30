@@ -9,7 +9,7 @@ use crate::error::AppError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedSummary {
     pub id: i64,
-    pub task_run_id: i64,
+    pub task_run_id: Option<i64>,
     pub entry_id: i64,
     pub target_language: String,
     pub detail_level: String,
@@ -58,7 +58,7 @@ impl SummaryStorage {
     /// Persist a summary result to the database.
     pub async fn save_summary(
         &self,
-        task_run_id: i64,
+        task_run_id: Option<i64>,
         entry_id: i64,
         target_language: &str,
         detail_level: &str,

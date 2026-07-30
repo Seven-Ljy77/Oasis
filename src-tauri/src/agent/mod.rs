@@ -1,6 +1,7 @@
 pub mod failure;
 pub mod prompt_template;
 pub mod provider;
+pub mod request_tracker;
 pub mod route;
 pub mod runtime;
 

@@ -3,6 +3,7 @@ import { useEntryStore } from "@/stores/useEntryStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useI18n } from "@/lib/i18n";
 import { exportDigest } from "@/lib/ipc";
+import { flushPendingNoteDraft } from "@/lib/noteDraft";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,7 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const entry = useEntryStore((s) => s.entries.find((e) => e.id === selectedEntryId));
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const title = entry?.title ?? "Untitled";
   const author = entry?.author ?? "";
@@ -34,9 +36,10 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
 
   const handleExport = async () => {
     if (!selectedEntryId) return;
-    (window as any).__mercury_flush_note?.();
     setExporting(true);
+    setError(null);
     try {
+      await flushPendingNoteDraft([selectedEntryId]);
       const exportFolder = useSettingsStore.getState().settings.digest_export_folder;
       const defaultPath = exportFolder
         ? `${exportFolder.replace(/[/\\]$/, "")}/${genFilename()}`
@@ -51,6 +54,7 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
       }
     } catch (e) {
       console.error("Export failed:", e);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setExporting(false);
     }
@@ -64,6 +68,8 @@ const ExportDigestSheet: React.FC<ExportDigestSheetProps> = ({ open, onClose }) 
           {author && <p><strong>Author:</strong> {author}</p>}
           {url && <p className="truncate"><strong>URL:</strong> {url}</p>}
         </div>
+
+        {error && <p className="text-xs text-red-500 break-words">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>

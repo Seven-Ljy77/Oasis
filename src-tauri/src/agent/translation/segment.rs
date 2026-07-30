@@ -39,44 +39,35 @@ impl SegmentExtractor {
 
         // Try HTML extraction first — look for common HTML structural tags.
         // If the content is plain text, these selectors will return no elements.
-        let has_html_tags = Selector::parse("p").ok()
-            .and_then(|s| document.select(&s).next()).is_some()
-            || Selector::parse("li").ok()
-            .and_then(|s| document.select(&s).next()).is_some();
+        let block_selector = Selector::parse("p, li, h1, h2, h3, h4, h5, h6")
+            .map_err(|error| AppError::Reader(format!("Invalid segment selector: {error}")))?;
+        let has_html_tags = document.select(&block_selector).next().is_some();
 
         if has_html_tags {
-            // Extract <p> elements
-            if let Ok(sel) = Selector::parse("p") {
-                for el in document.select(&sel) {
-                    let text = collect_text(&el);
-                    if text.is_empty() { continue; }
-                    let hash = Self::content_hash(&text);
-                    segments.push(TextSegment {
-                        segment_id: format!("p-{}", order),
-                        source_text: text,
-                        order_index: order,
-                        element_path: "p".to_string(),
-                        content_hash: hash,
-                    });
-                    order += 1;
+            // A grouped selector preserves document order across paragraphs
+            // and list items, which is required for iframe segment matching.
+            for el in document.select(&block_selector) {
+                let text = collect_text(&el);
+                // Keep this threshold in sync with the reader iframe script.
+                // A one-character block is not assigned a DOM segment id.
+                let visible_utf16_units: usize = text
+                    .chars()
+                    .filter(|character| !character.is_whitespace())
+                    .map(char::len_utf16)
+                    .sum();
+                if visible_utf16_units < 2 {
+                    continue;
                 }
-            }
-
-            // Extract list items
-            if let Ok(sel) = Selector::parse("li") {
-                for el in document.select(&sel) {
-                    let text = collect_text(&el);
-                    if text.is_empty() { continue; }
-                    let hash = Self::content_hash(&text);
-                    segments.push(TextSegment {
-                        segment_id: format!("li-{}", order),
-                        source_text: text,
-                        order_index: order,
-                        element_path: "li".to_string(),
-                        content_hash: hash,
-                    });
-                    order += 1;
-                }
+                let element_path = el.value().name().to_string();
+                let hash = Self::content_hash(&text);
+                segments.push(TextSegment {
+                    segment_id: format!("{}-{}", element_path, order),
+                    source_text: text,
+                    order_index: order,
+                    element_path,
+                    content_hash: hash,
+                });
+                order += 1;
             }
 
             // Note: we intentionally skip <blockquote> as a whole segment.
@@ -153,8 +144,65 @@ fn collect_text(el: &scraper::ElementRef<'_>) -> String {
 
 /// Strip markdown/HTML syntax and extract plain readable text.
 fn collect_plain_text(raw: &str) -> String {
-    // Simple: just collapse whitespace
-    raw.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    let normalized_newlines = raw.replace("\r\n", "\n").replace('\r', "\n");
+    let mut output = String::new();
+    let mut pending_paragraph_break = false;
+
+    for raw_line in normalized_newlines.lines() {
+        let line = raw_line
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if line.is_empty() {
+            if !output.is_empty() {
+                pending_paragraph_break = true;
+            }
+            continue;
+        }
+
+        if !output.is_empty() {
+            output.push_str(if pending_paragraph_break { "\n\n" } else { "\n" });
+        }
+        output.push_str(&line);
+        pending_paragraph_break = false;
+    }
+
+    output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SegmentExtractor;
+
+    #[test]
+    fn preserves_mixed_paragraph_and_list_item_order() {
+        let html = "<h2>Heading</h2><p>x</p><p>\u{1f600}</p><p>First</p><ul><li>Second</li></ul><p>Third</p>";
+        let segments = SegmentExtractor::extract(html).unwrap();
+        let texts: Vec<&str> = segments
+            .iter()
+            .map(|segment| segment.source_text.as_str())
+            .collect();
+
+        assert_eq!(
+            texts,
+            vec!["Heading", "\u{1f600}", "First", "Second", "Third"]
+        );
+        assert_eq!(segments[3].order_index, 3);
+        assert_eq!(segments[3].element_path, "li");
+    }
+
+    #[test]
+    fn preserves_plain_text_paragraph_boundaries() {
+        let text = "First   line\r\ncontinues here\r\n\r\nSecond\tparagraph\n\n\nThird paragraph";
+        let segments = SegmentExtractor::extract(text).unwrap();
+        let texts: Vec<&str> = segments
+            .iter()
+            .map(|segment| segment.source_text.as_str())
+            .collect();
+
+        assert_eq!(
+            texts,
+            vec!["First line\ncontinues here", "Second paragraph", "Third paragraph"]
+        );
+    }
 }

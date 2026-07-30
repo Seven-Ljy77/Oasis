@@ -22,12 +22,10 @@ import type {
   TagInfo,
   TagLibraryItem,
   TagSuggestion,
-  DigestSingleEntryProjection,
   UsageReportSnapshot,
   AppSettings,
   ThemePreset,
   ThemeMode,
-  ThemeTokens,
   LogEntry,
   UploadLogsResponse,
 } from "./types";
@@ -78,8 +76,13 @@ export const getFeeds = (): Promise<Feed[]> =>
 export const loadEntries = (query: EntryListQuery): Promise<EntryPage> =>
   invoke<EntryPage>("load_entries", { query });
 
-export const loadNextEntries = (cursor: PageCursor): Promise<EntryPage> =>
-  invoke<EntryPage>("load_next_entries", { cursor });
+export const loadNextEntries = (
+  query: EntryListQuery,
+  cursor: PageCursor,
+): Promise<EntryPage> =>
+  invoke<EntryPage>("load_next_entries", {
+    query: { ...query, cursor },
+  });
 
 export const markRead = (
   entryIds: number[],
@@ -109,11 +112,6 @@ export const searchEntries = (
 ): Promise<EntryListItem[]> =>
   invoke<EntryListItem[]>("search_entries", { text, scope });
 
-export const getEntryContent = (
-  entryId: number,
-): Promise<{ html: string; title: string | null; published_at: string | null; author: string | null; feed_title: string | null }> =>
-  invoke("get_entry_content", { entryId });
-
 // ---------------------------------------------------------------------------
 // Reader commands
 // ---------------------------------------------------------------------------
@@ -121,18 +119,17 @@ export const getEntryContent = (
 export const buildReaderHTML = (
   entryUrl: string,
   entryId?: number,
-  theme?: { fontFamily: string; fontSize: number; lineHeight: number; contentWidth: number; quickStyle: string },
+  theme?: {
+    themePreset: ThemePreset;
+    fontFamily: string;
+    fontSize: number;
+    lineHeight: number;
+    contentWidth: number;
+    quickStyle: string;
+    themeMode: ThemeMode;
+  },
 ): Promise<{ html: string; theme_fingerprint: string }> =>
   invoke("build_reader_html", { entryUrl, entryId, theme });
-
-export const getThemeTokens = (preset: ThemePreset): Promise<ThemeTokens> =>
-  invoke<ThemeTokens>("get_theme_tokens", { preset });
-
-export const updateThemeTokens = (
-  preset: ThemePreset,
-  tokens: Partial<ThemeTokens>,
-): Promise<ThemeTokens> =>
-  invoke<ThemeTokens>("update_theme_tokens", { preset, tokens });
 
 // ---------------------------------------------------------------------------
 // Agent commands
@@ -223,7 +220,13 @@ export const startAgentTask = (
 export const startBatchTagging = (
   entryIds: number[],
 ): Promise<{ task_id: string }> =>
-  invoke<{ task_id: string }>("start_batch_tagging", { entryIds });
+  invoke<number>("start_batch_tagging", {
+    entryIds,
+    scopeLabel: null,
+    concurrency: 3,
+    skipAlreadyApplied: true,
+    skipAlreadyTagged: false,
+  }).then((runId) => ({ task_id: String(runId) }));
 
 export const cancelAgentTask = (taskId: string): Promise<void> =>
   invoke<void>("cancel_agent_task", { taskId });
@@ -239,14 +242,31 @@ export const checkAgentAvailability = (): Promise<
 // Summary commands
 // ---------------------------------------------------------------------------
 
-export const getSummary = (entryId: number): Promise<SummaryResult | null> =>
-  invoke<SummaryResult | null>("get_summary", { entryId });
+export const getSummary = (
+  entryId: number,
+  targetLanguage: string,
+  detailLevel: string,
+): Promise<SummaryResult | null> =>
+  invoke<SummaryResult | null>("get_summary", {
+    entryId,
+    targetLanguage,
+    detailLevel,
+  });
 
 export const generateSummary = (
   entryId: number,
-  detailLevel?: string,
-): Promise<{ task_id: string }> =>
-  invoke<{ task_id: string }>("generate_summary", { entryId, detailLevel });
+  targetLanguage: string,
+  detailLevel: string,
+  requestId: string,
+  force: boolean,
+): Promise<{ task_id: string; text: string; html: string; result?: SummaryResult }> =>
+  invoke<{ task_id: string; text: string; html: string; result?: SummaryResult }>("generate_summary", {
+    entryId,
+    targetLanguage,
+    detailLevel,
+    requestId,
+    force,
+  });
 
 // ---------------------------------------------------------------------------
 // Translation commands
@@ -264,8 +284,19 @@ export const getTranslationSegments = (
 export const startTranslation = (
   entryId: number,
   targetLanguage: string,
-): Promise<{ task_id: string }> =>
-  invoke<{ task_id: string }>("start_translation", { entryId, targetLanguage });
+  concurrency: number,
+  requestId: string,
+): Promise<{
+  total_segments: number;
+  segments: TranslationSegmentData[];
+  error: string | null;
+}> =>
+  invoke("start_translation", {
+    entryId,
+    targetLanguage,
+    concurrency,
+    requestId,
+  });
 
 export const buildTranslationHTML = (
   entryId: number,
@@ -339,26 +370,8 @@ export const exportDigest = (entryId: number, path: string): Promise<void> =>
 export const exportMultipleDigest = (entryIds: number[], path: string): Promise<void> =>
   invoke<void>("export_multiple_digest", { entryIds, path });
 
-export const exportArticles = (entryIds: number[], path: string): Promise<void> =>
-  invoke<void>("export_articles", { entryIds, path });
-
 export const revealCustomTemplate = (templateId: string): Promise<void> =>
   invoke<void>("reveal_custom_template", { templateId });
-
-export const getDigestEntries = (
-  feedIds?: number[],
-  dateRange?: { start: string; end: string },
-): Promise<DigestSingleEntryProjection[]> =>
-  invoke<DigestSingleEntryProjection[]>("get_digest_entries", {
-    feedIds,
-    dateRange,
-  });
-
-export const prepareDigest = (
-  entries: DigestSingleEntryProjection[],
-  options?: { style?: string; maxLength?: number },
-): Promise<{ html: string }> =>
-  invoke<{ html: string }>("prepare_digest", { entries, options });
 
 // ---------------------------------------------------------------------------
 // Usage / Analytics commands
@@ -382,15 +395,6 @@ export const saveSettings = (settings: AppSettings): Promise<void> =>
 // ---------------------------------------------------------------------------
 // Window / Shell commands
 // ---------------------------------------------------------------------------
-
-export const openWindow = (label: string, url: string): Promise<void> =>
-  invoke<void>("open_window", { label, url });
-
-export const closeWindow = (label: string): Promise<void> =>
-  invoke<void>("close_window", { label });
-
-export const focusWindow = (label: string): Promise<void> =>
-  invoke<void>("focus_window", { label });
 
 export const openInBrowser = (url: string): Promise<void> =>
   invoke<void>("open_in_browser", { url });

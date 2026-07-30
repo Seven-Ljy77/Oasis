@@ -98,6 +98,9 @@ const initialState = {
   agentProfiles: {} as Record<string, AgentProfile>,
 };
 
+let settingsSaveVersion = 0;
+let settingsSaveTail: Promise<void> = Promise.resolve();
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -121,13 +124,21 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
 
   saveSettings: async (settings) => {
+    const saveVersion = ++settingsSaveVersion;
     set({ isSaving: true, error: null });
+    const persist = () => ipc.saveSettings(settings);
+    const operation = settingsSaveTail.then(persist, persist);
+    settingsSaveTail = operation.catch(() => undefined);
     try {
-      await ipc.saveSettings(settings);
-      set({ settings, isSaving: false });
+      await operation;
+      if (saveVersion === settingsSaveVersion) {
+        set({ settings, isSaving: false });
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      set({ error: message, isSaving: false });
+      if (saveVersion === settingsSaveVersion) {
+        const message = err instanceof Error ? err.message : String(err);
+        set({ error: message, isSaving: false });
+      }
     }
   },
 

@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useReaderStore } from "@/stores/useReaderStore";
+import { openInBrowser } from "@/lib/ipc";
 
 interface ReaderWebViewProps {
   html: string;
@@ -17,6 +18,36 @@ const ReaderWebView: React.FC<ReaderWebViewProps> = ({
   onActionURL,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (mode !== "reader") return;
+
+    const handleMessage = (event: MessageEvent<unknown>) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      const payload = event.data;
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        !("type" in payload) ||
+        !("url" in payload) ||
+        payload.type !== "oasis-open-link" ||
+        typeof payload.url !== "string"
+      ) {
+        return;
+      }
+
+      if (onActionURL) {
+        onActionURL(payload.url);
+      } else {
+        void openInBrowser(payload.url).catch((error) => {
+          console.error("Failed to open reader link:", error);
+        });
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [mode, onActionURL]);
 
   // Web mode: load the original URL directly
   if (mode === "web" && baseURL) {
@@ -68,6 +99,23 @@ const ReaderWebView: React.FC<ReaderWebViewProps> = ({
     <iframe
       ref={iframeRef}
       srcDoc={html}
+      onLoad={() => {
+        const iframe = iframeRef.current;
+        if (!iframe?.contentWindow) return;
+        const state = useReaderStore.getState();
+        for (const segment of state.translationSegments) {
+          if (!segment.translated_text) continue;
+          iframe.contentWindow.postMessage(
+            {
+              type: "oasis-translation",
+              orderIndex: segment.order_index,
+              text: segment.translated_text,
+              showOriginal: state.translationBilingual,
+            },
+            "*",
+          );
+        }
+      }}
       className="w-full h-full border-0"
       sandbox="allow-scripts"
       title="Reader content"

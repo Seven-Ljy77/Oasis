@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEntryStore } from "@/stores/useEntryStore";
-import { useReaderStore } from "@/stores/useReaderStore";
 import { useI18n } from "@/lib/i18n";
-import { shareDigest, getNote } from "@/lib/ipc";
+import { shareDigest } from "@/lib/ipc";
+import { flushPendingNoteDraft } from "@/lib/noteDraft";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 
@@ -15,23 +15,51 @@ const ShareDigestSheet: React.FC<ShareDigestSheetProps> = ({ open, onClose }) =>
   const { t } = useI18n();
   const selectedEntryId = useEntryStore((s) => s.selectedEntryId);
   const entry = useEntryStore((s) => s.entries.find((e) => e.id === selectedEntryId));
-  const summaryText = useReaderStore((s) => s.summaryText);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestVersionRef = useRef(0);
 
   const title = entry?.title ?? "Untitled";
   const author = entry?.author ?? "";
-  const url = entry?.url ?? "";
-
   const [digestText, setDigestText] = useState("");
 
+  const loadDigest = useCallback(async () => {
+    if (!selectedEntryId) return;
+    const entryId = selectedEntryId;
+    const requestVersion = ++requestVersionRef.current;
+    setCopied(false);
+    setDigestText("");
+    setError(null);
+    setLoading(true);
+    try {
+      await flushPendingNoteDraft([entryId]);
+      const digest = await shareDigest(entryId);
+      if (requestVersion === requestVersionRef.current) {
+        setDigestText(digest);
+      }
+    } catch (loadError) {
+      if (requestVersion === requestVersionRef.current) {
+        setError(
+          loadError instanceof Error ? loadError.message : String(loadError),
+        );
+      }
+    } finally {
+      if (requestVersion === requestVersionRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [selectedEntryId]);
+
   useEffect(() => {
-    if (!selectedEntryId || !open) return;
-    // Flush any pending note before generating the digest.
-    (window as any).__mercury_flush_note?.();
-    shareDigest(selectedEntryId).then(setDigestText).catch(() => {});
-  }, [selectedEntryId, open]);
+    if (open) void loadDigest();
+    return () => {
+      requestVersionRef.current += 1;
+    };
+  }, [loadDigest, open]);
 
   const handleCopy = async () => {
+    if (loading || error || !digestText) return;
     try {
       await navigator.clipboard.writeText(digestText);
       setCopied(true);
@@ -49,11 +77,27 @@ const ShareDigestSheet: React.FC<ShareDigestSheetProps> = ({ open, onClose }) =>
           {author && <p>{author}</p>}
         </div>
         <pre className="p-3 rounded border border-border bg-surface-secondary text-xs text-slate-600 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
-          {digestText || t.common.loading}
+          {loading
+            ? t.common.loading
+            : error
+              ? t.digest.loadFailed
+              : digestText}
         </pre>
+        {error && (
+          <p className="text-xs text-red-500 break-words">{error}</p>
+        )}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>
-          <Button variant="primary" onClick={handleCopy}>
+          {error && (
+            <Button variant="secondary" onClick={() => void loadDigest()}>
+              {t.common.retry}
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            onClick={handleCopy}
+            disabled={loading || Boolean(error) || !digestText}
+          >
             {copied ? t.digest.copied : t.digest.copyToClipboard}
           </Button>
         </div>

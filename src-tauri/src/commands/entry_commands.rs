@@ -66,9 +66,12 @@ pub async fn load_entries(
 #[tauri::command]
 pub async fn load_next_entries(
     state: State<'_, AppState>,
-    cursor: PageCursor,
+    query: LoadEntriesQuery,
 ) -> Result<LoadEntriesPage, AppError> {
-    let page = state.entry_store.load_next_page(cursor).await?;
+    let page = state
+        .entry_store
+        .load_page(into_query_builder_query(query))
+        .await?;
     Ok(LoadEntriesPage {
         entries: page.entries,
         next_cursor: page.next_cursor,

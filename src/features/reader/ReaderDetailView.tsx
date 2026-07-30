@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { useEntryStore } from "@/stores/useEntryStore";
 import { useReaderStore } from "@/stores/useReaderStore";
@@ -10,6 +10,7 @@ import ReaderTranslationPanel from "./ReaderTranslationPanel";
 import ReaderTaggingPanel from "./ReaderTaggingPanel";
 import ReaderNotePanel from "./ReaderNotePanel";
 import Button from "@/components/ui/Button";
+import { getNote } from "@/lib/ipc";
 
 const ReaderDetailView: React.FC = () => {
   const { t } = useI18n();
@@ -24,6 +25,7 @@ const ReaderDetailView: React.FC = () => {
   const readerLoading = useReaderStore((s) => s.readerLoading);
   const translationHTML = useReaderStore((s) => s.translationHTML);
   const buildReaderHTML = useReaderStore((s) => s.buildReaderHTML);
+  const invalidateReaderContent = useReaderStore((s) => s.invalidateReaderContent);
   const activePanel = useReaderStore((s) => s.activePanel);
   const setActivePanel = useReaderStore((s) => s.setActivePanel);
   const bannerMessage = useReaderStore((s) => s.bannerMessage);
@@ -31,6 +33,15 @@ const ReaderDetailView: React.FC = () => {
   const bannerAction = useReaderStore((s) => s.bannerAction);
   const setBanner = useReaderStore((s) => s.setBanner);
   const markStarred = useEntryStore((s) => s.markStarred);
+  const [hasNote, setHasNote] = useState(false);
+  const handleNoteStateChange = useCallback(
+    (entryId: number, nextHasNote: boolean) => {
+      if (useEntryStore.getState().selectedEntryId === entryId) {
+        setHasNote(nextHasNote);
+      }
+    },
+    [],
+  );
 
   // Subscribe to theme fields
   const fontFamily = useReaderStore((s) => s.fontFamily);
@@ -39,16 +50,65 @@ const ReaderDetailView: React.FC = () => {
   const contentWidth = useReaderStore((s) => s.contentWidth);
   const quickStyle = useReaderStore((s) => s.quickStyle);
   const themeMode = useReaderStore((s) => s.themeMode);
+  const effectiveTheme = useReaderStore((s) => s.effectiveTheme);
+  const themePreset = useReaderStore((s) => s.themePreset);
+  const themeTokens = useReaderStore((s) => s.themeTokens);
 
-  // Build reader HTML when entry or theme changes
+  // Reset article-scoped state only when the selected article changes.
   useEffect(() => {
-    useReaderStore.setState({ translationHTML: null });
+    invalidateReaderContent();
+    useReaderStore.setState({
+      translationHTML: null,
+      translationSegments: [],
+      translationRequestId: null,
+      translationProgress: null,
+      translationLoading: false,
+      translationError: null,
+      summaryResult: null,
+      summaryEntryId: selectedEntryId,
+      summaryRequestId: null,
+      summaryText: "",
+      summaryHTML: "",
+      summaryLoading: false,
+      summaryError: null,
+    });
+  }, [selectedEntryId, invalidateReaderContent]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHasNote(false);
+    if (!entry?.id) return;
+    void getNote(entry.id)
+      .then((note) => {
+        if (!cancelled) setHasNote(Boolean(note?.text.trim()));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [entry?.id]);
+
+  // Rebuild presentation when the article or reader theme changes.
+  useEffect(() => {
     if (entry?.url && entry?.id) {
-      buildReaderHTML(entry.url, entry.id, true);
+      buildReaderHTML(entry.url, entry.id);
     } else if (entry?.url) {
-      buildReaderHTML(entry.url, undefined, true);
+      buildReaderHTML(entry.url);
     }
-  }, [selectedEntryId, fontFamily, fontSize, lineHeight, contentWidth, quickStyle, themeMode]);
+  }, [
+    entry?.id,
+    entry?.url,
+    fontFamily,
+    fontSize,
+    lineHeight,
+    contentWidth,
+    quickStyle,
+    themeMode,
+    effectiveTheme,
+    themePreset,
+    themeTokens,
+    buildReaderHTML,
+  ]);
 
   const showPanel = (panel: typeof activePanel) => {
     setActivePanel(activePanel === panel ? null : panel);
@@ -89,7 +149,7 @@ const ReaderDetailView: React.FC = () => {
         entryUrl={entry.url ?? ""}
         entryId={entry.id}
         isStarred={entry.is_starred}
-        hasNote={false} // TODO: check if note exists for this entry
+        hasNote={hasNote}
         onTogglePanel={showPanel}
         activePanel={activePanel}
         onStar={() => markStarred(entry.id, !entry.is_starred)}
@@ -172,7 +232,13 @@ const ReaderDetailView: React.FC = () => {
 
       {/* ---- Popover panels (rendered as overlays from toolbar buttons) ---- */}
       <ReaderTaggingPanel />
-      {activePanel === "note" && <ReaderNotePanel onClose={() => setActivePanel(null)} />}
+      {activePanel === "note" && (
+        <ReaderNotePanel
+          key={entry.id}
+          onClose={() => setActivePanel(null)}
+          onNoteStateChange={handleNoteStateChange}
+        />
+      )}
     </div>
   );
 };

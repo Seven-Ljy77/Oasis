@@ -36,10 +36,7 @@ fn walk_children(parent: &ElementRef<'_>, output: &mut String) {
     for child in parent.children() {
         match child.value() {
             Node::Text(text) => {
-                let t = text.trim();
-                if !t.is_empty() {
-                    output.push_str(t);
-                }
+                push_collapsed_text(output, text);
             }
             Node::Element(_) => {
                 if let Some(el) = ElementRef::wrap(child) {
@@ -71,7 +68,7 @@ fn walk_element(el: &ElementRef<'_>, output: &mut String) {
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
             let level = tag.as_bytes()[1] as usize - b'0' as usize;
             let prefix = "#".repeat(level);
-            let text = collect_text(el);
+            let text = collect_inline_markdown(el);
             if !text.is_empty() {
                 output.push_str(&format!("{} {}\n\n", prefix, text));
             }
@@ -81,17 +78,23 @@ fn walk_element(el: &ElementRef<'_>, output: &mut String) {
         // Blocks
         // -----------------------------------------------------------------------
         "p" => {
-            let text = collect_text(el);
+            let text = collect_inline_markdown(el);
             if !text.is_empty() {
                 output.push_str(&format!("{}\n\n", text));
             }
         }
 
         "blockquote" => {
-            let text = collect_text(el);
-            if !text.is_empty() {
-                for line in text.lines() {
-                    output.push_str(&format!("> {}\n", line));
+            let mut quote = String::new();
+            walk_children(el, &mut quote);
+            let quote = quote.trim();
+            if !quote.is_empty() {
+                for line in quote.lines() {
+                    if line.is_empty() {
+                        output.push_str(">\n");
+                    } else {
+                        output.push_str(&format!("> {}\n", line));
+                    }
                 }
                 output.push('\n');
             }
@@ -110,46 +113,8 @@ fn walk_element(el: &ElementRef<'_>, output: &mut String) {
         // -----------------------------------------------------------------------
         // Inline formatting
         // -----------------------------------------------------------------------
-        "strong" | "b" => {
-            output.push_str("**");
-            walk_children(el, output);
-            output.push_str("**");
-        }
-
-        "em" | "i" => {
-            output.push('*');
-            walk_children(el, output);
-            output.push('*');
-        }
-
-        "code" => {
-            // Inline code only — <pre> blocks are handled above and do not
-            // recurse, so any <code> we reach here is inline.
-            let text = el.text().collect::<Vec<_>>().join("");
-            let text = text.trim();
-            if !text.is_empty() {
-                output.push_str(&format!("`{}`", text));
-            }
-        }
-
-        "a" => {
-            let href = el.value().attr("href").unwrap_or("");
-            output.push('[');
-            walk_children(el, output);
-            output.push(']');
-            output.push('(');
-            output.push_str(href);
-            output.push(')');
-        }
-
-        "img" => {
-            let alt = el.value().attr("alt").unwrap_or("");
-            let src = el.value().attr("src").unwrap_or("");
-            output.push_str(&format!("![{}]({})\n\n", alt, src));
-        }
-
-        "br" => {
-            output.push('\n');
+        "strong" | "b" | "em" | "i" | "code" | "a" | "img" | "br" => {
+            walk_inline_element(el, output);
         }
 
         // -----------------------------------------------------------------------
@@ -167,7 +132,7 @@ fn walk_element(el: &ElementRef<'_>, output: &mut String) {
 
         "li" => {
             let list_type = determine_list_type(el);
-            let text = collect_text(el);
+            let text = collect_inline_markdown(el);
             if !text.is_empty() {
                 match list_type {
                     OrderedListContext::Unordered => {
@@ -199,14 +164,114 @@ fn walk_element(el: &ElementRef<'_>, output: &mut String) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Collect all descendant text from an element into a single whitespace-normalised string.
-fn collect_text(el: &ElementRef<'_>) -> String {
-    el.text()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+fn collect_inline_markdown(el: &ElementRef<'_>) -> String {
+    let mut output = String::new();
+    walk_inline_children(el, &mut output);
+    output.trim().to_string()
+}
+
+fn walk_inline_children(parent: &ElementRef<'_>, output: &mut String) {
+    for child in parent.children() {
+        match child.value() {
+            Node::Text(text) => push_collapsed_text(output, text),
+            Node::Element(_) => {
+                if let Some(el) = ElementRef::wrap(child) {
+                    walk_inline_element(&el, output);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn walk_inline_element(el: &ElementRef<'_>, output: &mut String) {
+    let tag = el.value().name().to_ascii_lowercase();
+    if matches!(
+        tag.as_str(),
+        "script" | "style" | "nav" | "header" | "footer" | "aside" | "iframe" | "noscript"
+    ) {
+        return;
+    }
+
+    match tag.as_str() {
+        "strong" | "b" => {
+            let text = collect_inline_markdown(el);
+            if !text.is_empty() {
+                output.push_str("**");
+                output.push_str(&text);
+                output.push_str("**");
+            }
+        }
+        "em" | "i" => {
+            let text = collect_inline_markdown(el);
+            if !text.is_empty() {
+                output.push('*');
+                output.push_str(&text);
+                output.push('*');
+            }
+        }
+        "code" => {
+            let text = el.text().collect::<Vec<_>>().join("");
+            let text = text.trim();
+            if !text.is_empty() {
+                output.push_str(&format!("`{}`", text));
+            }
+        }
+        "a" => {
+            let text = collect_inline_markdown(el);
+            let href = el.value().attr("href").unwrap_or("");
+            if href.is_empty() {
+                output.push_str(&text);
+            } else {
+                output.push('[');
+                output.push_str(&text);
+                output.push_str("](");
+                output.push_str(href);
+                output.push(')');
+            }
+        }
+        "img" => {
+            let alt = el.value().attr("alt").unwrap_or("");
+            let src = el.value().attr("src").unwrap_or("");
+            if !src.is_empty() {
+                output.push_str(&format!("![{}]({})", alt, src));
+            }
+        }
+        "br" => output.push_str("  \n"),
+        _ => walk_inline_children(el, output),
+    }
+}
+
+fn push_collapsed_text(output: &mut String, text: &str) {
+    let starts_with_whitespace = text.chars().next().is_some_and(char::is_whitespace);
+    let ends_with_whitespace = text.chars().next_back().is_some_and(char::is_whitespace);
+    let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    if normalized.is_empty() {
+        if !output.is_empty()
+            && !output
+                .chars()
+                .next_back()
+                .is_some_and(char::is_whitespace)
+        {
+            output.push(' ');
+        }
+        return;
+    }
+
+    if starts_with_whitespace
+        && !output.is_empty()
+        && !output
+            .chars()
+            .next_back()
+            .is_some_and(char::is_whitespace)
+    {
+        output.push(' ');
+    }
+    output.push_str(&normalized);
+    if ends_with_whitespace {
+        output.push(' ');
+    }
 }
 
 /// Determine the list context of a `<li>` element by walking up to its parent.
@@ -247,4 +312,43 @@ fn count_preceding_li_siblings(li: &ElementRef<'_>) -> usize {
         current = sibling.prev_sibling();
     }
     count
+}
+
+#[cfg(test)]
+mod tests {
+    use super::html_to_markdown;
+
+    #[test]
+    fn preserves_inline_markdown_inside_block_elements() {
+        let html = r#"
+            <article>
+                <h2>Read <em>carefully</em></h2>
+                <p>Hello <strong>bold</strong> and <a href="/docs">docs</a> <img src="/diagram.png" alt="diagram">.</p>
+                <ul><li>Run <code>cargo test</code> first</li></ul>
+                <blockquote><p>See <a href="/source">source</a>.</p></blockquote>
+            </article>
+        "#;
+
+        let markdown = html_to_markdown(html).unwrap();
+
+        assert!(markdown.contains("## Read *carefully*"));
+        assert!(markdown.contains(
+            "Hello **bold** and [docs](/docs) ![diagram](/diagram.png)."
+        ));
+        assert!(markdown.contains("- Run `cargo test` first"));
+        assert!(markdown.contains("> See [source](/source)."));
+    }
+
+    #[test]
+    fn preserves_spaces_around_inline_elements() {
+        let markdown = html_to_markdown(
+            "<p>Hello <strong>world</strong> and <a href=\"/next\">continue</a> now.</p>",
+        )
+        .unwrap();
+
+        assert_eq!(
+            markdown,
+            "Hello **world** and [continue](/next) now."
+        );
+    }
 }

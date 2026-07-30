@@ -214,7 +214,7 @@ pub struct LLMUsageEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SummaryResult {
     pub id: i64,
-    pub task_run_id: i64,
+    pub task_run_id: Option<i64>,
     pub entry_id: i64,
     pub target_language: String,
     pub detail_level: String,

@@ -52,7 +52,7 @@ export interface EntryListQuery {
 }
 
 export interface PageCursor {
-  published_at: string;
+  published_at: string | null;
   created_at: string;
   id: number;
 }
@@ -145,12 +145,13 @@ export interface AgentRunState {
 
 export interface SummaryResult {
   id: number;
-  task_run_id: number;
+  task_run_id: number | null;
   entry_id: number;
   target_language: string;
   detail_level: string;
   text: string;
   created_at: string; // ISO 8601
+  html?: string;
 }
 
 export interface TranslationSegmentData {

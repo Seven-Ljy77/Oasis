@@ -8,9 +8,6 @@
 
 import { useEffect, useRef } from "react";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EventPayload = any;
-
 /**
  * Listen for a Tauri event.
  *
@@ -21,44 +18,45 @@ type EventPayload = any;
  * @param eventName  The Tauri event name (e.g. "sync-progress")
  * @param callback   Called with the event payload
  */
-export function useTauriEvent(
+export function useTauriEvent<T = unknown>(
   eventName: string,
-  callback: (payload: EventPayload) => void,
+  callback: (payload: T) => void,
 ): void {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let disposed = false;
 
     const setup = async () => {
-      // TODO: dynamically import @tauri-apps/api/event and subscribe
-      // For now, use a DOM-like fallback so the hook compiles and runs in
-      // a browser dev setup.
-      //
-      // try {
-      //   const { listen } = await import('@tauri-apps/api/event');
-      //   const unlistenFn = await listen(eventName, (event) => {
-      //     callbackRef.current(event.payload);
-      //   });
-      //   unlisten = unlistenFn;
-      // } catch {
-      //   // Not in Tauri — set up a custom event listener for dev
-      // }
-
-      const handler = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        callbackRef.current(customEvent.detail);
-      };
-
-      window.addEventListener(`oasis:${eventName}`, handler);
-      unlisten = () =>
-        window.removeEventListener(`oasis:${eventName}`, handler);
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        const dispose = await listen<T>(eventName, (event) => {
+          callbackRef.current(event.payload);
+        });
+        if (disposed) {
+          dispose();
+        } else {
+          unlisten = dispose;
+        }
+      } catch {
+        if (disposed) {
+          return;
+        }
+        const handler = (event: Event) => {
+          callbackRef.current((event as CustomEvent<T>).detail);
+        };
+        window.addEventListener(`oasis:${eventName}`, handler);
+        unlisten = () =>
+          window.removeEventListener(`oasis:${eventName}`, handler);
+      }
     };
 
-    setup();
+    void setup();
 
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, [eventName]);

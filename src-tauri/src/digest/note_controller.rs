@@ -11,14 +11,14 @@ pub enum NoteSaveState {
 
 /// Controller for the lifecycle of an entry note.
 pub struct NoteController {
-    entry_id: i64,
+    _entry_id: i64,
     save_state: NoteSaveState,
 }
 
 impl NoteController {
     pub fn new(entry_id: i64) -> Self {
         Self {
-            entry_id,
+            _entry_id: entry_id,
             save_state: NoteSaveState::Idle,
         }
     }

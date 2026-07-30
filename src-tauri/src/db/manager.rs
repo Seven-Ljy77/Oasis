@@ -28,22 +28,6 @@ impl DatabaseManager {
         // Apply schema migrations.
         manager.run_migrations()?;
 
-        // Undelete entries that were soft-deleted by Delete All (prevents
-        // feed re-import from being silently ignored due to existing GUIDs).
-        {
-            let conn = manager.conn.lock().map_err(|e| AppError::Database(e.to_string()))?;
-            conn.execute("UPDATE entry SET is_deleted = 0 WHERE is_deleted = 1", [])?;
-            // Recalculate tag counts based on non-deleted entries
-            conn.execute(
-                "UPDATE tag SET usage_count = (
-                    SELECT COUNT(*) FROM entry_tag et
-                    JOIN entry e ON et.entry_id = e.id
-                    WHERE et.tag_id = tag.id AND e.is_deleted = 0
-                )",
-                [],
-            )?;
-        }
-
         Ok(manager)
     }
 
@@ -68,5 +52,44 @@ impl DatabaseManager {
     /// Access the underlying connection directly (for migration use).
     pub fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
         self.conn.lock().expect("Database mutex poisoned")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DatabaseManager;
+
+    #[test]
+    fn reopening_database_preserves_soft_deleted_entries() {
+        let path = std::env::temp_dir().join(format!(
+            "oasis-manager-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+
+        {
+            let manager = DatabaseManager::new(&path).unwrap();
+            let conn = manager.conn();
+            conn.execute(
+                "INSERT INTO feed (title, feed_url) VALUES ('Feed', 'https://example.com/feed')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO entry (feed_id, guid, title, is_deleted) VALUES (1, 'entry-1', 'Entry', 1)",
+                [],
+            )
+            .unwrap();
+        }
+
+        let manager = DatabaseManager::new(&path).unwrap();
+        let is_deleted: bool = manager
+            .conn()
+            .query_row(
+                "SELECT is_deleted FROM entry WHERE guid = 'entry-1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(is_deleted);
     }
 }

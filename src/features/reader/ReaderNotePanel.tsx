@@ -3,6 +3,11 @@ import { useEntryStore } from "@/stores/useEntryStore";
 import { useI18n } from "@/lib/i18n";
 import { useResizableHeight } from "@/hooks/useResizableHeight";
 import { getNote, saveNote } from "@/lib/ipc";
+import {
+  enqueueNoteSave,
+  LatestValueSaveQueue,
+  registerNoteDraftFlusher,
+} from "@/lib/noteDraft";
 
 export interface ReaderNotePanelProps {
   /** Called when the panel is closed */
@@ -10,12 +15,15 @@ export interface ReaderNotePanelProps {
   className?: string;
   /** Maximum character count */
   maxLength?: number;
+  /** Reports whether the current entry has a persisted non-empty note. */
+  onNoteStateChange?: (entryId: number, hasNote: boolean) => void;
 }
 
 const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   onClose,
   maxLength = 10000,
   className = "",
+  onNoteStateChange,
 }) => {
   const { t } = useI18n();
   const { panelRef, dragHandle } = useResizableHeight("note", 200);
@@ -24,68 +32,131 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [localOpen, setLocalOpen] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSaved = useRef("");
+  const textRef = useRef("");
+  const entryIdRef = useRef<number | null>(selectedEntryId);
+  const editVersionRef = useRef(0);
+  const saveStateRef = useRef(new LatestValueSaveQueue(""));
+  const mountedRef = useRef(true);
 
-  // Load note when panel opens or entry changes
-  useEffect(() => {
-    if (!selectedEntryId) return;
-    getNote(selectedEntryId).then((note) => {
-      const content = note?.text ?? "";
-      setText(content);
-      lastSaved.current = content;
-    }).catch(() => {});
-  }, [selectedEntryId, localOpen]);
-
-  // 5-second auto-save debounce
-  const scheduleSave = useCallback((value: string) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      if (!selectedEntryId || value === lastSaved.current) return;
-      setSaveStatus("saving");
-      try {
-        await saveNote(selectedEntryId, value);
-        lastSaved.current = value;
-        setSaveStatus("saved");
-      } catch {
-        setSaveStatus("error");
+  const persistNote = useCallback(
+    (entryId: number, value: string): Promise<void> => {
+      const save = saveStateRef.current.save(value, (nextValue) =>
+        enqueueNoteSave(entryId, () => saveNote(entryId, nextValue)),
+      );
+      if (
+        save.enqueued &&
+        mountedRef.current &&
+        entryIdRef.current === entryId
+      ) {
+        setSaveStatus("saving");
       }
-    }, 5000);
-  }, [selectedEntryId]);
 
-  // Force-save helper (also used by parent components before export/share).
-  const flushSave = useCallback(() => {
+      return save.promise
+        .then(() => {
+          if (entryIdRef.current !== entryId) return;
+          if (textRef.current === value) {
+            onNoteStateChange?.(entryId, value.trim().length > 0);
+            if (mountedRef.current) {
+              setSaveStatus("saved");
+            }
+          }
+        })
+        .catch((error) => {
+          if (
+            mountedRef.current &&
+            entryIdRef.current === entryId &&
+            textRef.current === value
+          ) {
+            setSaveStatus("error");
+          }
+          throw error;
+        });
+    },
+    [onNoteStateChange],
+  );
+
+  const flushSave = useCallback((): Promise<void> => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (selectedEntryId && text !== lastSaved.current) {
-      setSaveStatus("saving");
-      saveNote(selectedEntryId, text)
-        .then(() => {
-          lastSaved.current = text;
-          setSaveStatus("saved");
-        })
-        .catch(() => setSaveStatus("error"));
-    }
-  }, [selectedEntryId, text]);
+    const entryId = entryIdRef.current;
+    const value = textRef.current;
+    if (!entryId) return Promise.resolve();
+    return persistNote(entryId, value);
+  }, [persistNote]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Load note when panel opens or entry changes
+  useEffect(() => {
+    entryIdRef.current = selectedEntryId;
+    editVersionRef.current = 0;
+    textRef.current = "";
+    saveStateRef.current = new LatestValueSaveQueue("");
+    setText("");
+    setSaveStatus("idle");
+    if (!selectedEntryId) return;
+
+    const entryId = selectedEntryId;
+    let cancelled = false;
+    void getNote(entryId)
+      .then((note) => {
+        if (
+          cancelled ||
+          entryIdRef.current !== entryId ||
+          editVersionRef.current !== 0
+        ) {
+          return;
+        }
+        const content = note?.text ?? "";
+        textRef.current = content;
+        setText(content);
+        saveStateRef.current.reset(content);
+        onNoteStateChange?.(entryId, content.trim().length > 0);
+      })
+      .catch(() => {
+        if (!cancelled && entryIdRef.current === entryId) {
+          setSaveStatus("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      void flushSave().catch(() => undefined);
+    };
+  }, [selectedEntryId, flushSave, onNoteStateChange]);
+
+  // 5-second auto-save debounce
+  const scheduleSave = useCallback((value: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const entryId = entryIdRef.current;
+    timerRef.current = setTimeout(async () => {
+      timerRef.current = null;
+      if (!entryId) return;
+      await persistNote(entryId, value).catch(() => undefined);
+    }, 5000);
+  }, [persistNote]);
 
   // Expose flushSave so parent can force-save before export / share.
   useEffect(() => {
-    (window as any).__mercury_flush_note = flushSave;
-    return () => { delete (window as any).__mercury_flush_note; };
-  }, [flushSave]);
-
-  // Save on unmount, article switch, or panel close.
-  useEffect(() => {
-    return () => {
-      flushSave();
-    };
-  }, [flushSave]);
+    if (!selectedEntryId) return;
+    return registerNoteDraftFlusher(selectedEntryId, flushSave);
+  }, [selectedEntryId, flushSave]);
 
   // Save when the window loses focus (user switches apps) or before unload.
   useEffect(() => {
-    const onBlur = () => flushSave();
-    const onBeforeUnload = () => flushSave();
+    const onBlur = () => {
+      void flushSave().catch(() => undefined);
+    };
+    const onBeforeUnload = () => {
+      void flushSave().catch(() => undefined);
+    };
     window.addEventListener("blur", onBlur);
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
@@ -98,6 +169,8 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       if (value.length <= maxLength) {
+        textRef.current = value;
+        editVersionRef.current += 1;
         setText(value);
         scheduleSave(value);
         if (saveStatus !== "idle") setSaveStatus("idle");
@@ -107,15 +180,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
   );
 
   const handleSave = async () => {
-    if (!selectedEntryId) return;
-    setSaveStatus("saving");
-    try {
-      await saveNote(selectedEntryId, text);
-      lastSaved.current = text;
-      setSaveStatus("saved");
-    } catch {
-      setSaveStatus("error");
-    }
+    await flushSave().catch(() => undefined);
   };
 
   const saveStatusLabel = {

@@ -20,6 +20,8 @@ fn html_escape(s: &str) -> String {
 /// optional theme params; defaults are used otherwise.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct ReaderThemeParams {
+    #[serde(rename = "themePreset")]
+    pub theme_preset: Option<String>,
     #[serde(rename = "fontFamily")]
     pub font_family: Option<String>,
     #[serde(rename = "fontSize")]
@@ -104,16 +106,21 @@ pub async fn build_reader_html(
         None
     };
 
-    // Start from the appropriate base theme by appearance mode.
-    let mut tokens = if let Some(ref t) = theme {
-        match t.theme_mode.as_deref() {
-            Some("forceDark") => ThemeTokens::dark(),
-            Some("forceEyecare") | Some("eyecare") => ThemeTokens::eyecare(),
-            _ => ThemeTokens::default(),
-        }
-    } else {
-        ThemeTokens::default()
+    let mut tokens = match theme.as_ref().and_then(|t| t.theme_preset.as_deref()) {
+        Some("paper") => ThemeTokens::paper(),
+        _ => ThemeTokens::default(),
     };
+
+    if let Some(ref t) = theme {
+        let appearance = match t.theme_mode.as_deref() {
+            Some("forceDark") => Some(ThemeTokens::dark()),
+            Some("forceEyecare") | Some("eyecare") => Some(ThemeTokens::eyecare()),
+            _ => None,
+        };
+        if let Some(appearance) = appearance {
+            tokens.apply_appearance(&appearance);
+        }
+    }
 
     if let Some(t) = &theme {
         if let Some(ref ff) = t.font_family { tokens.font_family = ff.clone(); }
