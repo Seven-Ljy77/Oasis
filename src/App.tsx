@@ -25,6 +25,7 @@ import ExportDigestSheet from "@/features/digest/ExportDigestSheet";
 import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestSheet";
 import TagRenameSheet from "@/features/tags/TagRenameSheet";
 import TagMergeSheet from "@/features/tags/TagMergeSheet";
+import SearchModal from "@/features/entry-list/SearchModal";
 import { useResizableWidth } from "@/hooks/useResizableWidth";
 
 const AppShell: React.FC = () => {
@@ -77,12 +78,6 @@ const AppShell: React.FC = () => {
 
   // ---- Font scaling ----
   const fontScale = useAppStore((s) => s.fontScale);
-
-  // ---- Search ----
-  const searchOpen = useAppStore((s) => s.searchOpen);
-  const searchText = useAppStore((s) => s.searchText);
-  const setSearchText = useAppStore((s) => s.setSearchText);
-  const setSearchOpen = useAppStore((s) => s.setSearchOpen);
 
   // ---- Status bar info ----
   const sidebarSection = useAppStore((s) => s.sidebarSection);
@@ -180,38 +175,8 @@ const AppShell: React.FC = () => {
       className="flex flex-col h-screen w-screen bg-surface text-slate-900 overflow-hidden"
       style={{ fontSize: `${fontScale * 100}%` }}
     >
-      {/* ---- Search overlay ---- */}
-      {searchOpen && (
-        <div className="absolute top-0 left-0 right-0 z-40 bg-surface border-b border-border shadow-md px-4 py-3 flex items-center gap-3">
-          <svg
-            className="w-4 h-4 text-slate-400 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search entries by title or summary..."
-            className="flex-1 bg-transparent border-none outline-none text-sm text-slate-900 placeholder-slate-400"
-            autoFocus
-          />
-          <button
-            onClick={() => setSearchOpen(false)}
-            className="text-slate-400 hover:text-slate-600 text-xs px-2 py-0.5 rounded border border-border"
-          >
-            Esc
-          </button>
-        </div>
-      )}
+      {/* ---- Search modal ---- */}
+      <SearchModal />
 
       {/* ---- Three-column layout ---- */}
       <div className="flex flex-1 overflow-hidden">
