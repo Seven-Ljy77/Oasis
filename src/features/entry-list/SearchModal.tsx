@@ -89,17 +89,18 @@ const SearchModal: React.FC = () => {
   if (!searchOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-center pt-[15vh]" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 pb-16 px-4" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[3px]" onClick={close} />
 
-      {/* Panel */}
+      {/* Panel — tall rectangle */}
       <div
-        className="relative w-full max-w-xl bg-white border border-border rounded-xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-2xl bg-white border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ maxHeight: "calc(100vh - 8rem)" }}
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
           <svg className="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -125,15 +126,15 @@ const SearchModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Results */}
-        <div className="max-h-80 overflow-y-auto">
+        {/* Results — fills remaining height */}
+        <div className="flex-1 overflow-y-auto">
           {!query.trim() && (
-            <p className="px-4 py-8 text-sm text-slate-400 text-center">
+            <p className="px-5 py-12 text-sm text-slate-400 text-center">
               Type to search entries by title or summary...
             </p>
           )}
           {query.trim() && !loading && results.length === 0 && (
-            <p className="px-4 py-8 text-sm text-slate-400 text-center">
+            <p className="px-5 py-12 text-sm text-slate-400 text-center">
               {t.common.noData}
             </p>
           )}
@@ -141,7 +142,7 @@ const SearchModal: React.FC = () => {
             <button
               key={entry.id}
               onClick={() => handleSelect(entry)}
-              className={`w-full text-left px-4 py-2.5 border-b border-border/50 hover:bg-surface-secondary transition-colors ${
+              className={`w-full text-left px-5 py-3 border-b border-border/50 hover:bg-surface-secondary transition-colors ${
                 idx === activeIndex ? "bg-accent-muted" : ""
               }`}
             >
