@@ -507,7 +507,10 @@ export const useReaderStore = create<ReaderState>()((set, get) => ({
       }
     } catch (err) {
       if (isCurrentRequest()) {
-        set({ summaryError: String(err), summaryLoading: false });
+        const msg = err instanceof Error ? err.message
+          : typeof err === "string" ? err
+          : JSON.stringify(err);
+        set({ summaryError: msg, summaryLoading: false });
       }
     }
   },

@@ -120,8 +120,13 @@ const ReaderSummaryPanel: React.FC = () => {
         summaryDetailLevel,
         force,
       );
-    } catch {
-      setSummaryLoading(false);
+    } catch (err) {
+      useReaderStore.setState({
+        summaryError: err instanceof Error ? err.message
+          : typeof err === "string" ? err
+          : JSON.stringify(err),
+        summaryLoading: false,
+      });
     }
   };
 

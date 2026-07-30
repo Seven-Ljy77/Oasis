@@ -269,7 +269,9 @@ const ReaderTranslationPanel: React.FC = () => {
         useReaderStore.setState({
           translationRequestId: null,
           translationLoading: false,
-          translationError: String(err),
+          translationError: err instanceof Error ? err.message
+            : typeof err === "string" ? err
+            : JSON.stringify(err),
         });
       }
     } finally {
