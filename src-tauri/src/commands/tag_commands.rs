@@ -186,7 +186,14 @@ pub async fn suggest_tags(
             .resolve_route(&AgentTaskKind::Tagging, None, None)
             .await {
                 Ok(r) => r,
-                Err(_) => Vec::new(),
+                Err(e) => {
+                    suggestions.push(TagSuggestion {
+                        name: e.to_string(),
+                        source: "error".to_string(),
+                        tag_id: None,
+                    });
+                    Vec::new()
+                },
             };
         if let Some(route) = routes.first() {
             let providers = state.agent_config_store.load_providers(false).await?;
