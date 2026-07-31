@@ -194,8 +194,8 @@ const AppShell: React.FC = () => {
 
       {/* ---- Three-column layout ---- */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: sidebar */}
-        {sidebarCollapsed ? (
+        {/* Left: sidebar — always mounted, hidden when collapsed */}
+        {sidebarCollapsed && (
           <div
             onClick={() => setSidebarCollapsed(false)}
             className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
@@ -205,30 +205,27 @@ const AppShell: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
-        ) : (
-          <>
-            <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col">
-              <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50">
-                <button
-                  onClick={() => saveAndCollapse(sidebarRef, "sidebar-v2", setSidebarCollapsed)}
-                  className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
-                  title="Hide sidebar"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <SidebarView />
-              </div>
-            </aside>
-            {sidebarDrag}
-          </>
         )}
+        <aside ref={sidebarRef as any} className={`flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col ${sidebarCollapsed ? "!w-0 !border-r-0 !overflow-hidden" : ""}`}>
+          <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50 flex-shrink-0">
+            <button
+              onClick={() => saveAndCollapse(sidebarRef, "sidebar-v2", setSidebarCollapsed)}
+              className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+              title="Hide sidebar"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <SidebarView />
+          </div>
+        </aside>
+        {!sidebarCollapsed && sidebarDrag}
 
-        {/* Center: entry list */}
-        {entriesCollapsed ? (
+        {/* Center: entry list — always mounted, hidden when collapsed */}
+        {entriesCollapsed && (
           <div
             onClick={() => setEntriesCollapsed(false)}
             className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
@@ -238,27 +235,24 @@ const AppShell: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
-        ) : (
-          <>
-            <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col">
-              <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50">
-                <button
-                  onClick={() => saveAndCollapse(entryListRef, "entrylist-v2", setEntriesCollapsed)}
-                  className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
-                  title="Hide entry list"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <EntryListView />
-              </div>
-            </div>
-            {centerDrag}
-          </>
         )}
+        <div ref={entryListRef as any} className={`flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col ${entriesCollapsed ? "!w-0 !border-r-0 !overflow-hidden" : ""}`}>
+          <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50 flex-shrink-0">
+            <button
+              onClick={() => saveAndCollapse(entryListRef, "entrylist-v2", setEntriesCollapsed)}
+              className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+              title="Hide entry list"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <EntryListView />
+          </div>
+        </div>
+        {!entriesCollapsed && centerDrag}
 
         {/* Right: reader */}
         <div className="flex-1 h-full overflow-hidden">
