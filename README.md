@@ -214,7 +214,7 @@ MIT License -- see [macOS Mercury](https://github.com/neolee/mercury) for origin
 ## Credits
 
 - Original macOS Mercury by [Neo Lee](https://github.com/neolee)
-- Windows port by [Seven-Ljy77](https://github.com/Seven-Ljy77)
+- Windows port by [Seven-Ljy77](https://github.com/Seven-Ljy77), [Yuanyyy11](https://github.com/Yuanyyy11), [RicardoMin](https://github.com/RicardoMin)
 
 ---
 
