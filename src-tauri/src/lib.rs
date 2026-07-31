@@ -96,7 +96,9 @@ pub fn run() {
         llm_usage_store,
         summary_store,
         translation_store,
-        prompt_template_store: Arc::new(std::sync::Mutex::new(PromptTemplateStore::default())),
+        prompt_template_store: Arc::new(std::sync::Mutex::new(PromptTemplateStore::new(
+            Some(dirs::data_local_dir().unwrap_or_else(|| std::path::PathBuf::from(".")).join("Oasis").join("prompts")),
+        ))),
         sync_service,
         task_queue: Arc::new(TaskQueue::new()),
         agent_runtime: Arc::new(AgentRuntimeEngine::new()),
