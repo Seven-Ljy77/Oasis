@@ -16,6 +16,7 @@ The macOS reference codebase lives on the `mac` branch. The `windows` branch is 
 |------|---------|
 | `docs/ARCHITECTURE.md` | Full architecture plan (tech stack, directory layout, DB schema, IPC API, phases) |
 | `docs/MERCURY_FEATURES.md` | Complete feature inventory of the macOS version (~162 features) |
+| `docs/phases/PHASE*.md` | Phase completion summaries (PHASE0 through PHASE9) |
 
 ---
 
@@ -213,7 +214,9 @@ For streaming/background progress, the backend emits events that the frontend li
 |------|---------|------|
 | `summary-token` | `{ entry_id, token, is_complete }` | Streaming LLM response |
 | `translation-segment` | `{ entry_id, segment_id, text }` | Per-segment completion |
+| `translation-progress` | `{ entry_id, request_id, status, segment_id, ... }` | Translation lifecycle (started/segment_completed/completed/failed) |
 | `sync-progress` | `{ feed_id, progress, status }` | Feed sync progress |
+| `import-opml-progress` | `{ feed_title, feed_url, status, completed, total }` | OPML import per-feed progress |
 | `agent-state-change` | `{ entry_id, phase, status_text }` | Agent lifecycle changes |
 
 ---
@@ -255,7 +258,10 @@ Concurrency limits (per task kind):
 ### 9.6 Prompt/Template Ownership
 
 - Built-in prompts live in `resources/prompts/*.default.yaml`.
-- User customizations are sandbox copies; invalid custom files fall back to built-in with user notice.
+- User customizations are stored in `%LOCALAPPDATA%/Oasis/prompts/` (sandbox copies).
+- `PromptTemplateStore` loads user templates first, falls back to built-in.
+- `reload_prompt_templates` command allows hot-reloading without restart.
+- Prompt files use `systemTemplate` (or `system_prompt`) and `template` (or `user_prompt_template`) YAML keys.
 - Executor code must never hard-code prompt text — templates are the sole source.
 
 ### 9.7 Tag System
@@ -296,13 +302,16 @@ Do not show Reader-banner messages for batch-tagging events or global sync failu
 
 ## 12. Development Phases
 
-| Phase | Scope | Key Deliverables |
-|------|-------|------------------|
-| **Phase 1** | Core reading MVP | Tauri scaffold, DB + migrations, feed CRUD + sync, OPML import/export, entry list + three-column layout, Readability + Markdown pipeline, WebView rendering, basic themes |
-| **Phase 2** | AI agents | LLM provider/model management, Windows Credential Manager integration, summary (streaming), translation (bilingual), tagging (single + batch) |
-| **Phase 3** | Notes & digest | Entry note editor, share digest (plain text), export digest (single/multi Markdown), template engine |
-| **Phase 4** | Tag system | Tag panel, tag library management (rename/merge/alias), batch tagging workflow, local entity extraction |
-| **Phase 5** | Polish & ship | Usage reports (charts), Obsidian Publish support, auto-update, MSI/NSIS installer, test coverage, i18n |
+| Phase | Scope | Status |
+|------|-------|--------|
+| **Phase 0** | Project scaffold | ✅ |
+| **Phase 1** | Core reading MVP | ✅ |
+| **Phase 2** | AI agents (LLM config, summary, translation, tagging) | ✅ |
+| **Phase 3** | Notes & digest (editor, share, export, templates) | ✅ |
+| **Phase 4** | Tag system (panel, library, batch, NLP) | ✅ |
+| **Phase 5–7** | Polish (usage reports, theme system, i18n, Dark Mode, Readability.js, OPML, sidebar counts, batch ops) | ✅ |
+| **Phase 8** | Interaction refinement (search modal, multi-select export, word translation, panel persistence, prompt customization) | ✅ |
+| **Phase 9** | Ship preparation (icons, i18n completion, error messages, UI cleanup, documentation) | ✅ |
 
 ---
 

@@ -113,6 +113,7 @@ oasis-windows/
 │       │   ├── provider.rs             # LLM 提供商客户端
 │       │   ├── route.rs               # 模型路由选择
 │       │   ├── prompt_template.rs      # Prompt 模板引擎
+│       │   ├── request_tracker.rs      # 请求去重追踪
 │       │   ├── failure.rs             # 错误分类与重试
 │       │   ├── summary/               # 摘要智能体
 │       │   │   ├── mod.rs
@@ -225,14 +226,9 @@ oasis-windows/
 │   │   │   ├── GeneralSettings.tsx
 │   │   │   ├── ReaderSettings.tsx
 │   │   │   ├── AgentSettings/          # 智能体设置
-│   │   │   │   ├── AgentSettingsView.tsx
-│   │   │   │   ├── ProviderTab.tsx
-│   │   │   │   ├── ModelTab.tsx
-│   │   │   │   ├── AgentTab.tsx
-│   │   │   │   ├── SummaryAgentConfig.tsx
-│   │   │   │   ├── TranslationAgentConfig.tsx
-│   │   │   │   └── TaggingAgentConfig.tsx
-│   │   │   └── DigestSettings.tsx
+│   │   │   │   └── AgentSettingsView.tsx  # Providers/Models/Agents 三标签页
+│   │   │   ├── DigestSettings.tsx
+│   │   │   └── LogsSettings.tsx        # 日志查看
 │   │   │
 │   │   ├── tags/                       # 标签管理
 │   │   │   ├── TagLibrarySheet.tsx
@@ -776,7 +772,7 @@ reader_html + theme_id  → 缓存查询/写入  (content_html_cache)
 | **Phase 6** | 笔记与文摘深度 (Digest 导出, 分享, 模板自定义) | ✅ |
 | **Phase 7** | 阅读体验深化 (Readability.js, OPML 并发, 侧栏计数, 批量操作修复) | ✅ |
 | **Phase 8** | 搜索重构, 多选导出, 划词翻译, 面板持久化, 提示词自定义 | ✅ |
-| **Phase 9** | TBD | 待开始 |
+| **Phase 9** | 收尾打磨 (图标, i18n 补全, 错误友好化, UI 清理, 文档维护) | ✅ |
 
 ### Phase 1：基础设施 + 核心阅读 (MVP)
 - Tauri 项目搭建，Rust 编译调试环境
@@ -826,6 +822,14 @@ reader_html + theme_id  → 缓存查询/写入  (content_html_cache)
 - Agent 提示词自定义 + 热刷新 (Reload Prompts)
 - 翻译进度实时显示 (X/Y segments)
 - Agent 面板错误信息可读化
+
+### Phase 9：收尾打磨
+- `cargo tauri icon` 生成全部应用图标 (16 种尺寸)
+- Agent 设置页 i18n 补全 (~14 个翻译键)
+- 未配置模型时统一友好错误提示
+- Digest 导出标题去重修复
+- 翻译面板 Clear 按钮移除 / Settings 按钮清理
+- `.gitignore` / `ARCHITECTURE.md` / `CLAUDE.md` 维护更新
 
 ---
 
