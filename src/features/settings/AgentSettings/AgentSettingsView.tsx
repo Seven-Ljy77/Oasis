@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
+import { revealCustomTemplate } from "@/lib/ipc";
 import type { AgentProviderProfile, AgentModelProfile } from "@/lib/types";
 
 type AgentTab = "providers" | "models" | "agents";
@@ -461,6 +462,24 @@ const AgentTab: React.FC = () => {
                 <option key={m.id} value={m.id}>{m.name} ({m.providerName})</option>
               ))}
             </select>
+          </div>
+
+          <div className="pt-2 border-t border-border/50">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const templateId = agent.type === "summary" ? "summary.default.yaml"
+                  : agent.type === "translation" ? "translation.default.yaml"
+                  : "tagging.default.yaml";
+                revealCustomTemplate(templateId);
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Customize Prompt
+            </Button>
           </div>
         </div>
         );

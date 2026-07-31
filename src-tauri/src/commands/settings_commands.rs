@@ -119,13 +119,19 @@ pub async fn reveal_custom_template(
     template_id: String,
 ) -> Result<(), AppError> {
     let default = match template_id.as_str() {
+        // Digest templates
         "single-markdown.yaml" => include_str!("../../resources/templates/single-markdown.yaml"),
         "minimal.yaml" => include_str!("../../resources/templates/minimal.yaml"),
         "academic.yaml" => include_str!("../../resources/templates/academic.yaml"),
         "newsletter.yaml" => include_str!("../../resources/templates/newsletter.yaml"),
+        // Agent prompt templates
+        "summary.default.yaml" => include_str!("../../resources/prompts/summary.default.yaml"),
+        "translation.default.yaml" => include_str!("../../resources/prompts/translation.default.yaml"),
+        "translation.hy-mt.yaml" => include_str!("../../resources/prompts/translation.hy-mt.yaml"),
+        "tagging.default.yaml" => include_str!("../../resources/prompts/tagging.default.yaml"),
         _ => {
             return Err(AppError::InvalidInput(
-                "Unknown digest template".to_string(),
+                "Unknown template".to_string(),
             ));
         }
     };
