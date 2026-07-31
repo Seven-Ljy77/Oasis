@@ -200,6 +200,18 @@ export interface TranslationDict {
     fallbackModel: string;
     connectionSuccess: string;
     connectionFailed: string;
+    active: string;
+    noModels: string;
+    newName: string;
+    summaryAgent: string;
+    translationAgent: string;
+    taggingAgent: string;
+    customizePrompt: string;
+    reloadPrompts: string;
+    reloadHint: string;
+    reloading: string;
+    reloadSuccess: string;
+    reloadFailed: string;
   };
   digestSettings: {
     exportFolder: string;
@@ -550,6 +562,18 @@ export const translations: Record<Locale, TranslationDict> = {
       fallbackModel: "Fallback Model",
       connectionSuccess: "Connection successful",
       connectionFailed: "Connection failed",
+      active: "Active",
+      noModels: "No models configured for this provider.",
+      newName: "New name:",
+      summaryAgent: "Summary Agent",
+      translationAgent: "Translation Agent",
+      taggingAgent: "Tagging Agent",
+      customizePrompt: "Customize Prompt",
+      reloadPrompts: "Reload Prompts",
+      reloadHint: "Edit prompt files then click Reload to apply without restart.",
+      reloading: "Reloading...",
+      reloadSuccess: "Successfully Reloaded",
+      reloadFailed: "Failed",
     },
     digestSettings: {
       exportFolder: "Export Folder",
@@ -896,6 +920,18 @@ export const translations: Record<Locale, TranslationDict> = {
       fallbackModel: "备用模型",
       connectionSuccess: "连接成功",
       connectionFailed: "连接失败",
+      active: "正常",
+      noModels: "此提供商未配置模型。",
+      newName: "新名称：",
+      summaryAgent: "摘要智能体",
+      translationAgent: "翻译智能体",
+      taggingAgent: "标签智能体",
+      customizePrompt: "自定义提示词",
+      reloadPrompts: "重新加载提示词",
+      reloadHint: "编辑提示词文件后点击重新加载即可生效，无需重启。",
+      reloading: "加载中...",
+      reloadSuccess: "加载成功",
+      reloadFailed: "加载失败",
     },
     digestSettings: {
       exportFolder: "导出目录",

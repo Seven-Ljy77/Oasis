@@ -136,7 +136,7 @@ const ProviderTab: React.FC = () => {
                       : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  {p.is_enabled ? "Active" : t.common.disabled}
+                  {p.is_enabled ? t.agentSettings.active : t.common.disabled}
                 </span>
               </td>
               <td className="py-2 pr-4">
@@ -149,7 +149,7 @@ const ProviderTab: React.FC = () => {
               <td className="py-2">
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={async () => {
-                    const newName = prompt("New name:", p.name);
+                    const newName = prompt(t.agentSettings.newName, p.name);
                     if (newName) await updateProvider(p.id, { name: newName });
                     loadProviders();
                   }}>{t.common.edit}</Button>
@@ -157,9 +157,9 @@ const ProviderTab: React.FC = () => {
                     const models = useSettingsStore.getState().models[p.id] ?? [];
                     if (models.length > 0) {
                       const ok = await testModel(models[0].id);
-                      alert(ok ? "Connection successful" : "Connection failed");
+                      alert(ok ? t.agentSettings.connectionSuccess : t.agentSettings.connectionFailed);
                     } else {
-                      alert("No models configured for this provider");
+                      alert(t.agentSettings.noModels);
                     }
                   }}>{t.agentSettings.testConnection}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
@@ -285,7 +285,7 @@ const ModelTab: React.FC = () => {
       )}
 
       {displayModels.length === 0 && (
-        <p className="text-xs text-slate-400 py-4">No models configured for this provider.</p>
+        <p className="text-xs text-slate-400 py-4">{t.agentSettings.noModels}</p>
       )}
 
       <table className="w-full text-sm">
@@ -388,9 +388,9 @@ const AgentTab: React.FC = () => {
   }, [loadAgentProfile]);
 
   const agentTypes = [
-    { type: "summary", label: "Summary Agent", description: "Summary Agent" },
-    { type: "translation", label: "Translation Agent", description: "Translation Agent" },
-    { type: "tagging", label: "Tagging Agent", description: "Tagging Agent" },
+    { type: "summary", key: "summaryAgent" as const },
+    { type: "translation", key: "translationAgent" as const },
+    { type: "tagging", key: "taggingAgent" as const },
   ];
 
   const handleSaveProfile = (agentType: string, primaryId: number | null, fallbackId: number | null) => {
@@ -420,7 +420,7 @@ const AgentTab: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-slate-400">Edit prompt files then click Reload to apply without restart.</span>
+        <span className="text-[11px] text-slate-400">{t.agentSettings.reloadHint}</span>
         <Button
           variant="ghost"
           size="sm"
@@ -431,7 +431,7 @@ const AgentTab: React.FC = () => {
           }}
           disabled={reloadState === "loading"}
         >
-          {reloadState === "loading" ? "Reloading..." : reloadState === "success" ? "Successfully Reloaded" : reloadState === "error" ? "Failed" : "Reload Prompts"}
+          {reloadState === "loading" ? t.agentSettings.reloading : reloadState === "success" ? t.agentSettings.reloadSuccess : reloadState === "error" ? t.agentSettings.reloadFailed : t.agentSettings.reloadPrompts}
         </Button>
       </div>
       {agentTypes.map((agent) => {
@@ -440,8 +440,7 @@ const AgentTab: React.FC = () => {
         return (
         <div key={agent.type} className="border border-border rounded-lg p-4 space-y-3">
           <div>
-            <h4 className="text-sm font-medium text-slate-700">{agent.label}</h4>
-            <p className="text-xs text-slate-500">{agent.description}</p>
+            <h4 className="text-sm font-medium text-slate-700">{t.agentSettings[agent.key]}</h4>
           </div>
 
           <div>
@@ -494,7 +493,7 @@ const AgentTab: React.FC = () => {
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
-              Customize Prompt
+              {t.agentSettings.customizePrompt}
             </Button>
           </div>
         </div>
