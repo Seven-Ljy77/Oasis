@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
-use std::collections::HashMap;
-
 use crate::agent::provider::{validate_provider_base_url, LLMMessage, LLMProvider, LLMRequest, OpenAIProvider};
 use crate::agent::request_tracker::AgentRequestSlot;
 use crate::agent::route::RouteResolver;
@@ -936,34 +934,10 @@ pub async fn translate_text(
     )
     .await?;
 
-    let template = {
-        let mut store = state.prompt_template_store.lock().map_err(|e| {
-            AppError::Agent(format!("Template store lock: {e}"))
-        })?;
-        store.load("translation.default")?
-    };
-
-    let lang_display = match target_language.as_str() {
-        "zh-CN" => "Chinese (Simplified)",
-        "zh-TW" | "zh-Hant" => "Chinese (Traditional)",
-        "en" => "English",
-        "ja" => "Japanese",
-        "ko" => "Korean",
-        "fr" => "French",
-        "de" => "German",
-        "es" => "Spanish",
-        "pt" => "Portuguese",
-        "ru" => "Russian",
-        "ar" => "Arabic",
-        "hi" => "Hindi",
-        "it" => "Italian",
-        "vi" => "Vietnamese",
-        other => other,
-    };
-    let mut vars = HashMap::new();
-    vars.insert("targetLanguageDisplayName".to_string(), lang_display.to_string());
-    vars.insert("sourceText".to_string(), text);
-    let user = template.render(&vars)?;
+    let user = format!(
+        "Translate the following text into {}. Output only the translation, nothing else.\n\n{}",
+        target_language, text
+    );
 
     let request = LLMRequest {
         model: route.model_name.clone(),
