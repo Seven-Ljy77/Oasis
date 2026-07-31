@@ -2,7 +2,7 @@
 // Mercury — Root App component (three-column layout)
 // =============================================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { I18nProvider } from "@/lib/i18n";
 import { useAppStore } from "@/stores/useAppStore";
 import { useFeedStore } from "@/stores/useFeedStore";
@@ -26,7 +26,6 @@ import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestShe
 import TagRenameSheet from "@/features/tags/TagRenameSheet";
 import TagMergeSheet from "@/features/tags/TagMergeSheet";
 import SearchModal from "@/features/entry-list/SearchModal";
-import { useResizableWidth } from "@/hooks/useResizableWidth";
 
 const AppShell: React.FC = () => {
   // ---- Bootstrap ----
@@ -91,48 +90,45 @@ const AppShell: React.FC = () => {
   const mergeSourceTagId = useAppStore((s) => s.mergeSourceTagId);
   const mergeSourceTagName = useAppStore((s) => s.mergeSourceTagName);
 
-  // Draggable column widths
-  const { panelRef: sidebarRef, dragHandle: sidebarDrag } = useResizableWidth("left", "sidebar-v2", 240, 180, 360);
-  const { panelRef: entryListRef, dragHandle: centerDrag } = useResizableWidth("left", "entrylist-v2", 340, 250, 550);
+  // Panel widths — read from localStorage on init, fall back to defaults.
+  const readW = (key: string, def: number) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) { const n = parseInt(raw); if (!isNaN(n) && n > 0) return n; }
+    } catch {}
+    return def;
+  };
+  const [sidebarW, setSidebarW] = useState(() => readW("panel-w-sidebar", 240));
+  const [entryW, setEntryW] = useState(() => readW("panel-w-entrylist", 340));
+  const saveSidebarW = (w: number) => { setSidebarW(w); try { localStorage.setItem("panel-w-sidebar", String(w)); } catch {} };
+  const saveEntryW = (w: number) => { setEntryW(w); try { localStorage.setItem("panel-w-entrylist", String(w)); } catch {} };
+
+  // Drag state
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const entryListRef = useRef<HTMLDivElement>(null);
+
+  const onSidebarDrag = (e: React.PointerEvent) => {
+    const el = sidebarRef.current!;
+    el.setPointerCapture(e.pointerId);
+    const sx = e.clientX; const sw = sidebarW;
+    const onMove = (ev: PointerEvent) => saveSidebarW(Math.max(180, Math.min(360, sw + (ev.clientX - sx))));
+    const onUp = () => { el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+  const onEntryDrag = (e: React.PointerEvent) => {
+    const el = entryListRef.current!;
+    el.setPointerCapture(e.pointerId);
+    const sx = e.clientX; const sw = entryW;
+    const onMove = (ev: PointerEvent) => saveEntryW(Math.max(250, Math.min(550, sw + (ev.clientX - sx))));
+    const onUp = () => { el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
 
   // Column collapse state — when both collapsed, reader takes full screen
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [entriesCollapsed, setEntriesCollapsed] = useState(false);
-
-  const saveAndCollapse = (
-    panelRef: React.RefObject<HTMLDivElement | null>,
-    storageKey: string,
-    setCollapsed: (v: boolean) => void,
-  ) => {
-    if (panelRef.current) {
-      const w = panelRef.current.offsetWidth;
-      if (w > 0) {
-        try { localStorage.setItem(`panel-width-${storageKey}`, String(w)); } catch {}
-      }
-    }
-    setCollapsed(true);
-  };
-
-  const expand = (
-    panelRef: React.RefObject<HTMLDivElement | null>,
-    storageKey: string,
-    defaultW: number,
-    setCollapsed: (v: boolean) => void,
-  ) => {
-    const el = panelRef.current;
-    if (el) {
-      let w = defaultW;
-      try {
-        const raw = localStorage.getItem(`panel-width-${storageKey}`);
-        if (raw) {
-          const parsed = parseInt(raw);
-          if (!isNaN(parsed) && parsed > 0) w = parsed;
-        }
-      } catch {}
-      el.style.width = `${w}px`;
-    }
-    setCollapsed(false);
-  };
 
   const renderSheet = () => {
     switch (activeSheet) {
@@ -215,10 +211,10 @@ const AppShell: React.FC = () => {
 
       {/* ---- Three-column layout ---- */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: sidebar — always mounted, hidden when collapsed */}
+        {/* Left: sidebar */}
         {sidebarCollapsed && (
           <div
-            onClick={() => expand(sidebarRef, "sidebar-v2", 240, setSidebarCollapsed)}
+            onClick={() => setSidebarCollapsed(false)}
             className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
             title="Show sidebar"
           >
@@ -227,10 +223,10 @@ const AppShell: React.FC = () => {
             </svg>
           </div>
         )}
-        <aside ref={sidebarRef as any} className={`flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col ${sidebarCollapsed ? "!w-0 !border-r-0 !overflow-hidden" : ""}`}>
+        <aside ref={sidebarRef} style={{ width: sidebarCollapsed ? 0 : sidebarW }} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col">
           <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50 flex-shrink-0">
             <button
-              onClick={() => saveAndCollapse(sidebarRef, "sidebar-v2", setSidebarCollapsed)}
+              onClick={() => setSidebarCollapsed(true)}
               className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
               title="Hide sidebar"
             >
@@ -243,12 +239,12 @@ const AppShell: React.FC = () => {
             <SidebarView />
           </div>
         </aside>
-        {!sidebarCollapsed && sidebarDrag}
+        {!sidebarCollapsed && <div onPointerDown={onSidebarDrag} className="w-1.5 cursor-col-resize bg-slate-200 hover:bg-accent flex-shrink-0" style={{ touchAction: "none" }} title="Drag to resize" />}
 
-        {/* Center: entry list — always mounted, hidden when collapsed */}
+        {/* Center: entry list */}
         {entriesCollapsed && (
           <div
-            onClick={() => expand(entryListRef, "entrylist-v2", 340, setEntriesCollapsed)}
+            onClick={() => setEntriesCollapsed(false)}
             className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
             title="Show entry list"
           >
@@ -257,10 +253,10 @@ const AppShell: React.FC = () => {
             </svg>
           </div>
         )}
-        <div ref={entryListRef as any} className={`flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col ${entriesCollapsed ? "!w-0 !border-r-0 !overflow-hidden" : ""}`}>
+        <div ref={entryListRef} style={{ width: entriesCollapsed ? 0 : entryW }} className="flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col">
           <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50 flex-shrink-0">
             <button
-              onClick={() => saveAndCollapse(entryListRef, "entrylist-v2", setEntriesCollapsed)}
+              onClick={() => setEntriesCollapsed(true)}
               className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
               title="Hide entry list"
             >
@@ -273,7 +269,7 @@ const AppShell: React.FC = () => {
             <EntryListView />
           </div>
         </div>
-        {!entriesCollapsed && centerDrag}
+        {!entriesCollapsed && <div onPointerDown={onEntryDrag} className="w-1.5 cursor-col-resize bg-slate-200 hover:bg-accent flex-shrink-0" style={{ touchAction: "none" }} title="Drag to resize" />}
 
         {/* Right: reader */}
         <div className="flex-1 h-full overflow-hidden">
