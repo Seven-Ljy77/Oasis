@@ -15,8 +15,10 @@ const SELECT_TRANSLATE_SCRIPT = `
 <script>
 (function(){
   let btn = null;
+  let lastMouseX = 0, lastMouseY = 0;
   function hideBtn(){ if(btn){ btn.remove(); btn = null; } }
   document.addEventListener('mouseup', function(e){
+    lastMouseX = e.clientX; lastMouseY = e.clientY;
     setTimeout(function(){
       hideBtn();
       var sel = window.getSelection();
@@ -33,7 +35,7 @@ const SELECT_TRANSLATE_SCRIPT = `
       btn.onmousedown = function(ev){ ev.stopPropagation(); ev.preventDefault(); };
       btn.onclick = function(ev){
         ev.stopPropagation();
-        window.parent.postMessage({ type:'oasis-word-translate', text: text }, '*');
+        window.parent.postMessage({ type:'oasis-word-translate', text: text, x: lastMouseX, y: lastMouseY }, '*');
         hideBtn();
       };
       document.body.appendChild(btn);
