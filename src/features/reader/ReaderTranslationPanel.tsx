@@ -338,14 +338,6 @@ const ReaderTranslationPanel: React.FC = () => {
       <div className="flex items-center justify-between px-4 py-2">
         <h3 className="text-sm font-semibold text-slate-700">{t.translation.title}</h3>
         <div className="flex items-center gap-2">
-          {segmentCount > 0 && !translationLoading && (
-            <button
-              onClick={handleClear}
-              className="text-xs text-red-500 hover:text-red-600 transition-colors"
-            >
-              {t.common.clear}
-            </button>
-          )}
           <button
             onClick={() => useReaderStore.setState({ activePanel: null })}
             className="p-0.5 rounded hover:bg-surface-tertiary text-slate-400 hover:text-slate-600 transition-colors"
