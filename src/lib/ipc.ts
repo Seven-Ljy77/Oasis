@@ -388,6 +388,9 @@ export const exportArticles = (entryIds: number[], path: string): Promise<void> 
 export const revealCustomTemplate = (templateId: string): Promise<void> =>
   invoke<void>("reveal_custom_template", { templateId });
 
+export const reloadPromptTemplates = (): Promise<void> =>
+  invoke<void>("reload_prompt_templates");
+
 // ---------------------------------------------------------------------------
 // Usage / Analytics commands
 // ---------------------------------------------------------------------------

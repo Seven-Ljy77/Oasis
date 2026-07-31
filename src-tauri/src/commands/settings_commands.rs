@@ -151,6 +151,17 @@ pub async fn reveal_custom_template(
     Ok(())
 }
 
+/// Reload prompt templates from disk so user edits take effect without restart.
+#[tauri::command]
+pub async fn reload_prompt_templates(
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    state.prompt_template_store.lock().map_err(|e| {
+        AppError::Agent(format!("Template store lock: {e}"))
+    })?.reload();
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_settings(
     state: State<'_, AppState>,

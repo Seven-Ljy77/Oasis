@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
-import { revealCustomTemplate } from "@/lib/ipc";
+import { revealCustomTemplate, reloadPromptTemplates } from "@/lib/ipc";
 import type { AgentProviderProfile, AgentModelProfile } from "@/lib/types";
 
 type AgentTab = "providers" | "models" | "agents";
@@ -418,6 +418,12 @@ const AgentTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-slate-400">Edit prompt files then click Reload to apply without restart.</span>
+        <Button variant="ghost" size="sm" onClick={() => reloadPromptTemplates()}>
+          Reload Prompts
+        </Button>
+      </div>
       {agentTypes.map((agent) => {
         const sel = selections[agent.type] ?? { primary: null, fallback: null };
 

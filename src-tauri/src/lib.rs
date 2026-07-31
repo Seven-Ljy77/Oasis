@@ -204,6 +204,7 @@ pub fn run() {
             commands::settings_commands::save_settings,
             commands::settings_commands::test_provider_connection,
             commands::settings_commands::reveal_custom_template,
+            commands::settings_commands::reload_prompt_templates,
             commands::settings_commands::get_settings,
             // Log commands
             commands::log_commands::get_logs,
