@@ -108,20 +108,24 @@ const AppShell: React.FC = () => {
   const entryListRef = useRef<HTMLDivElement>(null);
 
   const onSidebarDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
     const el = sidebarRef.current!;
     el.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = "none";
     const sx = e.clientX; const sw = sidebarW;
     const onMove = (ev: PointerEvent) => saveSidebarW(Math.max(180, Math.min(360, sw + (ev.clientX - sx))));
-    const onUp = () => { el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+    const onUp = () => { document.body.style.userSelect = ""; el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   };
   const onEntryDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
     const el = entryListRef.current!;
     el.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = "none";
     const sx = e.clientX; const sw = entryW;
     const onMove = (ev: PointerEvent) => saveEntryW(Math.max(250, Math.min(550, sw + (ev.clientX - sx))));
-    const onUp = () => { el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+    const onUp = () => { document.body.style.userSelect = ""; el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   };
