@@ -26,9 +26,11 @@ Thumbs.db
 # Vite
 .vite/
 
-# Tauri
-src-tauri/icons/*.png
-src-tauri/icons/*.ico
+# Tauri icons (generated, but tracked as project assets)
+# Only track the needed ones — generated extras can be ignored
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/*.icns
 
 # Local data & logs (generated at runtime)
 *.db
