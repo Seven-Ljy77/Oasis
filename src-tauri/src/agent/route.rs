@@ -177,10 +177,10 @@ impl RouteResolver {
         candidates.sort_by_key(|c| (c.is_fallback, c.priority));
 
         if candidates.is_empty() {
-            return Err(AppError::Config(format!(
-                "No enabled model found for task kind {:?}",
-                task_kind
-            )));
+            return Err(AppError::Config(
+                "No model configured. Go to Settings → Agents to set up a model."
+                    .to_string(),
+            ));
         }
 
         Ok(candidates)

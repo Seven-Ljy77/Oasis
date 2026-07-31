@@ -622,7 +622,7 @@ pub async fn start_summary(
         .await?;
     if routes.is_empty() {
         return Err(AppError::Config(
-            "No summary model configured".to_string(),
+            "No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string(),
         ));
     }
 
@@ -689,7 +689,7 @@ pub async fn start_summary(
         }
     }
     Err(last_error.unwrap_or_else(|| {
-        AppError::Config("No summary model configured".to_string())
+        AppError::Config("No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string())
     }))
 }
 
@@ -712,7 +712,7 @@ pub async fn start_translation(
         .await?;
     if routes.is_empty() {
         return Err(AppError::Config(
-            "No translation model configured".to_string(),
+            "No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string(),
         ));
     }
 
@@ -758,7 +758,7 @@ pub async fn start_translation(
 
     let mut used_route_index = 0;
     let mut result = Err(AppError::Config(
-        "No translation model configured".to_string(),
+        "No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string(),
     ));
     for (index, route) in routes.iter().enumerate() {
         request_context.ensure_current().await?;
@@ -926,7 +926,7 @@ pub async fn translate_text(
         .await?;
     let route = routes
         .first()
-        .ok_or_else(|| AppError::Config("No translation model configured".to_string()))?;
+        .ok_or_else(|| AppError::Config("No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string()))?;
 
     let provider = build_provider(
         state.agent_config_store.clone() as Arc<dyn AgentConfigStore>,
@@ -966,7 +966,7 @@ pub async fn start_tagging_panel(
         .await?;
     let route = routes
         .first()
-        .ok_or_else(|| AppError::Config("No tagging model configured".to_string()))?;
+        .ok_or_else(|| AppError::Config("No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string()))?;
 
     let provider: Arc<dyn LLMProvider> = Arc::new(
         build_provider(state.agent_config_store.clone() as Arc<dyn AgentConfigStore>, route).await?,
@@ -1019,7 +1019,7 @@ pub async fn start_batch_tagging(
         .await?;
     let route = routes
         .first()
-        .ok_or_else(|| AppError::Config("No batch tagging model configured".to_string()))?;
+        .ok_or_else(|| AppError::Config("No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string()))?;
 
     let provider: Arc<dyn LLMProvider> = Arc::new(
         build_provider(state.agent_config_store.clone() as Arc<dyn AgentConfigStore>, route).await?,
@@ -1180,7 +1180,7 @@ pub async fn generate_summary(
     let routes = resolver.resolve_route(&AgentTaskKind::Summary, None, None).await?;
     if routes.is_empty() {
         return Err(AppError::Config(
-            "No summary model configured".to_string(),
+            "No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string(),
         ));
     }
 

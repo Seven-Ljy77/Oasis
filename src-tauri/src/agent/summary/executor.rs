@@ -106,7 +106,7 @@ impl SummaryExecutor {
                 .resolve_route(&AgentTaskKind::Summary, None, None)
                 .await?;
             resolved_routes.first().ok_or_else(|| {
-                AppError::Config("No model configured for summary".to_string())
+                AppError::Config("No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string())
             })?
         };
 

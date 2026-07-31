@@ -56,7 +56,7 @@ impl TaggingExecutor {
             .await?;
         let route = candidates
             .first()
-            .ok_or_else(|| AppError::Config("No model configured for tagging".to_string()))?;
+            .ok_or_else(|| AppError::Config("No model configured. Go to Settings \u{2192} Agents to set up a model.".to_string()))?;
 
         // 2. Load existing tag vocabulary (top 50 by usage)
         let all_tags = self.tag_store.load_all().await?;
