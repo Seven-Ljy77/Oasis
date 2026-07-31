@@ -217,8 +217,7 @@ const ReaderNotePanel: React.FC<ReaderNotePanelProps> = ({
     <div
       data-component="ReaderNotePanel"
       ref={panelRef as any}
-      className={`border-t border-border bg-surface flex flex-col ${className}`}
-      style={{ maxHeight: "40vh" }}
+      className={`border-t border-border bg-surface flex flex-col max-h-[40vh] ${className}`}
     >
       {dragHandle}
       {/* Header */}
