@@ -209,3 +209,236 @@ MIT License -- see [macOS Mercury](https://github.com/neolee/mercury) for origin
 
 - Original macOS Mercury by [Neo Lee](https://github.com/neolee)
 - Windows port by [Seven-Ljy77](https://github.com/Seven-Ljy77)
+
+---
+
+# Oasis -- Mercury Windows 版
+
+一款本地优先的 RSS 阅读器，集成 AI 智能体能力，基于 **Tauri 2 + Rust + React/TypeScript + WebView2** 构建。
+
+灵感来源于 [macOS 版 Mercury](https://github.com/neolee/mercury)——相同数据库结构，相同产品理念，原生 Windows 体验。
+
+---
+
+## 功能特性
+
+### 订阅源管理
+- 支持 RSS 2.0、Atom、JSON Feed 三种格式
+- OPML 导入/导出，并发处理，实时进度显示
+- 多源同步，可配置并发数（2-10，默认 6）
+- 重复检测、URL 标准化、HTTPS 强制
+- 首次启动自动导入内置示例订阅源
+
+### 阅读体验
+- 三栏布局（订阅源 | 文章列表 | 阅读区），可拖拽调整宽度
+- 三种阅读模式：**Reader**（清洗后内容）、**Web**（原始网页）、**Dual**（左右对照）
+- Mozilla Readability.js 集成（QuickJS 嵌入）进行内容提取
+- 四阶段管线：源 HTML → Readability 清洗 → Markdown 转换 → 渲染 HTML
+- 5 级缓存体系，各层独立版本化
+- 主题系统：Classic / Paper 预设，Light / Dark / Eye Care 模式，Quick Style（Warm / Cool / Slate）
+- 可自定义字体、字号、行高、内容宽度
+- 键盘快捷键：J/K 导航、M 已读切换、S 收藏、V 浏览器打开、Ctrl+F 搜索
+
+### AI 智能体
+- **摘要**：流式 AI 生成文章摘要，12 种语言，3 级详细程度（简短/中等/详细），自动摘要模式
+- **翻译**：分段并发翻译，双语对照显示，content-hash 缓存，断点续传
+- **标签**：AI 标签推荐，词汇注入，单篇及批量模式
+- 划词翻译：选中文字即可翻译
+- 每智能体可自定义提示词模板，支持热刷新
+- LLM 提供商管理：兼容 OpenAI API，Windows Credential Manager 存储 API Key
+- 用量统计图表（Token 消耗、成功率、提供商/模型明细）
+
+### 搜索
+- 模态搜索窗口，背景虚化
+- 三分类结果：文章内容、标签、笔记
+- 键盘导航（方向键 + Enter），200ms 防抖
+
+### 笔记与文摘
+- 每篇文章可写 Markdown 笔记，5 秒自动保存
+- 单篇/多篇文摘导出为 Markdown 文件
+- 四种导出模板：Default、Minimal、Academic、Newsletter
+- 剪贴板分享、浏览器打开原文
+
+### 标签系统
+- 扁平标签模型，标准化规则（去空格 → 小写 → 压缩分隔符）
+- 三级去重：标准化 → 精确匹配 → 别名解析
+- 标签库管理：重命名、合并、别名、删除未使用
+- 侧栏标签筛选，Any/All 匹配模式
+- AI 创建的标签初始为临时标签，usage_count >= 2 自动提升
+
+### 多选与批量导出
+- 多选模式，checkbox 勾选
+- 批量导出：导出文摘（摘要+笔记）和导出原文（原始 Markdown）
+- Esc 退出多选，折叠栏任意位置点击展开
+
+### UI 与交互
+- 双语界面：英文 / 简体中文，运行时切换无需重启
+- Dark Mode（应用外壳 + 阅读器内容）
+- 布局持久化：列宽和面板高度通过 localStorage 记忆，跨会话保持
+- 侧栏和文章列表可折叠，展开时恢复上次宽度
+- 文章列表内置搜索按钮
+
+---
+
+## 技术栈
+
+| 层面 | 技术 |
+|------|------|
+| 桌面框架 | Tauri 2.x |
+| 后端 | Rust (Edition 2024) + tokio |
+| 数据库 | SQLite via rusqlite（bundled，WAL 模式）|
+| 前端 | React 19 + TypeScript |
+| 样式 | Tailwind CSS 3 |
+| 状态管理 | Zustand |
+| 阅读器渲染 | WebView2 (Tauri webview) |
+| 内容提取 | Mozilla Readability.js via QuickJS |
+| Markdown → HTML | comrak（GFM：表格、删除线、任务列表、自动链接）|
+| HTML → Markdown | 自研 Rust 转换器（scraper crate）|
+| Feed 解析 | feed-rs（RSS/Atom/JSON Feed）|
+| LLM 客户端 | reqwest + SSE 流式解析 |
+| 模板引擎 | Tera |
+| 图表 | Recharts |
+| 凭据存储 | Windows Credential Manager |
+| 自动更新 | Tauri updater |
+
+---
+
+## 快速开始
+
+### 环境要求
+
+- [Rust](https://www.rust-lang.org/)（Edition 2024）
+- [Node.js](https://nodejs.org/) 18+
+- [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+- [WebView2 Runtime](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/)（Windows 11 已预装）
+
+### 开发模式
+
+```bash
+# 克隆仓库
+git clone https://github.com/Seven-Ljy77/Oasis.git
+cd Oasis
+git checkout windows
+
+# 安装前端依赖
+npm install
+
+# 启动开发模式（热重载）
+cd src-tauri
+cargo tauri dev
+```
+
+### 构建
+
+```bash
+cargo tauri build
+# 输出：src-tauri/target/release/bundle/
+```
+
+---
+
+## 项目结构
+
+```
+oasis-windows/
+├── src-tauri/                    # Rust 后端
+│   ├── src/
+│   │   ├── main.rs               # 入口
+│   │   ├── lib.rs                # 模块声明，命令注册
+│   │   ├── state.rs              # AppState
+│   │   ├── error.rs              # 统一 AppError 类型
+│   │   ├── db/                   # 数据库层（16 个 Store + 查询构建器）
+│   │   ├── feed/                 # 订阅源同步、OPML、引导、侧栏计数
+│   │   ├── reader/               # Readability 桥接、Markdown 转换/渲染、主题
+│   │   ├── agent/                # LLM 提供商、路由解析、提示词模板
+│   │   │   ├── summary/          # 摘要执行器 + 存储
+│   │   │   ├── translation/      # 翻译执行器 + 分段 + 双语
+│   │   │   └── tagging/          # 标签执行器 + 批量
+│   │   ├── digest/               # 笔记 + 文摘导出 + 模板
+│   │   ├── tags/                 # 标签标准化 + 建议
+│   │   ├── usage/                # Token 追踪 + 报表
+│   │   ├── tasking/              # 任务队列 + 作业运行器
+│   │   ├── resources/            # 内置提示词/模板加载器
+│   │   └── commands/             # Tauri IPC 处理器（9 个命令文件）
+│   ├── migrations/               # SQL 迁移脚本（001-018）
+│   ├── icons/                    # 应用图标（16 种尺寸）
+│   └── capabilities/             # Tauri 2 权限清单
+├── src/                          # React 前端
+│   ├── App.tsx                   # 根三栏布局组件
+│   ├── components/ui/            # 基础 UI 组件（Button, Dialog, Sheet 等）
+│   ├── features/                 # 功能模块
+│   │   ├── sidebar/              # 订阅源列表 + 标签筛选
+│   │   ├── entry-list/           # 文章列表 + 搜索模态框 + 多选
+│   │   ├── reader/               # 阅读器视图 + 面板（摘要/翻译/标签/笔记）
+│   │   ├── settings/             # 设置（通用/阅读器/智能体/文摘/日志）
+│   │   ├── tags/                 # 标签库管理
+│   │   ├── digest/               # 分享/导出文摘
+│   │   └── usage/                # 用量统计图表
+│   ├── stores/                   # 9 个 Zustand Store
+│   ├── hooks/                    # 自定义 Hook（可拖拽、防抖、键盘等）
+│   └── lib/                      # IPC 封装、类型定义、格式化、常量
+├── resources/                    # YAML 模板文件
+│   ├── prompts/                  # AI 智能体提示词模板
+│   └── templates/                # 文摘导出模板
+└── docs/                         # 架构方案 + 阶段总结
+```
+
+---
+
+## 配置指南
+
+### LLM 提供商设置
+
+1. 打开 设置 → 智能体 → 提供商
+2. 点击"添加提供商"并填写：
+   - 名称：任意显示名称
+   - Base URL：OpenAI 兼容 API 端点（如 Ollama：`http://localhost:11434/v1`）
+   - API Key：提供商的 API 密钥
+3. 切换到模型页签，添加至少一个模型
+4. 切换到智能体页签，为摘要/翻译/标签分配主模型
+
+### 本地开发默认配置
+
+项目预配置为本地 LLM 使用：
+
+- `baseURL`：`http://localhost:5810/v1`
+- `apiKey`：`local`
+- `model`：`qwen3`
+- `thinkingModel`：`qwen3-thinking`
+
+### 提示词自定义
+
+在 设置 → 智能体 中点击"自定义提示词"按钮编辑提示词模板。文件存储在 `%LOCALAPPDATA%/Oasis/prompts/` 目录。编辑后点击"重新加载提示词"即可生效，无需重启。
+
+---
+
+## 数据库
+
+SQLite 数据库结构与 macOS Mercury 保持一致以确保兼容性。完整 DDL 见 `docs/ARCHITECTURE.md` 第三节。
+
+数据库位置：`%LOCALAPPDATA%/Oasis/oasis.db`
+
+---
+
+## 开发阶段
+
+| 阶段 | 状态 | 范围 |
+|------|------|------|
+| 0-1 | 已完成 | 项目框架搭建，核心阅读 MVP |
+| 2-4 | 已完成 | AI 智能体、笔记/文摘、标签系统 |
+| 5-7 | 已完成 | 打磨：用量报表、主题系统、i18n、Dark Mode、Readability.js |
+| 8 | 已完成 | 搜索重构、多选导出、划词翻译、面板持久化、提示词自定义 |
+| 9 | 已完成 | 图标生成、i18n 补全、错误友好化、UI 清理、文档完善 |
+
+---
+
+## 许可证
+
+MIT License — 原始项目见 [macOS Mercury](https://github.com/neolee/mercury)。
+
+---
+
+## 致谢
+
+- 原版 macOS Mercury 作者：[Neo Lee](https://github.com/neolee)
+- Windows 移植：[Seven-Ljy77](https://github.com/Seven-Ljy77)
