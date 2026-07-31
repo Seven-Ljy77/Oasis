@@ -182,16 +182,14 @@ const AppShell: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Left: sidebar */}
         {sidebarCollapsed ? (
-          <div className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2">
-            <button
-              onClick={() => setSidebarCollapsed(false)}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
-              title="Show sidebar"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          <div
+            onClick={() => setSidebarCollapsed(false)}
+            className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
+            title="Show sidebar"
+          >
+            <svg className="w-4 h-4 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         ) : (
           <>
@@ -217,16 +215,14 @@ const AppShell: React.FC = () => {
 
         {/* Center: entry list */}
         {entriesCollapsed ? (
-          <div className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2">
-            <button
-              onClick={() => setEntriesCollapsed(false)}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
-              title="Show entry list"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          <div
+            onClick={() => setEntriesCollapsed(false)}
+            className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
+            title="Show entry list"
+          >
+            <svg className="w-4 h-4 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         ) : (
           <>
