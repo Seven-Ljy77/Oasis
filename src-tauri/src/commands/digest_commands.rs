@@ -122,7 +122,7 @@ pub async fn export_multiple_digest(
         let mut parts = vec![format!("# Digest — {}\n", chrono::Local::now().format("%Y-%m-%d"))];
         for &eid in &entry_ids {
             match build_single_digest(&conn, eid, &template_id) {
-                Ok(md) => parts.push(format!("## {}\n\n{}", get_entry_title(&conn, eid), md)),
+                Ok(md) => parts.push(md),
                 Err(_) => parts.push(format!("## Entry #{} (unavailable)\n", eid)),
             }
         }
