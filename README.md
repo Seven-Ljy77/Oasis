@@ -449,4 +449,4 @@ MIT License — 原始项目见 [macOS Mercury](https://github.com/neolee/mercur
 ## 致谢
 
 - 原版 macOS Mercury 作者：[Neo Lee](https://github.com/neolee)
-- Windows 移植：[Seven-Ljy77](https://github.com/Seven-Ljy77)
+- Windows 移植：[Seven-Ljy77](https://github.com/Seven-Ljy77)、[Yuanyyy11](https://github.com/Yuanyyy11)、[RicardoMin](https://github.com/RicardoMin)
