@@ -1,3 +1,9 @@
+[English](#oasis----mercury-for-windows) | [中文](#oasis----mercury-windows-版)
+
+---
+
+<a id="oasis----mercury-for-windows"></a>
+
 # Oasis -- Mercury for Windows
 
 A local-first RSS reader with AI agent capabilities, built for Windows using **Tauri 2 + Rust + React/TypeScript + WebView2**.
@@ -211,6 +217,8 @@ MIT License -- see [macOS Mercury](https://github.com/neolee/mercury) for origin
 - Windows port by [Seven-Ljy77](https://github.com/Seven-Ljy77)
 
 ---
+
+<a id="oasis----mercury-windows-版"></a>
 
 # Oasis -- Mercury Windows 版
 
