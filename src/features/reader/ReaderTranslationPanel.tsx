@@ -37,6 +37,7 @@ const ReaderTranslationPanel: React.FC = () => {
   const translationLoading = useReaderStore((s) => s.translationLoading);
   const error = useReaderStore((s) => s.translationError);
   const segmentCount = useReaderStore((s) => s.translationSegments.length);
+  const translationProgress = useReaderStore((s) => s.translationProgress);
 
   const cancelledRef = useRef(false);
   const requestIdRef = useRef<string | null>(activeTranslationRequestId);
@@ -322,9 +323,11 @@ const ReaderTranslationPanel: React.FC = () => {
   const statusText = error
     ? t.translation.failed
     : translationLoading
-      ? `${t.translation.translating} (${segmentCount} segments)`
+      ? translationProgress?.total
+        ? `${t.translation.translating} — ${translationProgress.completed}/${translationProgress.total} ${t.translation.segments}`
+        : `${t.translation.translating}...`
       : segmentCount > 0
-        ? `${t.translation.completed}: ${segmentCount} segments`
+        ? `${t.translation.completed}: ${segmentCount} ${t.translation.segments}`
         : t.translation.ready;
 
   return (

@@ -107,6 +107,7 @@ export interface TranslationDict {
     ready: string;
     translating: string;
     completed: string;
+    segments: string;
     failed: string;
     noSegments: string;
   };
@@ -457,6 +458,7 @@ export const translations: Record<Locale, TranslationDict> = {
       translating: "Translating...",
       completed: "Translation completed",
       failed: "Translation failed",
+      segments: "segments",
       noSegments: "No translatable segments found in this article",
     },
     tagging: {
@@ -802,6 +804,7 @@ export const translations: Record<Locale, TranslationDict> = {
       translating: "翻译中...",
       completed: "翻译完成",
       failed: "翻译失败",
+      segments: "段",
       noSegments: "此文章没有可翻译的段落",
     },
     tagging: {
