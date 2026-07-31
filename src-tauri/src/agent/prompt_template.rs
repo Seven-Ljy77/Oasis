@@ -8,7 +8,9 @@ use crate::error::AppError;
 pub struct PromptTemplate {
     pub id: String,
     pub version: String,
+    #[serde(rename = "systemTemplate")]
     pub system_prompt: String,
+    #[serde(rename = "template")]
     pub user_prompt_template: String,
 }
 
