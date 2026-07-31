@@ -402,6 +402,7 @@ const AgentTab: React.FC = () => {
   };
 
   const [selections, setSelections] = useState<Record<string, { primary: number | null; fallback: number | null }>>({});
+  const [reloadState, setReloadState] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   // Sync selections from loaded profiles
   useEffect(() => {
@@ -420,8 +421,17 @@ const AgentTab: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <span className="text-[11px] text-slate-400">Edit prompt files then click Reload to apply without restart.</span>
-        <Button variant="ghost" size="sm" onClick={() => reloadPromptTemplates()}>
-          Reload Prompts
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={async () => {
+            setReloadState("loading");
+            try { await reloadPromptTemplates(); setReloadState("success"); } catch { setReloadState("error"); }
+            setTimeout(() => setReloadState("idle"), 2000);
+          }}
+          disabled={reloadState === "loading"}
+        >
+          {reloadState === "success" ? "Reloaded" : reloadState === "error" ? "Failed" : "Reload Prompts"}
         </Button>
       </div>
       {agentTypes.map((agent) => {
