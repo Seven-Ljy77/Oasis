@@ -205,13 +205,15 @@ oasis-windows/
 │   │   ├── entry-list/                 # 文章列表
 │   │   │   ├── EntryListView.tsx
 │   │   │   ├── EntryRow.tsx
-│   │   │   └── MultiSelectToolbar.tsx
+│   │   │   ├── MultiSelectToolbar.tsx
+│   │   │   └── SearchModal.tsx         # 模态搜索窗口
 │   │   │
 │   │   ├── reader/                     # 阅读器
 │   │   │   ├── ReaderDetailView.tsx
 │   │   │   ├── ReaderToolbar.tsx
 │   │   │   ├── ReaderWebView.tsx       # WebView 封装
 │   │   │   ├── ReaderThemePanel.tsx
+│   │   │   ├── ThemeSwitcher.tsx       # 主题快速切换
 │   │   │   ├── ReaderSummaryPanel.tsx
 │   │   │   ├── ReaderTranslationPanel.tsx
 │   │   │   ├── ReaderTaggingPanel.tsx
@@ -741,41 +743,40 @@ reader_html + theme_id  → 缓存查询/写入  (content_html_cache)
 
 ### 5.2 状态管理 (Zustand)
 
-```typescript
-// useAppStore.ts — 全局应用状态
-interface AppState {
-  isReady: boolean;
-  bootstrapState: 'idle' | 'importing' | 'failed';
-  syncState: 'idle' | 'syncing' | 'failed';
-  totalUnread: number;
-  lastSyncAt: string | null;
-  sidebarSection: 'feeds' | 'tags';
-  selectedFeedId: number | 'all' | 'starred';
-  selectedEntryId: number | null;
-  readingMode: 'reader' | 'web' | 'dual';
-  showUnreadOnly: boolean;
-  searchText: string;
-  selectedTagIds: number[];
-  tagMatchMode: 'any' | 'all';
-}
+9 个 Zustand store，覆盖应用所有状态：
 
-// useReaderStore.ts — 阅读器状态
-interface ReaderState {
-  themePreset: 'classic' | 'paper';
-  themeMode: 'auto' | 'forceLight' | 'forceDark';
-  themeOverrides: ThemeOverrides;
-  effectiveTheme: ThemeTokens;
-  readerHTML: string | null;
-  summaryState: SummaryState;
-  translationState: TranslationState;
-  noteText: string;
-  noteSaveState: 'idle' | 'saving' | 'saved' | 'failed';
-}
-```
+| Store | 职责 |
+|------|------|
+| `useAppStore` | 全局 UI 状态 (ready/bootstrap/sync, 面板选择, 搜索, 多选, 侧栏折叠) |
+| `useFeedStore` | 订阅源 CRUD + sync 状态 |
+| `useEntryStore` | 文章列表 + 游标分页 + 已读/收藏/删除 |
+| `useEntryListStore` | 文章列表扩展 |
+| `useReaderStore` | 阅读器 (主题令牌, 面板, 摘要/翻译/笔记内容, LRU 缓存) |
+| `useSettingsStore` | 设置持久化 + LLM Provider/Model/Agent Profile CRUD |
+| `useSidebarStore` | 侧栏计数 + 同步状态 + 标签筛选 |
+| `useTagStore` | 标签库 + 批量打标签 + 建议 |
+| `useAgentStore` | Agent 运行时状态 + 可用性检查 |
+
+**面板持久化**：三栏宽度和面板高度通过 localStorage 持久化，启动时恢复。`useResizableWidth` hook 使用 React state 驱动宽度，拖拽时即时保存。
+
+**提示词热刷新**：`PromptTemplateStore` 支持 `reload()` 清除缓存，`reload_prompt_templates` 命令允许用户编辑提示词文件后无需重启即可生效。
 
 ---
 
 ## 六、开发阶段
+
+| Phase | 范围 | 状态 |
+|------|------|------|
+| **Phase 0** | 项目框架搭建 | ✅ |
+| **Phase 1** | 基础设施 + 核心阅读 MVP | ✅ |
+| **Phase 2** | AI 智能体 (LLM 配置, 摘要, 翻译, 标签) | ✅ |
+| **Phase 3** | 笔记与文摘 | ✅ |
+| **Phase 4** | 标签系统 (面板, 库管理, 批量标签, 本地 NLP) | ✅ |
+| **Phase 5** | 完善与发布 (用量图表, 主题, i18n, Dark Mode) | ✅ |
+| **Phase 6** | 笔记与文摘深度 (Digest 导出, 分享, 模板自定义) | ✅ |
+| **Phase 7** | 阅读体验深化 (Readability.js, OPML 并发, 侧栏计数, 批量操作修复) | ✅ |
+| **Phase 8** | 搜索重构, 多选导出, 划词翻译, 面板持久化, 提示词自定义 | ✅ |
+| **Phase 9** | TBD | 待开始 |
 
 ### Phase 1：基础设施 + 核心阅读 (MVP)
 - Tauri 项目搭建，Rust 编译调试环境
@@ -792,6 +793,7 @@ interface ReaderState {
 - 摘要智能体 (流式输出)
 - 翻译智能体 (双语对照)
 - 标签智能体 (单篇 + 批量)
+- 用量追踪
 
 ### Phase 3：笔记与文摘
 - 文章笔记编辑器
@@ -805,13 +807,25 @@ interface ReaderState {
 - 批量打标签工作流
 - NLTagger 替代 (本地实体提取)
 
-### Phase 5：完善与发布
+### Phase 5 ~ 7：完善与发布
 - 用量统计报告 (图表)
-- Obsidian Publish 支持
-- 自动更新
-- 安装包 (MSI/NSIS)
-- 测试覆盖
-- 多语言支持
+- 主题系统 (Classic/Paper, 字体/字号/行高/宽度, Quick Style)
+- i18n 多语言系统 (EN/ZH-CN, 运行时切换)
+- Dark Mode (应用 + 阅读器)
+- Digest 导出系统 (单篇/多篇, 四种模板, 分享复制)
+- Readability.js 内容清洗 (QuickJS 嵌入, 5 级缓存)
+- OPML 并发导入 + 实时进度
+- 侧栏未读计数, 批量操作 query-scoped 修复
+
+### Phase 8：交互深化与开发者体验
+- 模态搜索窗口 + 三分类搜索 (Articles / Tags / Notes)
+- 多选模式 + 批量导出文摘/原文
+- 划词翻译 (选中文字 → 译 → 弹窗)
+- 三栏宽度持久化 (localStorage, 跨重启记忆)
+- 面板高度稳定 (CSS class 替代 inline style)
+- Agent 提示词自定义 + 热刷新 (Reload Prompts)
+- 翻译进度实时显示 (X/Y segments)
+- Agent 面板错误信息可读化
 
 ---
 
