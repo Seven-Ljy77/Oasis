@@ -113,6 +113,27 @@ const AppShell: React.FC = () => {
     setCollapsed(true);
   };
 
+  const expand = (
+    panelRef: React.RefObject<HTMLDivElement | null>,
+    storageKey: string,
+    defaultW: number,
+    setCollapsed: (v: boolean) => void,
+  ) => {
+    const el = panelRef.current;
+    if (el) {
+      let w = defaultW;
+      try {
+        const raw = localStorage.getItem(`panel-width-${storageKey}`);
+        if (raw) {
+          const parsed = parseInt(raw);
+          if (!isNaN(parsed) && parsed > 0) w = parsed;
+        }
+      } catch {}
+      el.style.width = `${w}px`;
+    }
+    setCollapsed(false);
+  };
+
   const renderSheet = () => {
     switch (activeSheet) {
       case "appSettings":
@@ -197,7 +218,7 @@ const AppShell: React.FC = () => {
         {/* Left: sidebar — always mounted, hidden when collapsed */}
         {sidebarCollapsed && (
           <div
-            onClick={() => setSidebarCollapsed(false)}
+            onClick={() => expand(sidebarRef, "sidebar-v2", 240, setSidebarCollapsed)}
             className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
             title="Show sidebar"
           >
@@ -227,7 +248,7 @@ const AppShell: React.FC = () => {
         {/* Center: entry list — always mounted, hidden when collapsed */}
         {entriesCollapsed && (
           <div
-            onClick={() => setEntriesCollapsed(false)}
+            onClick={() => expand(entryListRef, "entrylist-v2", 340, setEntriesCollapsed)}
             className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
             title="Show entry list"
           >

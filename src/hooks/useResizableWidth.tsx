@@ -1,4 +1,4 @@
-import { useRef, useLayoutEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback } from "react";
 
 export function useResizableWidth(
   side: "left" | "right",
@@ -8,22 +8,47 @@ export function useResizableWidth(
   maxWidth: number = 600,
 ) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const savedRef = useRef(defaultWidth);
 
-  // useLayoutEffect fires before paint — no flash of default width.
-  useLayoutEffect(() => {
-    if (!panelRef.current) return;
-    let resolved = defaultWidth;
+  // Restore saved width on mount.
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    let w = defaultWidth;
     try {
-      const saved = localStorage.getItem(`panel-width-${storageKey}`);
-      if (saved) {
-        const w = parseInt(saved);
-        if (w >= minWidth && w <= maxWidth) {
-          resolved = w;
+      const raw = localStorage.getItem(`panel-width-${storageKey}`);
+      if (raw) {
+        const parsed = parseInt(raw);
+        if (!isNaN(parsed) && parsed >= minWidth && parsed <= maxWidth) {
+          w = parsed;
         }
       }
     } catch { /* ignore corrupt localStorage */ }
-    panelRef.current.style.width = `${resolved}px`;
+    savedRef.current = w;
+    el.style.width = `${w}px`;
   }, [storageKey, defaultWidth, minWidth, maxWidth]);
+
+  // Restore width when expanding from collapsed state.
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    // If the panel was hidden (w-0), restore the last known width.
+    if (el.offsetWidth === 0 && savedRef.current > 0) {
+      el.style.width = `${savedRef.current}px`;
+    }
+  });
+
+  // Persist width on window close.
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      const el = panelRef.current;
+      if (el && el.offsetWidth > 0) {
+        try { localStorage.setItem(`panel-width-${storageKey}`, String(el.offsetWidth)); } catch {}
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [storageKey]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const panel = panelRef.current;
@@ -46,14 +71,16 @@ export function useResizableWidth(
       handle.releasePointerCapture(e.pointerId);
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);
-      try {
-        localStorage.setItem(`panel-width-${storageKey}`, String(panel.offsetWidth));
-      } catch {}
+      const w = panel.offsetWidth;
+      if (w > 0) {
+        savedRef.current = w;
+        try { localStorage.setItem(`panel-width-${storageKey}`, String(w)); } catch {}
+      }
     };
 
     handle.addEventListener("pointermove", onMove);
     handle.addEventListener("pointerup", onUp);
-  }, [side, storageKey]);
+  }, [side, storageKey, minWidth, maxWidth]);
 
   const dragHandle = (
     <div
