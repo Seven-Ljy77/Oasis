@@ -279,8 +279,8 @@ const ReaderDetailView: React.FC = () => {
         // Clamp popup to stay inside the reader area (viewport coords).
         const r = readerAreaRef.current?.getBoundingClientRect();
         const popW = 260, popH = 100;
-        const left = r ? Math.max(r.left + 8, Math.min(r.right - popW - 8, wordPopup.x + (r?.left ?? 0))) : wordPopup.x;
-        const top = r ? Math.max(r.top + 8, Math.min(r.bottom - popH - 8, wordPopup.y + (r?.top ?? 0) + 20)) : wordPopup.y + 20;
+        const left = r ? Math.max(r.left + 8, Math.min(r.right - popW - 8, wordPopup.x + r.left)) : wordPopup.x;
+        const top = r ? Math.max(r.top + 4, Math.min(r.bottom - popH - 4, wordPopup.y + r.top + 4)) : wordPopup.y + 4;
         return (
         <div
           className="fixed z-[120] bg-surface border border-border rounded-xl shadow-lg p-3.5 max-w-[260px] animate-in zoom-in-95 fade-in"
