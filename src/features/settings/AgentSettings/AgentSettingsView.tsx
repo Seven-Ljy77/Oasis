@@ -431,7 +431,7 @@ const AgentTab: React.FC = () => {
           }}
           disabled={reloadState === "loading"}
         >
-          {reloadState === "success" ? "Reloaded" : reloadState === "error" ? "Failed" : "Reload Prompts"}
+          {reloadState === "loading" ? "Reloading..." : reloadState === "success" ? "Reloaded" : reloadState === "error" ? "Failed" : "Reload Prompts"}
         </Button>
       </div>
       {agentTypes.map((agent) => {
