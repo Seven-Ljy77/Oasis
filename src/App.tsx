@@ -99,6 +99,20 @@ const AppShell: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [entriesCollapsed, setEntriesCollapsed] = useState(false);
 
+  const saveAndCollapse = (
+    panelRef: React.RefObject<HTMLDivElement | null>,
+    storageKey: string,
+    setCollapsed: (v: boolean) => void,
+  ) => {
+    if (panelRef.current) {
+      const w = panelRef.current.offsetWidth;
+      if (w > 0) {
+        try { localStorage.setItem(`panel-width-${storageKey}`, String(w)); } catch {}
+      }
+    }
+    setCollapsed(true);
+  };
+
   const renderSheet = () => {
     switch (activeSheet) {
       case "appSettings":
@@ -196,7 +210,7 @@ const AppShell: React.FC = () => {
             <aside ref={sidebarRef as any} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col">
               <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50">
                 <button
-                  onClick={() => setSidebarCollapsed(true)}
+                  onClick={() => saveAndCollapse(sidebarRef, "sidebar-v2", setSidebarCollapsed)}
                   className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
                   title="Hide sidebar"
                 >
@@ -229,7 +243,7 @@ const AppShell: React.FC = () => {
             <div ref={entryListRef as any} className="flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col">
               <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50">
                 <button
-                  onClick={() => setEntriesCollapsed(true)}
+                  onClick={() => saveAndCollapse(entryListRef, "entrylist-v2", setEntriesCollapsed)}
                   className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
                   title="Hide entry list"
                 >

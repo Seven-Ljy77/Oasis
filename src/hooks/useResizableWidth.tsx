@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useLayoutEffect, useCallback } from "react";
 
 export function useResizableWidth(
   side: "left" | "right",
@@ -9,19 +9,20 @@ export function useResizableWidth(
 ) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // useLayoutEffect fires before paint — no flash of default width.
+  useLayoutEffect(() => {
     if (!panelRef.current) return;
+    let resolved = defaultWidth;
     try {
       const saved = localStorage.getItem(`panel-width-${storageKey}`);
       if (saved) {
         const w = parseInt(saved);
         if (w >= minWidth && w <= maxWidth) {
-          panelRef.current.style.width = `${w}px`;
-          return;
+          resolved = w;
         }
       }
-    } catch {}
-    panelRef.current.style.width = `${defaultWidth}px`;
+    } catch { /* ignore corrupt localStorage */ }
+    panelRef.current.style.width = `${resolved}px`;
   }, [storageKey, defaultWidth, minWidth, maxWidth]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
