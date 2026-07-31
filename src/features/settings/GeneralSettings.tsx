@@ -141,15 +141,6 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ className = "" }) => 
           {t.generalSettings.openTagLibrary}
         </button>
 
-        <button
-          className="w-full py-2 px-3 text-sm font-medium rounded-md border border-border bg-surface hover:bg-surface-secondary transition-colors text-slate-700 text-left flex items-center gap-2"
-          onClick={() => openSheet("batchTagging")}
-        >
-          <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          {t.generalSettings.batchAiTagging}
-        </button>
       </div>
     </div>
   );
