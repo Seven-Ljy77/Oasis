@@ -6,224 +6,344 @@
 
 # Oasis -- Mercury for Linux
 
-A local-first RSS reader with AI agent capabilities, built for Linux using **Tauri 2 + Rust + React/TypeScript + WebKitGTK**.
+Oasis is a local-first RSS reader with AI agent capabilities, built for Linux using **Tauri 2 + Rust + React/TypeScript + WebKitGTK**.
 
-Inspired by [Mercury for macOS](https://github.com/neolee/mercury) -- same database schema, same product philosophy, native Linux experience.
+This branch contains the Linux version of Oasis. It is based on the completed Windows implementation and keeps the same product model: local SQLite storage, three-column reading, Reader/Web/Dual modes, notes, tags, digest export, and AI-powered summary, translation, and tagging.
+
+The project is inspired by [Mercury for macOS](https://github.com/neolee/mercury), sharing the same product philosophy and database-oriented design.
+
+## Repository Branches
+
+| Branch | Purpose |
+|------|---------|
+| `main` | Repository overview and branch index |
+| `windows` | Windows version, built with Tauri 2 + Rust + React/TypeScript + WebView2 |
+| `linux` | Linux version, built with Tauri 2 + Rust + React/TypeScript + WebKitGTK |
+| `mac` | macOS reference / version branch |
 
 ## Features
 
 ### Feed Management
+
 - Subscribe to RSS 2.0, Atom, and JSON Feed sources
 - OPML import/export with concurrent processing and real-time progress
-- Multi-feed sync with configurable concurrency (2-10, default 6)
-- Duplicate detection, URL normalization, HTTPS enforcement
+- Multi-feed sync with configurable concurrency
+- Duplicate detection, URL normalization, and HTTPS enforcement
 - First-run bootstrap with bundled starter feeds
 
 ### Reading Experience
-- Three-column layout (feeds | articles | reader) with draggable resizers
-- Three reading modes: **Reader** (cleaned content), **Web** (original page), **Dual** (side-by-side)
-- Mozilla Readability.js integration via QuickJS for content extraction
-- Four-stage pipeline: Source HTML -> Readability -> Markdown -> Rendered HTML
-- 5-level cache hierarchy with independent layer versioning
-- Theme system: Classic / Paper presets, Light / Dark / Eye Care modes, Quick Style (Warm / Cool / Slate)
-- Customizable fonts, size, line height, and content width
-- Keyboard shortcuts: J/K navigation, M read toggle, S star, V open in browser, Ctrl+F search
+
+- Three-column layout: feeds, articles, and reader
+- Three reading modes: **Reader**, **Web**, and **Dual**
+- Mozilla Readability.js integration for article extraction
+- Four-stage reader pipeline: source HTML -> Readability -> Markdown -> rendered HTML
+- Versioned cache layers for cleaned content, normalized Markdown, and rendered reader HTML
+- Theme system with Classic / Paper presets, light / dark variants, and quick style overrides
+- Customizable fonts, font size, line height, and content width
+- Keyboard shortcuts for navigation, read state, starring, browser opening, and search
 
 ### AI Agents
-- **Summary**: streaming AI-generated article summaries in 12 languages, 3 detail levels (short/medium/detailed), auto-summary mode
-- **Translation**: segment-based concurrent translation with bilingual display, content-hash caching, checkpoint recovery
-- **Tagging**: AI-suggested tags with vocabulary injection, single-entry and batch modes
-- Word/phrase translation on text selection
-- Customizable prompt templates per agent with hot-reload support
-- LLM provider management: OpenAI-compatible API, Secret Service (libsecret/GNOME Keyring) for API key storage
-- Usage tracking with charts (token consumption, success rate, provider/model breakdown)
 
-### Search
-- Modal search dialog with backdrop blur
-- Categorized results: Articles, Tags, and Notes
-- Keyboard navigation (arrows + Enter), 200ms debounce
+- **Summary**: streaming AI-generated article summaries in multiple languages and detail levels
+- **Translation**: segment-based concurrent translation with bilingual display and content-hash caching
+- **Tagging**: AI-assisted tag suggestions with local vocabulary injection
+- Word or phrase translation from selected reader text
+- Prompt templates with hot-reload support
+- OpenAI-compatible LLM provider configuration
+- API key storage through the Linux Secret Service stack (`libsecret`, GNOME Keyring, or KWallet) via the Rust `keyring` crate
+- Token usage tracking with charts and provider/model breakdowns
 
-### Notes & Digest
-- Per-article Markdown notes with 5-second auto-save
-- Single/multi-entry Digest export to Markdown files
-- Four export templates: Default, Minimal, Academic, Newsletter
-- Share via clipboard, open in external browser
+### Search, Notes, and Digest
+
+- Modal search across articles, tags, and notes
+- Per-article Markdown notes with auto-save
+- Single-entry and multi-entry digest export
+- Template-based digest generation
+- Clipboard sharing and external browser opening
 
 ### Tag System
-- Flat tag model with normalization (trim -> lowercase -> collapse separators)
-- 3-tier dedup: normalization -> strict match -> alias resolution
-- Tag library management: rename, merge, alias, delete unused
-- Sidebar tag filter with Any/All match modes
-- AI-created tags start as provisional, auto-promoted at usage_count >= 2
 
-### Multi-select & Batch Export
-- Multi-select mode with checkbox selection
-- Batch export: Export Digest (summaries + notes) and Export Articles (original Markdown)
-- Escape to exit multi-select, click-anywhere on collapsed bars to expand
+- Flat tag model with normalization and alias resolution
+- Tag library management: rename, merge, alias, and delete unused tags
+- Sidebar tag filters with Any/All match modes
+- Batch tagging pipeline with review-before-apply workflow
 
-### UI & UX
-- Bilingual interface: English and Simplified Chinese, runtime switching without restart
-- Dark Mode for both app shell and reader content
-- Persistent layout: panel widths and heights remembered across sessions via localStorage
-- Collapsible sidebar and entry list with restored widths on expand
-- Search button in entry list header
+### UI and UX
+
+- English and Simplified Chinese interface
+- Runtime language switching without restart
+- Dark mode support for both app shell and reader content
+- Persistent panel widths/heights through local storage
+- Collapsible sidebar and entry list
 
 ## Tech Stack
 
 | Layer | Technology |
 |------|------------|
 | Desktop Framework | Tauri 2.x |
-| Backend | Rust (Edition 2024) + tokio |
-| Database | SQLite via rusqlite (bundled, WAL mode) |
+| Backend | Rust Edition 2024 + tokio |
+| Database | SQLite via rusqlite, bundled, WAL mode |
 | Frontend | React 19 + TypeScript |
-| Styling | Tailwind CSS 3 |
+| Styling | Tailwind CSS |
 | State Management | Zustand |
-| Reader Rendering | WebKitGTK (Tauri webview) |
+| Linux Webview | WebKitGTK |
 | Content Extraction | Mozilla Readability.js via QuickJS |
-| Markdown -> HTML | comrak (GFM: tables, strikethrough, tasklists, autolinks) |
-| HTML -> Markdown | Custom Rust converter (scraper crate) |
-| Feed Parsing | feed-rs (RSS/Atom/JSON Feed) |
+| Markdown -> HTML | comrak with GFM support and custom enhancements |
+| HTML -> Markdown | Custom Rust converter using scraper |
+| Feed Parsing | feed-rs |
 | LLM Client | reqwest + SSE streaming |
 | Template Engine | Tera |
 | Charts | Recharts |
-| Credential Storage | Secret Service (libsecret/GNOME Keyring/KWallet) via `keyring` crate |
+| Credential Storage | Secret Service / libsecret via `keyring` |
 | Auto-update | Tauri updater |
 
 ## Getting Started
 
-### Prerequisites
+### 1. Install Linux System Dependencies
 
-- [Rust](https://www.rust-lang.org/) (Edition 2024)
-- [Node.js](https://nodejs.org/) 18+
-- System packages (Debian/Ubuntu):
-  ```bash
-  sudo apt update
-  sudo apt install -y build-essential curl wget pkg-config \
-    libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-    libayatana-appindicator3-dev libsecret-1-dev
-  ```
-  Fedora: swap in `dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel libappindicator-gtk3-devel libsecret-devel`.
-  Arch: `pacman -S webkit2gtk-4.1 gtk3 librsvg libappindicator-gtk3 libsecret`.
-- A running Secret Service provider (`gnome-keyring` or `kwallet`) for API key storage.
-
-### Development
+Debian / Ubuntu:
 
 ```bash
-# Clone
+sudo apt update
+sudo apt install -y build-essential curl wget pkg-config \
+  libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+  libayatana-appindicator3-dev libsecret-1-dev
+```
+
+Fedora:
+
+```bash
+sudo dnf install -y gcc gcc-c++ make curl wget pkg-config \
+  webkit2gtk4.1-devel gtk3-devel librsvg2-devel \
+  libappindicator-gtk3-devel libsecret-devel
+```
+
+Arch Linux:
+
+```bash
+sudo pacman -S --needed base-devel curl wget pkgconf \
+  webkit2gtk-4.1 gtk3 librsvg libappindicator-gtk3 libsecret
+```
+
+### 2. Install Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+rustc --version
+cargo --version
+```
+
+### 3. Install Node.js and npm
+
+Use Node.js 18 or newer. On Ubuntu:
+
+```bash
+sudo apt install -y nodejs npm
+node --version
+npm --version
+```
+
+If you are using WSL, make sure `node` and `npm` point to Linux paths:
+
+```bash
+which node
+which npm
+```
+
+Expected examples:
+
+```text
+/usr/bin/node
+/usr/bin/npm
+```
+
+If `npm` points to `/mnt/c/...` or invokes `C:\Windows\system32\cmd.exe`, Windows Node/npm is leaking into WSL. Install the Linux packages and ensure `/usr/bin/npm` is used before running `npm install`.
+
+### 4. Clone the Repository
+
+```bash
+mkdir -p ~/programming
+cd ~/programming
 git clone https://github.com/Seven-Ljy77/Oasis.git
 cd Oasis
 git checkout linux
+```
 
-# Install frontend dependencies
+For WSL development, keep the repository under the Linux filesystem, such as `~/programming/Oasis`, not under `/mnt/c/...`. This avoids severe file I/O slowdowns with `node_modules` and Cargo builds.
+
+### 5. Install Project Dependencies
+
+```bash
+cd ~/programming/Oasis
 npm install
+```
 
-# Run in development mode (hot reload)
-cd src-tauri
+### 6. Verify Frontend Build
+
+```bash
+npm run build
+```
+
+### 7. Verify Rust Backend
+
+```bash
+cd ~/programming/Oasis/src-tauri
+cargo check
+```
+
+The first Rust build can take a long time because WebKitGTK/Tauri dependencies are compiled and cached.
+
+## Development
+
+Install the Rust Tauri CLI:
+
+```bash
+cargo install tauri-cli --version "^2.0.0"
+```
+
+Run the app:
+
+```bash
+cd ~/programming/Oasis
 cargo tauri dev
 ```
 
-### Build
+The Tauri configuration starts the Vite dev server automatically through `beforeDevCommand`.
+
+### WSLg Rendering Workaround
+
+On WSL2 with WSLg, WebKitGTK may show a blank white window or EGL/Mesa warnings such as:
+
+```text
+libEGL warning: failed to get driver name for fd -1
+MESA: error: ZINK: failed to choose pdev
+```
+
+If that happens, start the app with software rendering:
 
 ```bash
-cargo tauri build
-# Output: src-tauri/target/release/bundle/
+cd ~/programming/Oasis
+
+WEBKIT_DISABLE_DMABUF_RENDERER=1 \
+WEBKIT_DISABLE_COMPOSITING_MODE=1 \
+LIBGL_ALWAYS_SOFTWARE=1 \
+GSK_RENDERER=cairo \
+cargo tauri dev
 ```
+
+This workaround is mainly for WSLg. On a native Linux desktop, `cargo tauri dev` is usually enough.
+
+## Production Build
+
+```bash
+cd ~/programming/Oasis
+cargo tauri build
+```
+
+Build artifacts are generated under:
+
+```text
+src-tauri/target/release/bundle/
+```
+
+Depending on the target system and Tauri configuration, Linux bundles may include AppImage, deb, or rpm artifacts.
 
 ## Project Structure
 
-```
+```text
 oasis-linux/
-├── src-tauri/                    # Rust backend
-│   ├── src/
-│   │   ├── main.rs               # Entry point
-│   │   ├── lib.rs                # Module declarations, command registration
-│   │   ├── state.rs              # AppState
-│   │   ├── error.rs              # Unified AppError type
-│   │   ├── db/                   # Database layer (16 stores + query builder)
-│   │   ├── feed/                 # Feed sync, OPML, bootstrap, sidebar counts
-│   │   ├── reader/               # Readability bridge, markdown converter/renderer, theme
-│   │   ├── agent/                # LLM providers, route resolver, prompt templates
-│   │   │   ├── summary/          # Summary executor + storage
-│   │   │   ├── translation/      # Translation executor + segmenter + bilingual
-│   │   │   └── tagging/          # Tagging executor + batch
-│   │   ├── digest/               # Notes + digest export + templates
-│   │   ├── tags/                 # Tag normalization + suggestion
-│   │   ├── usage/                # Token tracking + reports
-│   │   ├── tasking/              # Task queue + job runner
-│   │   ├── resources/            # Embedded prompt/template loaders
-│   │   └── commands/             # Tauri IPC handlers (9 command files)
-│   ├── migrations/               # SQL migration scripts (001-018)
-│   ├── icons/                    # Application icons (16 sizes)
-│   └── capabilities/             # Tauri 2 permission manifests
-├── src/                          # React frontend
-│   ├── App.tsx                   # Root three-column layout
-│   ├── components/ui/            # Base UI primitives (Button, Dialog, Sheet, etc.)
-│   ├── features/                 # Feature modules
-│   │   ├── sidebar/              # Feed list + tag filter
-│   │   ├── entry-list/           # Article list + search modal + multi-select
-│   │   ├── reader/               # Reader views + panels (summary/translation/tagging/note)
-│   │   ├── settings/             # Settings (General/Reader/Agents/Digest/Logs)
-│   │   ├── tags/                 # Tag library management
-│   │   ├── digest/               # Share/export digest sheets
-│   │   └── usage/                # Usage report charts
-│   ├── stores/                   # 9 Zustand stores
-│   ├── hooks/                    # Custom hooks (resizable, debounce, keyboard, etc.)
-│   └── lib/                      # IPC wrappers, types, formatters, constants
-├── resources/                    # YAML template files
-│   ├── prompts/                  # AI agent prompt templates
-│   └── templates/                # Digest export templates
-└── docs/                         # Architecture plans + phase summaries
+|-- src-tauri/                    # Rust backend
+|   |-- src/
+|   |   |-- main.rs               # Tauri entry point
+|   |   |-- lib.rs                # Module declarations and command registration
+|   |   |-- state.rs              # AppState
+|   |   |-- error.rs              # Unified AppError type
+|   |   |-- db/                   # Database layer
+|   |   |-- feed/                 # Feed sync, OPML, bootstrap, sidebar counts
+|   |   |-- reader/               # Readability, markdown, renderer, theme
+|   |   |-- agent/                # LLM providers, runtime, summary, translation, tagging
+|   |   |-- digest/               # Notes and digest export
+|   |   |-- tags/                 # Tag normalization and suggestion
+|   |   |-- usage/                # Token usage tracking and reports
+|   |   |-- tasking/              # Task queue and job runner
+|   |   |-- resources/            # Embedded prompt/template loaders
+|   |   `-- commands/             # Tauri IPC command handlers
+|   |-- migrations/               # SQL migration scripts
+|   |-- icons/                    # Application icons
+|   `-- capabilities/             # Tauri 2 permission manifests
+|-- src/                          # React frontend
+|   |-- App.tsx                   # Root three-column layout
+|   |-- components/ui/            # Base UI primitives
+|   |-- features/                 # Feature modules
+|   |-- stores/                   # Zustand stores
+|   |-- hooks/                    # Custom hooks
+|   `-- lib/                      # IPC wrappers, types, formatters
+|-- resources/                    # YAML prompt and digest templates
+`-- docs/                         # Architecture plans and phase summaries
 ```
 
 ## Configuration
 
 ### LLM Provider Setup
 
-1. Open Settings -> Agents -> Providers
-2. Click "Add Provider" and fill in:
-   - Name: any display name
-   - Base URL: your OpenAI-compatible API endpoint (e.g., `http://localhost:11434/v1` for Ollama)
-   - API Key: your provider's API key
-3. Go to the Models tab and add at least one model
-4. Go to the Agents tab and assign primary models for Summary / Translation / Tagging
+1. Open Settings -> Agents -> Providers.
+2. Add an OpenAI-compatible provider.
+3. Add at least one model in the Models tab.
+4. Assign models for Summary, Translation, and Tagging in the Agents tab.
 
-### Local Development Defaults
+The default local development profile is:
 
-The project is pre-configured for local LLM usage:
+```text
+baseURL: http://localhost:5810/v1
+apiKey: local
+model: qwen3
+thinkingModel: qwen3-thinking
+```
 
-- `baseURL`: `http://localhost:5810/v1`
-- `apiKey`: `local`
-- `model`: `qwen3`
+### Credential Storage
+
+API keys are stored through the OS credential store via the Rust `keyring` crate.
+
+On Linux, this usually means Secret Service through GNOME Keyring, KWallet, or another compatible provider. In minimal desktop environments or WSL, you may need to install and start a Secret Service provider before managed API key storage works.
 
 ### Prompt Customization
 
-Edit agent prompt templates by clicking "Customize Prompt" in Settings -> Agents. Files are stored in `~/.local/share/Oasis/prompts/`. Click "Reload Prompts" to apply changes without restarting.
+Built-in prompt templates are copied to the user data directory before editing. On Linux, user-customized prompts are stored under:
+
+```text
+~/.local/share/Oasis/prompts/
+```
+
+Use Settings -> Agents -> Reload Prompts to apply template changes without restarting.
 
 ## Database
 
-The SQLite database mirrors the macOS Mercury schema for compatibility. See `docs/ARCHITECTURE.md` Section 3 for full DDL.
+Oasis uses a local SQLite database. On Linux, the default database location is:
 
-Database location: `~/.local/share/Oasis/oasis.db`
+```text
+~/.local/share/Oasis/oasis.db
+```
 
-## Development Phases
+The schema follows the Mercury macOS database model. See `docs/ARCHITECTURE.md` for details.
 
-| Phase | Status | Scope |
-|------|--------|-------|
-| 0-1 | Completed | Project scaffold, core reading MVP |
-| 2-4 | Completed | AI agents, notes/digest, tag system |
-| 5-7 | Completed | Polish: usage reports, themes, i18n, Dark Mode, Readability.js |
-| 8 | Completed | Search, multi-select export, word translation, panel persistence, prompt customization |
-| 9 | Completed | Icons, i18n completion, error messages, UI cleanup, documentation |
+## Notes for Linux Development
+
+- Use `cargo tauri dev` from the repository root for local development.
+- Use `npm run build` to verify the React/Vite frontend.
+- Use `cargo check` inside `src-tauri/` to verify the Rust backend.
+- Keep generated files out of git: `node_modules/`, `dist/`, and `src-tauri/target/` are ignored.
+- When developing in WSL, store the repository under `/home/<user>/...`, not `/mnt/c/...`.
 
 ## License
 
-MIT License -- see [macOS Mercury](https://github.com/neolee/mercury) for original project.
+MIT License. See [Mercury for macOS](https://github.com/neolee/mercury) for the original project inspiration.
 
 ## Credits
 
 - Original macOS Mercury by [Neo Lee](https://github.com/neolee)
 - Windows port by [Seven-Ljy77](https://github.com/Seven-Ljy77), [Yuanyyy11](https://github.com/Yuanyyy11), [RicardoMin](https://github.com/RicardoMin)
-- Linux port based on the Windows port, adapted for WebKitGTK and Secret Service
+- Linux port based on the Windows implementation, adapted for WebKitGTK and Secret Service
 
 ---
 
@@ -231,237 +351,338 @@ MIT License -- see [macOS Mercury](https://github.com/neolee/mercury) for origin
 
 # Oasis -- Mercury Linux 版
 
-一款本地优先的 RSS 阅读器，集成 AI 智能体能力，基于 **Tauri 2 + Rust + React/TypeScript + WebKitGTK** 构建。
+Oasis 是一个本地优先的 RSS 阅读器，支持 AI 智能体能力。Linux 版本基于 **Tauri 2 + Rust + React/TypeScript + WebKitGTK** 构建。
 
-灵感来源于 [macOS 版 Mercury](https://github.com/neolee/mercury)——相同数据库结构，相同产品理念，原生 Linux 体验。
+当前分支是 Oasis 的 Linux 版本。它以已经完成的 Windows 版本为基础，保留相同的产品模型：本地 SQLite 存储、三栏阅读、Reader/Web/双栏模式、笔记、标签、文摘导出，以及 AI 摘要、翻译和打标签。
 
----
+项目灵感来自 [Mercury for macOS](https://github.com/neolee/mercury)，延续其本地优先、轻量、数据库驱动的产品理念。
+
+## 仓库分支
+
+| 分支 | 说明 |
+|------|------|
+| `main` | 仓库概览与分支说明 |
+| `windows` | Windows 版本，基于 Tauri 2 + Rust + React/TypeScript + WebView2 |
+| `linux` | Linux 版本，基于 Tauri 2 + Rust + React/TypeScript + WebKitGTK |
+| `mac` | macOS 参考版本 / 版本分支 |
 
 ## 功能特性
 
 ### 订阅源管理
-- 支持 RSS 2.0、Atom、JSON Feed 三种格式
-- OPML 导入/导出，并发处理，实时进度显示
-- 多源同步，可配置并发数（2-10，默认 6）
-- 重复检测、URL 标准化、HTTPS 强制
-- 首次启动自动导入内置示例订阅源
+
+- 支持 RSS 2.0、Atom 和 JSON Feed
+- 支持 OPML 导入/导出，并带有并发处理和实时进度
+- 支持多订阅源同步和可配置并发数
+- 支持重复检测、URL 标准化和 HTTPS 校验
+- 首次启动时可导入内置示例订阅源
 
 ### 阅读体验
-- 三栏布局（订阅源 | 文章列表 | 阅读区），可拖拽调整宽度
-- 三种阅读模式：**Reader**（清洗后内容）、**Web**（原始网页）、**Dual**（左右对照）
-- Mozilla Readability.js 集成（QuickJS 嵌入）进行内容提取
-- 四阶段管线：源 HTML → Readability 清洗 → Markdown 转换 → 渲染 HTML
-- 5 级缓存体系，各层独立版本化
-- 主题系统：Classic / Paper 预设，Light / Dark / Eye Care 模式，Quick Style（Warm / Cool / Slate）
-- 可自定义字体、字号、行高、内容宽度
-- 键盘快捷键：J/K 导航、M 已读切换、S 收藏、V 浏览器打开、Ctrl+F 搜索
+
+- 三栏布局：订阅源、文章列表、阅读器
+- 三种阅读模式：**Reader**、**Web**、**Dual**
+- 使用 Mozilla Readability.js 提取正文内容
+- 四阶段阅读管线：源 HTML -> Readability -> Markdown -> 渲染 HTML
+- 清洗内容、Markdown、渲染结果分层缓存
+- 支持 Classic / Paper 主题预设、浅色/深色变体和快速色彩风格
+- 支持自定义字体、字号、行高和内容宽度
+- 支持键盘快捷键进行导航、标记已读、收藏、搜索和外部浏览器打开
 
 ### AI 智能体
-- **摘要**：流式 AI 生成文章摘要，12 种语言，3 级详细程度（简短/中等/详细），自动摘要模式
-- **翻译**：分段并发翻译，双语对照显示，content-hash 缓存，断点续传
-- **标签**：AI 标签推荐，词汇注入，单篇及批量模式
-- 划词翻译：选中文字即可翻译
-- 每智能体可自定义提示词模板，支持热刷新
-- LLM 提供商管理：兼容 OpenAI API，Secret Service（libsecret/GNOME Keyring）存储 API Key
-- 用量统计图表（Token 消耗、成功率、提供商/模型明细）
 
-### 搜索
-- 模态搜索窗口，背景虚化
-- 三分类结果：文章内容、标签、笔记
-- 键盘导航（方向键 + Enter），200ms 防抖
+- **摘要**：流式生成多语言、多详细度文章摘要
+- **翻译**：按段并发翻译，支持双语显示和内容哈希缓存
+- **标签**：AI 辅助标签建议，并注入本地标签词库
+- 支持选中文本的词句翻译
+- 支持 Prompt 模板自定义和热重载
+- 支持 OpenAI 兼容 LLM Provider 配置
+- API Key 通过 Linux Secret Service 体系保存，例如 `libsecret`、GNOME Keyring 或 KWallet
+- 支持 Token 用量统计、图表和 Provider/Model 维度分析
 
-### 笔记与文摘
-- 每篇文章可写 Markdown 笔记，5 秒自动保存
-- 单篇/多篇文摘导出为 Markdown 文件
-- 四种导出模板：Default、Minimal、Academic、Newsletter
-- 剪贴板分享、浏览器打开原文
+### 搜索、笔记与文摘
+
+- 支持文章、标签、笔记的模态搜索
+- 支持每篇文章的 Markdown 笔记和自动保存
+- 支持单篇/多篇文摘导出
+- 支持基于模板的文摘生成
+- 支持复制到剪贴板和外部浏览器打开
 
 ### 标签系统
-- 扁平标签模型，标准化规则（去空格 → 小写 → 压缩分隔符）
-- 三级去重：标准化 → 精确匹配 → 别名解析
-- 标签库管理：重命名、合并、别名、删除未使用
-- 侧栏标签筛选，Any/All 匹配模式
-- AI 创建的标签初始为临时标签，usage_count >= 2 自动提升
 
-### 多选与批量导出
-- 多选模式，checkbox 勾选
-- 批量导出：导出文摘（摘要+笔记）和导出原文（原始 Markdown）
-- Esc 退出多选，折叠栏任意位置点击展开
+- 扁平标签模型，支持标准化与别名解析
+- 支持标签库管理：重命名、合并、别名、删除未使用标签
+- 侧栏支持标签过滤和 Any/All 匹配模式
+- 支持带审查流程的批量 AI 打标签
 
 ### UI 与交互
-- 双语界面：英文 / 简体中文，运行时切换无需重启
-- Dark Mode（应用外壳 + 阅读器内容）
-- 布局持久化：列宽和面板高度通过 localStorage 记忆，跨会话保持
-- 侧栏和文章列表可折叠，展开时恢复上次宽度
-- 文章列表内置搜索按钮
 
----
+- 支持英文和简体中文界面
+- 支持运行时切换语言，无需重启
+- 应用外壳和阅读内容均支持深色模式
+- 面板宽度/高度持久化保存
+- 支持折叠侧栏和文章列表
 
 ## 技术栈
 
 | 层面 | 技术 |
 |------|------|
 | 桌面框架 | Tauri 2.x |
-| 后端 | Rust (Edition 2024) + tokio |
-| 数据库 | SQLite via rusqlite（bundled，WAL 模式）|
+| 后端 | Rust Edition 2024 + tokio |
+| 数据库 | SQLite via rusqlite，内置 SQLite，WAL 模式 |
 | 前端 | React 19 + TypeScript |
-| 样式 | Tailwind CSS 3 |
+| 样式 | Tailwind CSS |
 | 状态管理 | Zustand |
-| 阅读器渲染 | WebKitGTK (Tauri webview) |
+| Linux Webview | WebKitGTK |
 | 内容提取 | Mozilla Readability.js via QuickJS |
-| Markdown → HTML | comrak（GFM：表格、删除线、任务列表、自动链接）|
-| HTML → Markdown | 自研 Rust 转换器（scraper crate）|
-| Feed 解析 | feed-rs（RSS/Atom/JSON Feed）|
+| Markdown -> HTML | comrak，支持 GFM 和自定义增强 |
+| HTML -> Markdown | 基于 scraper 的自研 Rust 转换器 |
+| Feed 解析 | feed-rs |
 | LLM 客户端 | reqwest + SSE 流式解析 |
 | 模板引擎 | Tera |
 | 图表 | Recharts |
-| 凭据存储 | Secret Service（libsecret/GNOME Keyring/KWallet）via `keyring` crate |
+| 凭据存储 | Secret Service / libsecret via `keyring` |
 | 自动更新 | Tauri updater |
-
----
 
 ## 快速开始
 
-### 环境要求
+### 1. 安装 Linux 系统依赖
 
-- [Rust](https://www.rust-lang.org/)（Edition 2024）
-- [Node.js](https://nodejs.org/) 18+
-- 系统依赖包（Debian/Ubuntu）：
-  ```bash
-  sudo apt update
-  sudo apt install -y build-essential curl wget pkg-config \
-    libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-    libayatana-appindicator3-dev libsecret-1-dev
-  ```
-  Fedora 替换为 `dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel libappindicator-gtk3-devel libsecret-devel`；
-  Arch 使用 `pacman -S webkit2gtk-4.1 gtk3 librsvg libappindicator-gtk3 libsecret`。
-- 需要一个正在运行的 Secret Service 提供者（`gnome-keyring` 或 `kwallet`）用于 API Key 存储。
-
-### 开发模式
+Debian / Ubuntu:
 
 ```bash
-# 克隆仓库
+sudo apt update
+sudo apt install -y build-essential curl wget pkg-config \
+  libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+  libayatana-appindicator3-dev libsecret-1-dev
+```
+
+Fedora:
+
+```bash
+sudo dnf install -y gcc gcc-c++ make curl wget pkg-config \
+  webkit2gtk4.1-devel gtk3-devel librsvg2-devel \
+  libappindicator-gtk3-devel libsecret-devel
+```
+
+Arch Linux:
+
+```bash
+sudo pacman -S --needed base-devel curl wget pkgconf \
+  webkit2gtk-4.1 gtk3 librsvg libappindicator-gtk3 libsecret
+```
+
+### 2. 安装 Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+rustc --version
+cargo --version
+```
+
+### 3. 安装 Node.js 和 npm
+
+需要 Node.js 18 或更新版本。Ubuntu 下可使用：
+
+```bash
+sudo apt install -y nodejs npm
+node --version
+npm --version
+```
+
+如果在 WSL 中开发，请确认 `node` 和 `npm` 指向 Linux 路径：
+
+```bash
+which node
+which npm
+```
+
+期望结果示例：
+
+```text
+/usr/bin/node
+/usr/bin/npm
+```
+
+如果 `npm` 指向 `/mnt/c/...`，或者执行时调用了 `C:\Windows\system32\cmd.exe`，说明 Windows 版 Node/npm 混入了 WSL。请安装 Linux 版 Node/npm，并确保使用 `/usr/bin/npm` 后再执行 `npm install`。
+
+### 4. 克隆仓库
+
+```bash
+mkdir -p ~/programming
+cd ~/programming
 git clone https://github.com/Seven-Ljy77/Oasis.git
 cd Oasis
 git checkout linux
+```
 
-# 安装前端依赖
+如果使用 WSL 开发，建议把仓库放在 Linux 原生文件系统，例如 `~/programming/Oasis`，不要放在 `/mnt/c/...` 下。这样可以避免 `node_modules` 和 Cargo 编译时出现明显的文件 I/O 性能问题。
+
+### 5. 安装项目依赖
+
+```bash
+cd ~/programming/Oasis
 npm install
+```
 
-# 启动开发模式（热重载）
-cd src-tauri
+### 6. 验证前端构建
+
+```bash
+npm run build
+```
+
+### 7. 验证 Rust 后端
+
+```bash
+cd ~/programming/Oasis/src-tauri
+cargo check
+```
+
+第一次 Rust 编译可能会比较久，因为 WebKitGTK/Tauri 相关依赖需要下载、编译并缓存。
+
+## 开发运行
+
+安装 Rust 版 Tauri CLI：
+
+```bash
+cargo install tauri-cli --version "^2.0.0"
+```
+
+启动应用：
+
+```bash
+cd ~/programming/Oasis
 cargo tauri dev
 ```
 
-### 构建
+Tauri 配置会通过 `beforeDevCommand` 自动启动 Vite 开发服务器。
 
-```bash
-cargo tauri build
-# 输出：src-tauri/target/release/bundle/
+### WSLg 渲染兼容处理
+
+在 WSL2 + WSLg 环境中，WebKitGTK 有时会出现白屏窗口或 EGL/Mesa 警告，例如：
+
+```text
+libEGL warning: failed to get driver name for fd -1
+MESA: error: ZINK: failed to choose pdev
 ```
 
----
+如果遇到这种情况，可以使用软件渲染方式启动：
+
+```bash
+cd ~/programming/Oasis
+
+WEBKIT_DISABLE_DMABUF_RENDERER=1 \
+WEBKIT_DISABLE_COMPOSITING_MODE=1 \
+LIBGL_ALWAYS_SOFTWARE=1 \
+GSK_RENDERER=cairo \
+cargo tauri dev
+```
+
+这个处理主要针对 WSLg。原生 Linux 桌面环境下通常直接运行 `cargo tauri dev` 即可。
+
+## 生产构建
+
+```bash
+cd ~/programming/Oasis
+cargo tauri build
+```
+
+构建产物位于：
+
+```text
+src-tauri/target/release/bundle/
+```
+
+根据目标系统和 Tauri 配置，Linux 构建可能产出 AppImage、deb 或 rpm 包。
 
 ## 项目结构
 
-```
+```text
 oasis-linux/
-├── src-tauri/                    # Rust 后端
-│   ├── src/
-│   │   ├── main.rs               # 入口
-│   │   ├── lib.rs                # 模块声明，命令注册
-│   │   ├── state.rs              # AppState
-│   │   ├── error.rs              # 统一 AppError 类型
-│   │   ├── db/                   # 数据库层（16 个 Store + 查询构建器）
-│   │   ├── feed/                 # 订阅源同步、OPML、引导、侧栏计数
-│   │   ├── reader/               # Readability 桥接、Markdown 转换/渲染、主题
-│   │   ├── agent/                # LLM 提供商、路由解析、提示词模板
-│   │   │   ├── summary/          # 摘要执行器 + 存储
-│   │   │   ├── translation/      # 翻译执行器 + 分段 + 双语
-│   │   │   └── tagging/          # 标签执行器 + 批量
-│   │   ├── digest/               # 笔记 + 文摘导出 + 模板
-│   │   ├── tags/                 # 标签标准化 + 建议
-│   │   ├── usage/                # Token 追踪 + 报表
-│   │   ├── tasking/              # 任务队列 + 作业运行器
-│   │   ├── resources/            # 内置提示词/模板加载器
-│   │   └── commands/             # Tauri IPC 处理器（9 个命令文件）
-│   ├── migrations/               # SQL 迁移脚本（001-018）
-│   ├── icons/                    # 应用图标（16 种尺寸）
-│   └── capabilities/             # Tauri 2 权限清单
-├── src/                          # React 前端
-│   ├── App.tsx                   # 根三栏布局组件
-│   ├── components/ui/            # 基础 UI 组件（Button, Dialog, Sheet 等）
-│   ├── features/                 # 功能模块
-│   │   ├── sidebar/              # 订阅源列表 + 标签筛选
-│   │   ├── entry-list/           # 文章列表 + 搜索模态框 + 多选
-│   │   ├── reader/               # 阅读器视图 + 面板（摘要/翻译/标签/笔记）
-│   │   ├── settings/             # 设置（通用/阅读器/智能体/文摘/日志）
-│   │   ├── tags/                 # 标签库管理
-│   │   ├── digest/               # 分享/导出文摘
-│   │   └── usage/                # 用量统计图表
-│   ├── stores/                   # 9 个 Zustand Store
-│   ├── hooks/                    # 自定义 Hook（可拖拽、防抖、键盘等）
-│   └── lib/                      # IPC 封装、类型定义、格式化、常量
-├── resources/                    # YAML 模板文件
-│   ├── prompts/                  # AI 智能体提示词模板
-│   └── templates/                # 文摘导出模板
-└── docs/                         # 架构方案 + 阶段总结
+|-- src-tauri/                    # Rust backend
+|   |-- src/
+|   |   |-- main.rs               # Tauri entry point
+|   |   |-- lib.rs                # Module declarations and command registration
+|   |   |-- state.rs              # AppState
+|   |   |-- error.rs              # Unified AppError type
+|   |   |-- db/                   # Database layer
+|   |   |-- feed/                 # Feed sync, OPML, bootstrap, sidebar counts
+|   |   |-- reader/               # Readability, markdown, renderer, theme
+|   |   |-- agent/                # LLM providers, runtime, summary, translation, tagging
+|   |   |-- digest/               # Notes and digest export
+|   |   |-- tags/                 # Tag normalization and suggestion
+|   |   |-- usage/                # Token usage tracking and reports
+|   |   |-- tasking/              # Task queue and job runner
+|   |   |-- resources/            # Embedded prompt/template loaders
+|   |   `-- commands/             # Tauri IPC command handlers
+|   |-- migrations/               # SQL migration scripts
+|   |-- icons/                    # Application icons
+|   `-- capabilities/             # Tauri 2 permission manifests
+|-- src/                          # React frontend
+|   |-- App.tsx                   # Root three-column layout
+|   |-- components/ui/            # Base UI primitives
+|   |-- features/                 # Feature modules
+|   |-- stores/                   # Zustand stores
+|   |-- hooks/                    # Custom hooks
+|   `-- lib/                      # IPC wrappers, types, formatters
+|-- resources/                    # YAML prompt and digest templates
+`-- docs/                         # Architecture plans and phase summaries
 ```
 
----
+## 配置
 
-## 配置指南
+### LLM Provider 设置
 
-### LLM 提供商设置
+1. 打开 Settings -> Agents -> Providers。
+2. 添加一个 OpenAI 兼容 Provider。
+3. 在 Models 页面添加至少一个模型。
+4. 在 Agents 页面为 Summary、Translation 和 Tagging 分配模型。
 
-1. 打开 设置 → 智能体 → 提供商
-2. 点击"添加提供商"并填写：
-   - 名称：任意显示名称
-   - Base URL：OpenAI 兼容 API 端点（如 Ollama：`http://localhost:11434/v1`）
-   - API Key：提供商的 API 密钥
-3. 切换到模型页签，添加至少一个模型
-4. 切换到智能体页签，为摘要/翻译/标签分配主模型
+默认本地开发配置为：
 
-### 本地开发默认配置
+```text
+baseURL: http://localhost:5810/v1
+apiKey: local
+model: qwen3
+thinkingModel: qwen3-thinking
+```
 
-项目预配置为本地 LLM 使用：
+### 凭据存储
 
-- `baseURL`：`http://localhost:5810/v1`
-- `apiKey`：`local`
-- `model`：`qwen3`
-- `thinkingModel`：`qwen3-thinking`
+API Key 通过 Rust `keyring` crate 写入操作系统凭据存储。
 
-### 提示词自定义
+在 Linux 上，这通常意味着通过 Secret Service 使用 GNOME Keyring、KWallet 或其他兼容实现。在极简桌面环境或 WSL 中，可能需要额外安装并启动 Secret Service Provider，托管式 API Key 存储才能正常工作。
 
-在 设置 → 智能体 中点击"自定义提示词"按钮编辑提示词模板。文件存储在 `~/.local/share/Oasis/prompts/` 目录。编辑后点击"重新加载提示词"即可生效，无需重启。
+### Prompt 自定义
 
----
+内置 Prompt 模板会在编辑前复制到用户数据目录。Linux 下用户自定义 Prompt 存储位置为：
+
+```text
+~/.local/share/Oasis/prompts/
+```
+
+可在 Settings -> Agents -> Reload Prompts 中热重载模板，无需重启应用。
 
 ## 数据库
 
-SQLite 数据库结构与 macOS Mercury 保持一致以确保兼容性。完整 DDL 见 `docs/ARCHITECTURE.md` 第三节。
+Oasis 使用本地 SQLite 数据库。Linux 下默认数据库位置为：
 
-数据库位置：`~/.local/share/Oasis/oasis.db`
+```text
+~/.local/share/Oasis/oasis.db
+```
 
----
+数据库结构遵循 Mercury macOS 的数据模型。详见 `docs/ARCHITECTURE.md`。
 
-## 开发阶段
+## Linux 开发注意事项
 
-| 阶段 | 状态 | 范围 |
-|------|------|------|
-| 0-1 | 已完成 | 项目框架搭建，核心阅读 MVP |
-| 2-4 | 已完成 | AI 智能体、笔记/文摘、标签系统 |
-| 5-7 | 已完成 | 打磨：用量报表、主题系统、i18n、Dark Mode、Readability.js |
-| 8 | 已完成 | 搜索重构、多选导出、划词翻译、面板持久化、提示词自定义 |
-| 9 | 已完成 | 图标生成、i18n 补全、错误友好化、UI 清理、文档完善 |
-
----
+- 使用 `cargo tauri dev` 从仓库根目录启动开发模式。
+- 使用 `npm run build` 验证 React/Vite 前端。
+- 在 `src-tauri/` 目录下使用 `cargo check` 验证 Rust 后端。
+- 生成文件不要提交到 git：`node_modules/`、`dist/`、`src-tauri/target/` 均已忽略。
+- 在 WSL 中开发时，仓库应放在 `/home/<user>/...` 下，而不是 `/mnt/c/...` 下。
 
 ## 许可证
 
-MIT License — 原始项目见 [macOS Mercury](https://github.com/neolee/mercury)。
-
----
+MIT License。原项目灵感来源见 [Mercury for macOS](https://github.com/neolee/mercury)。
 
 ## 致谢
 
