@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicepkg/vscode-tauri/main/schemas/desktop-schema.json",
+  "productName": "Oasis",
+  "version": "2.0.0",
+  "identifier": "com.oasis.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Oasis",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/paradigmx/mercury/releases/latest/download/appcast.xml"
+      ],
+      "pubkey": ""
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libsecret-1-0"]
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+# Oasis Digest Template — Academic (Single Article Markdown)
+# Formal academic citation style with abstract and commentary sections.
+#
+# Available placeholders:
+#   {{title}}          — article title
+#   {{author}}         — article author
+#   {{published_at}}   — publication date
+#   {{url}}            — article URL
+#   {{summary}}        — AI-generated summary (used as abstract)
+#   {{note}}           — user note (used as commentary)
+
+id: "academic"
+version: "1.0"
+template: |
+  # {{title}}
+
+  {{#author}}
+  **Author:** {{author}}
+  {{/author}}
+  {{#published_at}}
+  **Published:** {{published_at}}
+  {{/published_at}}
+  {{#url}}
+  **Source:** [{{url}}]({{url}})
+  {{/url}}
+
+  {{#summary}}
+  ## Abstract
+
+  > {{summary}}
+  {{/summary}}
+
+  {{#note}}
+  ## Commentary
+
+  {{note}}
+  {{/note}}

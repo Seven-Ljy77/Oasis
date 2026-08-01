@@ -1,0 +1,38 @@
+# Oasis Digest Template — Newsletter (Single Article Markdown)
+# YAML frontmatter header followed by highlights and editor's note.
+#
+# Available placeholders:
+#   {{title}}          — article title
+#   {{author}}         — article author
+#   {{published_at}}   — publication date
+#   {{url}}            — article URL
+#   {{summary}}        — AI-generated summary (used as highlights)
+#   {{note}}           — user note (used as editor's note)
+
+id: "newsletter"
+version: "1.0"
+template: |
+  ---
+  title: {{title}}
+  {{#author}}
+  author: {{author}}
+  {{/author}}
+  {{#published_at}}
+  date: {{published_at}}
+  {{/published_at}}
+  {{#url}}
+  source: {{url}}
+  {{/url}}
+  ---
+
+  {{#summary}}
+  ## Highlights
+
+  {{summary}}
+  {{/summary}}
+
+  {{#note}}
+  ## Editor's Note
+
+  {{note}}
+  {{/note}}

@@ -1,0 +1,271 @@
+/* ==========================================================================
+   Mercury — Global Styles (Tailwind v3)
+   ========================================================================== */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --------------------------------------------------------------------------
+   Design tokens (CSS custom properties)
+   -------------------------------------------------------------------------- */
+
+:root {
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-muted: #dbeafe;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-tertiary: #f3f4f6;
+  --color-surface-inverted: #111827;
+  --color-border: #e5e7eb;
+  --color-border-focus: #2563eb;
+
+  /* Set to 1 by @media query when system is dark — read from JS if matchMedia fails */
+  --system-is-dark: 0;
+
+  /* Reader tokens */
+  --color-reader-bg: #faf9f7;
+  --color-reader-bg-dark: #1a1a1a;
+  --color-reader-text-primary: #1a1a1a;
+  --color-reader-text-primary-dark: #e8e6e3;
+  --color-reader-text-secondary: #6b6b6b;
+  --color-reader-text-secondary-dark: #989898;
+  --color-reader-link: #2563eb;
+  --color-reader-link-dark: #6ba0f9;
+  --color-reader-blockquote-border: #2563eb;
+  --color-reader-blockquote-border-dark: #6ba0f9;
+  --color-reader-code-bg: #f3f4f6;
+  --color-reader-code-bg-dark: #262626;
+
+  --spacing-paragraph: 1.25em;
+  --spacing-content-max: 42rem;
+}
+
+/* --------------------------------------------------------------------------
+   Dark mode overrides
+   -------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --system-is-dark: 1;
+    /* Only set background surface vars — text colors are handled by .force-dark
+       class added by JS, scoped so that Light mode still works properly. */
+    --color-surface: #1a1a1a;
+    --color-surface-secondary: #222222;
+    --color-surface-tertiary: #2a2a2a;
+    --color-surface-inverted: #f9fafb;
+    --color-border: #333333;
+    --color-border-focus: #6ba0f9;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Base element resets
+   -------------------------------------------------------------------------- */
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Scrollbar styling (WebKit)
+   -------------------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* --------------------------------------------------------------------------
+   Focus ring
+   -------------------------------------------------------------------------- */
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Utility: prevent text selection during drag
+   -------------------------------------------------------------------------- */
+
+.select-none {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   Keyframe animations
+   -------------------------------------------------------------------------- */
+
+@keyframes in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes zoom-in-95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Theme: Force Dark */
+.force-dark {
+  --color-surface: #1a1a1a;
+  --color-surface-secondary: #222222;
+  --color-surface-tertiary: #2a2a2a;
+  --color-surface-inverted: #f9fafb;
+  --color-border: #333333;
+  --color-reader-bg: #1a1b1e;
+}
+.force-dark body { background: #1a1a1a; color: #e8e6e3; }
+
+/* Dark mode: force ALL text to be light by default */
+.force-dark {
+  color-scheme: dark;
+}
+.force-dark body,
+.force-dark #root {
+  color: #e2e2e2;
+}
+/* Override all slate text colors — use !important to ensure they win */
+.force-dark .text-slate-900,
+.force-dark .text-slate-800,
+.force-dark .text-slate-700 { color: #e2e2e2 !important; }
+.force-dark .text-slate-600 { color: #c8c8c8 !important; }
+.force-dark .text-slate-500 { color: #b0b0b0 !important; }
+.force-dark .text-slate-400 { color: #909090 !important; }
+.force-dark .text-slate-300 { color: #606060 !important; }
+.force-dark .text-slate-200 { color: #4a4a4a !important; }
+.force-dark .text-slate-100 { color: #3a3a3a !important; }
+/* Hover states */
+.force-dark .hover\:text-slate-600:hover,
+.force-dark .hover\:text-slate-700:hover { color: #e2e2e2 !important; }
+.force-dark .hover\:text-slate-500:hover { color: #c0c0c0 !important; }
+
+/* Accent / link color */
+.force-dark .text-accent { color: #93c5fd !important; }
+
+/* Semantic alert colors */
+.force-dark .bg-red-50  { background-color: #3b1a1a !important; }
+.force-dark .text-red-500,
+.force-dark .text-red-600,
+.force-dark .text-red-700 { color: #fca5a5 !important; }
+.force-dark .text-red-400 { color: #f87171 !important; }
+.force-dark .border-red-200 { border-color: #5c2a2a !important; }
+.force-dark .bg-emerald-50 { background-color: #1a3b2a !important; }
+.force-dark .text-emerald-600,
+.force-dark .text-emerald-700,
+.force-dark .text-emerald-800 { color: #86efac !important; }
+.force-dark .border-emerald-200 { border-color: #2a5c3a !important; }
+.force-dark .bg-amber-50 { background-color: #3b2e1a !important; }
+.force-dark .bg-amber-100 { background-color: #3b2e1a !important; }
+.force-dark .text-amber-600,
+.force-dark .text-amber-700 { color: #fcd34d !important; }
+.force-dark .bg-blue-50 { background-color: #1a2a3b !important; }
+.force-dark .text-blue-600,
+.force-dark .text-blue-700 { color: #93c5fd !important; }
+.force-dark .border-blue-200 { border-color: #2a3a5c !important; }
+
+/* Form elements */
+.force-dark input,
+.force-dark select,
+.force-dark textarea {
+  color: #e2e2e2 !important;
+}
+.force-dark input[readonly] {
+  color: #9ca3af !important;
+}
+.force-dark .border-border { border-color: #333333 !important; }
+
+/* Dropdowns & menus */
+.force-dark .bg-white { background-color: #1e1e1e !important; }
+
+/* Status bar */
+.force-dark .border-t { border-color: #333333 !important; }
+
+/* Theme: Force Eye Care (warm amber) */
+.force-eyecare {
+  --color-surface: #faf5e8;
+  --color-surface-secondary: #f5edd8;
+  --color-surface-tertiary: #efe3c8;
+  --color-border: #d4c5a0;
+  --color-reader-bg: #f5edd8;
+}
+.force-eyecare body { background: #faf5e8; color: #4a3728; }
+
+/* Theme: Force Light (explicit light mode) */
+.force-light {
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-tertiary: #f3f4f6;
+  --color-surface-inverted: #111827;
+  --color-border: #e5e7eb;
+  --color-reader-bg: #faf9f7;
+}
+.force-light body { background: #ffffff; color: #1a1a1a; }

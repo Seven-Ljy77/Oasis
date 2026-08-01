@@ -1,0 +1,304 @@
+// =============================================================================
+// Mercury — Root App component (three-column layout)
+// =============================================================================
+
+import React, { useEffect, useRef, useState } from "react";
+import { I18nProvider } from "@/lib/i18n";
+import { useAppStore } from "@/stores/useAppStore";
+import { useFeedStore } from "@/stores/useFeedStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useTagStore } from "@/stores/useTagStore";
+import { useReaderStore } from "@/stores/useReaderStore";
+import { useEntryStore } from "@/stores/useEntryStore";
+import { useSidebarStore } from "@/stores/useSidebarStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import SidebarView from "@/features/sidebar/SidebarView";
+import EntryListView from "@/features/entry-list/EntryListView";
+import ReaderDetailView from "@/features/reader/ReaderDetailView";
+import AppSettingsView from "@/features/settings/AppSettingsView";
+import FeedEditorSheet from "@/features/sidebar/FeedEditorSheet";
+import ImportOPMLSheet from "@/features/sidebar/ImportOPMLSheet";
+import TagLibrarySheet from "@/features/tags/TagLibrarySheet";
+import BatchTaggingSheet from "@/features/tags/BatchTaggingSheet";
+import ShareDigestSheet from "@/features/digest/ShareDigestSheet";
+import ExportDigestSheet from "@/features/digest/ExportDigestSheet";
+import ExportMultipleDigestSheet from "@/features/digest/ExportMultipleDigestSheet";
+import TagRenameSheet from "@/features/tags/TagRenameSheet";
+import TagMergeSheet from "@/features/tags/TagMergeSheet";
+import SearchModal from "@/features/entry-list/SearchModal";
+
+const AppShell: React.FC = () => {
+  // ---- Bootstrap ----
+  const bootstrap = useAppStore((s) => s.bootstrap);
+  const isReady = useAppStore((s) => s.isReady);
+  const loadFeeds = useFeedStore((s) => s.loadFeeds);
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+  const loadTags = useTagStore((s) => s.loadTags);
+  const loadCounts = useSidebarStore((s) => s.loadCounts);
+  const tagStoreTags = useTagStore((s) => s.tags);
+
+  useEffect(() => {
+    // Apply initial theme class immediately on mount.
+    // Use CSS custom property fallback for system dark detection (more reliable
+    // than matchMedia in WebView2).
+    const mode = useReaderStore.getState().themeMode;
+    const root = document.documentElement;
+    root.classList.remove("force-light", "force-dark", "force-eyecare");
+    if (mode === "auto") {
+      const systemDark = getComputedStyle(root).getPropertyValue("--system-is-dark").trim();
+      root.classList.add(systemDark === "1" ? "force-dark" : "force-light");
+    } else if (mode === "forceDark") {
+      root.classList.add("force-dark");
+    } else if (mode === "forceLight") {
+      root.classList.add("force-light");
+    } else if (mode === "eyecare") {
+      root.classList.add("force-eyecare");
+    }
+
+    const doBootstrap = async () => {
+      try {
+        await loadSettings();
+        await Promise.all([loadFeeds(), loadTags()]);
+        await loadCounts();
+        bootstrap();
+      } catch (err) {
+        console.error("Bootstrap failed:", err);
+      }
+    };
+    doBootstrap();
+  }, []);
+
+  // ---- Global keyboard shortcuts ----
+  useKeyboardShortcuts();
+
+  // ---- Sheet management ----
+  const activeSheet = useAppStore((s) => s.activeSheet);
+  const closeSheet = useAppStore((s) => s.closeSheet);
+
+  // ---- Font scaling ----
+  const fontScale = useAppStore((s) => s.fontScale);
+
+  // ---- Status bar info ----
+  const sidebarSection = useAppStore((s) => s.sidebarSection);
+  const selectedEntryId = useAppStore((s) => s.selectedEntryId);
+
+  // ---- Tag rename sheet props ----
+  const renameTargetTagId = useAppStore((s) => s.renameTargetTagId);
+  const renameTargetTagName = useAppStore((s) => s.renameTargetTagName);
+
+  // ---- Tag merge sheet props ----
+  const mergeSourceTagId = useAppStore((s) => s.mergeSourceTagId);
+  const mergeSourceTagName = useAppStore((s) => s.mergeSourceTagName);
+
+  // Panel widths — read from localStorage on init, fall back to defaults.
+  const readW = (key: string, def: number) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) { const n = parseInt(raw); if (!isNaN(n) && n > 0) return n; }
+    } catch {}
+    return def;
+  };
+  const [sidebarW, setSidebarW] = useState(() => readW("panel-w-sidebar", 240));
+  const [entryW, setEntryW] = useState(() => readW("panel-w-entrylist", 340));
+  const saveSidebarW = (w: number) => { setSidebarW(w); try { localStorage.setItem("panel-w-sidebar", String(w)); } catch {} };
+  const saveEntryW = (w: number) => { setEntryW(w); try { localStorage.setItem("panel-w-entrylist", String(w)); } catch {} };
+
+  // Drag state
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const entryListRef = useRef<HTMLDivElement>(null);
+
+  const onSidebarDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const el = sidebarRef.current!;
+    el.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = "none";
+    const sx = e.clientX; const sw = sidebarW;
+    const onMove = (ev: PointerEvent) => saveSidebarW(Math.max(180, Math.min(360, sw + (ev.clientX - sx))));
+    const onUp = () => { document.body.style.userSelect = ""; el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+  const onEntryDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const el = entryListRef.current!;
+    el.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = "none";
+    const sx = e.clientX; const sw = entryW;
+    const onMove = (ev: PointerEvent) => saveEntryW(Math.max(250, Math.min(550, sw + (ev.clientX - sx))));
+    const onUp = () => { document.body.style.userSelect = ""; el.releasePointerCapture(e.pointerId); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
+  // Column collapse state — when both collapsed, reader takes full screen
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [entriesCollapsed, setEntriesCollapsed] = useState(false);
+
+  const renderSheet = () => {
+    switch (activeSheet) {
+      case "appSettings":
+        return <AppSettingsView open onClose={closeSheet} />;
+      case "feedEditor":
+        return <FeedEditorSheet open onClose={closeSheet} />;
+      case "importOPML":
+        return <ImportOPMLSheet open onClose={closeSheet} />;
+      case "tagLibrary":
+        return <TagLibrarySheet open onClose={closeSheet} />;
+      case "batchTagging":
+        return <BatchTaggingSheet open onClose={closeSheet} />;
+      case "shareDigest":
+        return <ShareDigestSheet open onClose={closeSheet} />;
+      case "exportDigest":
+        return <ExportDigestSheet open onClose={closeSheet} />;
+      case "exportMultipleDigest":
+        return <ExportMultipleDigestSheet open onClose={closeSheet} />;
+      case "tagRename":
+        return (
+          <TagRenameSheet
+            open
+            onClose={closeSheet}
+            tagId={renameTargetTagId ?? 0}
+            currentName={renameTargetTagName ?? ""}
+          />
+        );
+      case "tagMerge":
+        return (
+          <TagMergeSheet
+            open
+            onClose={closeSheet}
+            sourceTagId={mergeSourceTagId}
+            sourceTagName={mergeSourceTagName ?? ""}
+            tags={tagStoreTags}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (!isReady) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-surface text-slate-500">
+        <div className="flex flex-col items-center gap-3">
+          <svg
+            className="animate-spin h-8 w-8 text-accent"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <span className="text-sm">Loading Oasis...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-col h-screen w-screen bg-surface text-slate-900 overflow-hidden"
+      style={{ fontSize: `${fontScale * 100}%` }}
+    >
+      {/* ---- Search modal ---- */}
+      <SearchModal />
+
+      {/* ---- Three-column layout ---- */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: sidebar */}
+        {sidebarCollapsed && (
+          <div
+            onClick={() => setSidebarCollapsed(false)}
+            className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
+            title="Show sidebar"
+          >
+            <svg className="w-4 h-4 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        )}
+        <aside ref={sidebarRef} style={{ width: sidebarCollapsed ? 0 : sidebarW }} className="flex-shrink-0 border-r border-border bg-surface-secondary overflow-hidden flex flex-col">
+          <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50 flex-shrink-0">
+            <button
+              onClick={() => setSidebarCollapsed(true)}
+              className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+              title="Hide sidebar"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <SidebarView />
+          </div>
+        </aside>
+        {!sidebarCollapsed && <div onPointerDown={onSidebarDrag} className="w-1.5 cursor-col-resize bg-slate-200 hover:bg-accent flex-shrink-0" style={{ touchAction: "none" }} title="Drag to resize" />}
+
+        {/* Center: entry list */}
+        {entriesCollapsed && (
+          <div
+            onClick={() => setEntriesCollapsed(false)}
+            className="flex-shrink-0 w-9 border-r border-border bg-surface-secondary flex flex-col items-center pt-2 cursor-pointer hover:bg-surface-tertiary transition-colors"
+            title="Show entry list"
+          >
+            <svg className="w-4 h-4 text-slate-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        )}
+        <div ref={entryListRef} style={{ width: entriesCollapsed ? 0 : entryW }} className="flex-shrink-0 h-full overflow-hidden border-r border-border flex flex-col">
+          <div className="flex items-center justify-end px-2 py-0.5 border-b border-border/50 bg-surface-tertiary/50 flex-shrink-0">
+            <button
+              onClick={() => setEntriesCollapsed(true)}
+              className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-surface-tertiary active:bg-surface-tertiary/70 transition-colors"
+              title="Hide entry list"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <EntryListView />
+          </div>
+        </div>
+        {!entriesCollapsed && <div onPointerDown={onEntryDrag} className="w-1.5 cursor-col-resize bg-slate-200 hover:bg-accent flex-shrink-0" style={{ touchAction: "none" }} title="Drag to resize" />}
+
+        {/* Right: reader */}
+        <div className="flex-1 h-full overflow-hidden">
+          <ReaderDetailView />
+        </div>
+      </div>
+
+      {/* ---- Status bar ---- */}
+      <footer className="h-7 flex-shrink-0 border-t border-border bg-surface-secondary px-3 flex items-center text-xs text-slate-500 gap-3">
+        <span>
+          {sidebarSection === "feeds" ? "Feeds" : "Tags"}
+          {selectedEntryId ? ` | Article #${selectedEntryId}` : " | No selection"}
+        </span>
+        <span className="flex-1" />
+        <span>Oasis v0.1.0</span>
+      </footer>
+
+      {/* ---- Overlay sheets ---- */}
+      {renderSheet()}
+    </div>
+  );
+};
+
+export const App: React.FC = () => (
+  <I18nProvider>
+    <AppShell />
+  </I18nProvider>
+);

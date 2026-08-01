@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Rust
+*.rs.bk
+*.pdb
+
+# Vite
+.vite/
+
+# Tauri icons (generated, but tracked as project assets)
+# Only track the needed ones — generated extras can be ignored
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/*.icns
+
+# Local data & logs (generated at runtime)
+*.db
+*.db-journal
+*.db-wal
+*.log
+
+# Config backups
+*.config.json.bak
+
+# Temp files
+*.tmp
+*~

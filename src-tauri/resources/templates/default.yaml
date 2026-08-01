@@ -1,0 +1,36 @@
+# Oasis Digest Template — Default (Single Article Markdown)
+# Uses Mustache-style {{placeholder}} and {{#section}}...{{/section}} conditionals.
+#
+# Available placeholders:
+#   {{title}}          — article title
+#   {{author}}         — article author
+#   {{published_at}}   — publication date
+#   {{url}}            — article URL
+#   {{summary}}        — AI-generated summary (may be empty)
+#   {{note}}           — user note (may be empty)
+
+id: "default"
+version: "1.0"
+template: |
+  # {{title}}
+  {{#author}}
+  *By {{author}}*
+  {{/author}}
+  {{#published_at}}
+  *Published: {{published_at}}*
+  {{/published_at}}
+  {{#url}}
+  [Read original]({{url}})
+  {{/url}}
+
+  {{#summary}}
+  ## Summary
+
+  > {{summary}}
+  {{/summary}}
+
+  {{#note}}
+  ## Notes
+
+  {{note}}
+  {{/note}}
