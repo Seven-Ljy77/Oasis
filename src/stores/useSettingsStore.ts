@@ -159,6 +159,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
+      throw err;
     }
   },
 
@@ -312,7 +313,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
-      return false;
+      throw err;
     }
   },
 

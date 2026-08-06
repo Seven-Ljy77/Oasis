@@ -97,11 +97,17 @@ async fn persist_api_key(api_key: String) -> Result<String, AppError> {
 
     tokio::task::spawn_blocking(move || {
         let reference = format!("credential:{}", uuid::Uuid::new_v4());
-        let entry = keyring::Entry::new("Oasis", &reference)
-            .map_err(|error| AppError::Config(format!("Credential store unavailable: {error}")))?;
-        entry
-            .set_password(&key)
-            .map_err(|error| AppError::Config(format!("Cannot save API key securely: {error}")))?;
+        let entry = match keyring::Entry::new("Oasis", &reference) {
+            Ok(entry) => entry,
+            Err(_) => return Ok(key),
+        };
+        if entry.set_password(&key).is_err() {
+            return Ok(key);
+        }
+        match entry.get_password() {
+            Ok(saved_key) if saved_key == key => {}
+            _ => return Ok(key),
+        }
         Ok(reference)
     })
     .await
@@ -216,6 +222,7 @@ pub async fn update_agent_provider(
     }
     let replacement_api_key = updates
         .get("api_key")
+        .or_else(|| updates.get("apiKey"))
         .map(|value| {
             value
                 .as_str()
@@ -515,10 +522,8 @@ pub async fn test_agent_model(
                 max_tokens: Some(1),
                 stream: false,
             };
-            match client.complete(&request).await {
-                Ok(_) => return Ok(true),
-                Err(_) => return Ok(false),
-            }
+            client.complete(&request).await?;
+            return Ok(true);
         }
     }
     Err(AppError::NotFound(format!(

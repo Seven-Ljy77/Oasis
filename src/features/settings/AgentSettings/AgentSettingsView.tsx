@@ -150,28 +150,45 @@ const ProviderTab: React.FC = () => {
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={async () => {
                     const newName = prompt(t.agentSettings.newName, p.name);
-                    if (newName) await updateProvider(p.id, { name: newName });
-                    loadProviders();
+                    if (!newName) return;
+                    try {
+                      await updateProvider(p.id, { name: newName });
+                      await loadProviders();
+                    } catch (error) {
+                      alert(error instanceof Error ? error.message : String(error));
+                    }
                   }}>{t.common.edit}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
                     const apiKey = prompt("Enter the new API key for this provider:");
                     if (!apiKey?.trim()) return;
-                    await updateProvider(p.id, { api_key: apiKey.trim() });
-                    await loadProviders();
-                    alert("API key updated.");
+                    try {
+                      await updateProvider(p.id, { apiKey: apiKey.trim() });
+                      await loadProviders();
+                      alert("API key updated.");
+                    } catch (error) {
+                      alert(error instanceof Error ? error.message : String(error));
+                    }
                   }}>Update Key</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
                     const models = useSettingsStore.getState().models[p.id] ?? [];
                     if (models.length > 0) {
-                      const ok = await testModel(models[0].id);
-                      alert(ok ? t.agentSettings.connectionSuccess : t.agentSettings.connectionFailed);
+                      try {
+                        const ok = await testModel(models[0].id);
+                        alert(ok ? t.agentSettings.connectionSuccess : t.agentSettings.connectionFailed);
+                      } catch (error) {
+                        alert(error instanceof Error ? error.message : String(error));
+                      }
                     } else {
                       alert(t.agentSettings.noModels);
                     }
                   }}>{t.agentSettings.testConnection}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
-                    await updateProvider(p.id, { is_default: true });
-                    loadProviders();
+                    try {
+                      await updateProvider(p.id, { is_default: true });
+                      await loadProviders();
+                    } catch (error) {
+                      alert(error instanceof Error ? error.message : String(error));
+                    }
                   }}>{t.agentSettings.setDefault}</Button>
                   <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>{t.common.delete}</Button>
                 </div>

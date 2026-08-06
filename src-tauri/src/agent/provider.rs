@@ -166,14 +166,14 @@ impl OpenAIProvider {
     ///
     /// For local development (`api_key_ref == "local"`), the key "local" is
     /// returned directly — local LLM endpoints typically accept any value.
-    /// For other keys, tries Windows Credential Manager via the keyring crate,
+    /// For other keys, tries the system credential store via the keyring crate,
     /// falling back to the raw `api_key_ref` value itself (for inline keys).
     async fn resolve_api_key(&self) -> Result<String, AppError> {
         if self.api_key_ref == "local" {
             return Ok("local".to_string());
         }
         let is_managed = self.api_key_ref.starts_with("credential:");
-        // Try Windows Credential Manager via keyring
+        // Try the system credential store via keyring.
         match keyring::Entry::new("Oasis", &self.api_key_ref) {
             Ok(entry) => match entry.get_password() {
                 Ok(key) => {
