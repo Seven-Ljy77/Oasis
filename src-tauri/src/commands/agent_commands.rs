@@ -219,10 +219,12 @@ pub async fn update_agent_provider(
         .map(|value| {
             value
                 .as_str()
+                .map(str::trim)
                 .map(str::to_string)
                 .ok_or_else(|| AppError::InvalidInput("API key must be text".to_string()))
         })
-        .transpose()?;
+        .transpose()?
+        .filter(|api_key| !api_key.is_empty());
     if let Some(value) = updates.get("test_model") {
         provider.test_model = if value.is_null() {
             None

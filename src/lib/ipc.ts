@@ -160,9 +160,14 @@ export const addAgentProvider = (
     testModel,
   });
 
+export type AgentProviderUpdate = Partial<AgentProviderProfile> & {
+  api_key?: string;
+  test_model?: string | null;
+};
+
 export const updateAgentProvider = (
   id: number,
-  updates: Partial<AgentProviderProfile>,
+  updates: AgentProviderUpdate,
 ): Promise<AgentProviderProfile> =>
   invoke<AgentProviderProfile>("update_agent_provider", {
     providerProfileId: id,

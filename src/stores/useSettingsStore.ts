@@ -9,6 +9,7 @@ import type {
   AgentModelProfile,
   AgentProfile,
 } from "@/lib/types";
+import type { AgentProviderUpdate } from "@/lib/ipc";
 import * as ipc from "@/lib/ipc";
 
 // ---------------------------------------------------------------------------
@@ -49,7 +50,7 @@ export interface SettingsState {
   ) => Promise<AgentProviderProfile | null>;
   updateProvider: (
     id: number,
-    updates: Partial<AgentProviderProfile>,
+    updates: AgentProviderUpdate,
   ) => Promise<void>;
   deleteProvider: (id: number) => Promise<void>;
   archiveProvider: (id: number) => Promise<void>;

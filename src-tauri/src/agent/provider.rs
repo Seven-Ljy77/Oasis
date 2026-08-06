@@ -183,7 +183,7 @@ impl OpenAIProvider {
                 }
                 Err(keyring::Error::NoEntry) if is_managed => {
                     return Err(AppError::Config(
-                        "The saved API credential no longer exists".to_string(),
+                        "The saved API credential no longer exists. Re-enter the provider API key in Settings > Agents > Providers.".to_string(),
                     ));
                 }
                 Err(keyring::Error::NoEntry) => { /* legacy inline key */ }
