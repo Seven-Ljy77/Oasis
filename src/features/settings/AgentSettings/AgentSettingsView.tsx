@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
-import { revealCustomTemplate, reloadPromptTemplates } from "@/lib/ipc";
+import { formatIpcError, revealCustomTemplate, reloadPromptTemplates } from "@/lib/ipc";
 import type { AgentProviderProfile, AgentModelProfile } from "@/lib/types";
 
 type AgentTab = "providers" | "models" | "agents";
@@ -155,18 +155,18 @@ const ProviderTab: React.FC = () => {
                       await updateProvider(p.id, { name: newName });
                       await loadProviders();
                     } catch (error) {
-                      alert(error instanceof Error ? error.message : String(error));
+                      alert(formatIpcError(error));
                     }
                   }}>{t.common.edit}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
                     const apiKey = prompt("Enter the new API key for this provider:");
                     if (!apiKey?.trim()) return;
                     try {
-                      await updateProvider(p.id, { apiKey: apiKey.trim() });
+                      await updateProvider(p.id, { api_key: apiKey.trim() });
                       await loadProviders();
                       alert("API key updated.");
                     } catch (error) {
-                      alert(error instanceof Error ? error.message : String(error));
+                      alert(formatIpcError(error));
                     }
                   }}>Update Key</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
@@ -176,7 +176,7 @@ const ProviderTab: React.FC = () => {
                         const ok = await testModel(models[0].id);
                         alert(ok ? t.agentSettings.connectionSuccess : t.agentSettings.connectionFailed);
                       } catch (error) {
-                        alert(error instanceof Error ? error.message : String(error));
+                        alert(formatIpcError(error));
                       }
                     } else {
                       alert(t.agentSettings.noModels);
@@ -187,7 +187,7 @@ const ProviderTab: React.FC = () => {
                       await updateProvider(p.id, { is_default: true });
                       await loadProviders();
                     } catch (error) {
-                      alert(error instanceof Error ? error.message : String(error));
+                      alert(formatIpcError(error));
                     }
                   }}>{t.agentSettings.setDefault}</Button>
                   <Button variant="ghost" size="sm" onClick={() => deleteProvider(p.id)}>{t.common.delete}</Button>

@@ -30,6 +30,26 @@ import type {
   UploadLogsResponse,
 } from "./types";
 
+/** Convert Tauri's serialized Rust errors into a readable message. */
+export const formatIpcError = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const entries = Object.entries(error as Record<string, unknown>);
+    if (entries.length === 1 && typeof entries[0][1] === "string") {
+      const [kind, message] = entries[0];
+      const label = kind.replace(/([a-z])([A-Z])/g, "$1 $2");
+      return `${label} error: ${message}`;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unknown application error";
+    }
+  }
+  return String(error);
+};
+
 // ---------------------------------------------------------------------------
 // Feed commands
 // ---------------------------------------------------------------------------
