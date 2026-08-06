@@ -15,7 +15,6 @@ Oasis 是一款跨平台 RSS 阅读器，支持 Windows、Linux、macOS 三大�
 | `main` | 主分支，仅包含仓库说明，不含具体实现代码 |
 | `windows` | Windows 版本源码 |
 | `linux` | Linux 版本源码 |
-| `mac` | macOS 版本源码 |
 
 如需查看或运行某个平台的版本，请切换到对应分支：
 
