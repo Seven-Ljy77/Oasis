@@ -31,6 +31,9 @@ pub trait AgentConfigStore: Send + Sync {
     /// Restore a provider and its models without overwriting their data.
     async fn unarchive_provider(&self, id: i64) -> Result<(), AppError>;
 
+    /// Permanently delete a provider, its models, and affected model routes.
+    async fn delete_provider(&self, id: i64) -> Result<(), AppError>;
+
     // --- Models ---
 
     /// Load all model profiles for a given provider.
@@ -260,6 +263,51 @@ impl AgentConfigStore for SqliteAgentConfigStore {
                              archived_by_provider = 0
                          WHERE provider_profile_id = ?1
                            AND archived_by_provider = 1",
+                        params![id],
+                    )?;
+                    Ok(())
+                })
+            })
+        })
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+    }
+
+    async fn delete_provider(&self, id: i64) -> Result<(), AppError> {
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            db.write(|conn| {
+                with_savepoint(conn, |conn| {
+                    let exists: bool = conn.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM agent_provider_profile WHERE id = ?1)",
+                        params![id],
+                        |row| row.get(0),
+                    )?;
+                    if !exists {
+                        return Err(AppError::NotFound(format!("Provider not found: {id}")));
+                    }
+                    conn.execute(
+                        "UPDATE agent_profile
+                         SET primary_model_profile_id = NULL
+                         WHERE primary_model_profile_id IN (
+                           SELECT id FROM agent_model_profile WHERE provider_profile_id = ?1
+                         )",
+                        params![id],
+                    )?;
+                    conn.execute(
+                        "UPDATE agent_profile
+                         SET fallback_model_profile_id = NULL
+                         WHERE fallback_model_profile_id IN (
+                           SELECT id FROM agent_model_profile WHERE provider_profile_id = ?1
+                         )",
+                        params![id],
+                    )?;
+                    conn.execute(
+                        "DELETE FROM agent_model_profile WHERE provider_profile_id = ?1",
+                        params![id],
+                    )?;
+                    conn.execute(
+                        "DELETE FROM agent_provider_profile WHERE id = ?1",
                         params![id],
                     )?;
                     Ok(())
@@ -561,7 +609,7 @@ mod tests {
 
     use super::{AgentConfigStore, SqliteAgentConfigStore};
     use crate::db::manager::DatabaseManager;
-    use crate::db::models::{AgentModelProfile, AgentProviderProfile};
+    use crate::db::models::{AgentModelProfile, AgentProfile, AgentProviderProfile};
 
     #[tokio::test]
     async fn unarchive_preserves_provider_and_model_configuration() {
@@ -662,6 +710,27 @@ mod tests {
                     .find(|candidate| candidate.id == manually_archived_model.id)
                     .is_some_and(|candidate| candidate.is_archived)
             );
+
+            store
+                .upsert_profile(&AgentProfile {
+                    agent_type: "translation".to_string(),
+                    primary_model_profile_id: Some(model.id),
+                    fallback_model_profile_id: Some(manually_archived_model.id),
+                })
+                .await
+                .unwrap();
+            store.delete_provider(provider.id).await.unwrap();
+            assert!(store.load_providers(true).await.unwrap().is_empty());
+            assert!(store.load_models(provider.id, true).await.unwrap().is_empty());
+            let route = store
+                .load_profiles()
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|profile| profile.agent_type == "translation")
+                .unwrap();
+            assert_eq!(route.primary_model_profile_id, None);
+            assert_eq!(route.fallback_model_profile_id, None);
         }
 
         let _ = std::fs::remove_file(&path);

@@ -196,9 +196,30 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   deleteProvider: async (id) => {
     try {
       await ipc.deleteAgentProvider(id);
-      set((s) => ({
-        providers: s.providers.filter((p) => p.id !== id),
-      }));
+      set((s) => {
+        const deletedModelIds = new Set((s.models[id] ?? []).map((model) => model.id));
+        const models = { ...s.models };
+        delete models[id];
+        const agentProfiles = Object.fromEntries(
+          Object.entries(s.agentProfiles).map(([agentType, profile]) => [
+            agentType,
+            {
+              ...profile,
+              primary_model_profile_id: deletedModelIds.has(profile.primary_model_profile_id ?? -1)
+                ? null
+                : profile.primary_model_profile_id,
+              fallback_model_profile_id: deletedModelIds.has(profile.fallback_model_profile_id ?? -1)
+                ? null
+                : profile.fallback_model_profile_id,
+            },
+          ]),
+        );
+        return {
+          providers: s.providers.filter((provider) => provider.id !== id),
+          models,
+          agentProfiles,
+        };
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });

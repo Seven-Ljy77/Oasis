@@ -159,17 +159,6 @@ const ProviderTab: React.FC = () => {
                     }
                   }}>{t.common.edit}</Button>
                   <Button variant="ghost" size="sm" onClick={async () => {
-                    const apiKey = prompt("Enter the new API key for this provider:");
-                    if (!apiKey?.trim()) return;
-                    try {
-                      await updateProvider(p.id, { api_key: apiKey.trim() });
-                      await loadProviders();
-                      alert("API key updated.");
-                    } catch (error) {
-                      alert(formatIpcError(error));
-                    }
-                  }}>Update Key</Button>
-                  <Button variant="ghost" size="sm" onClick={async () => {
                     const models = useSettingsStore.getState().models[p.id] ?? [];
                     if (models.length > 0) {
                       try {

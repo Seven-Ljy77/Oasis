@@ -31,6 +31,7 @@ fn validate_provider(provider: &mut AgentProviderProfile) -> Result<(), AppError
     Ok(())
 }
 
+#[cfg(test)]
 fn provider_origin(base_url: &str) -> Result<url::Origin, AppError> {
     url::Url::parse(base_url)
         .map(|parsed| parsed.origin())
@@ -94,42 +95,9 @@ async fn persist_api_key(api_key: String) -> Result<String, AppError> {
     if key.is_empty() || key == "local" {
         return Ok("local".to_string());
     }
-
-    tokio::task::spawn_blocking(move || {
-        let reference = format!("credential:{}", uuid::Uuid::new_v4());
-        let entry = match keyring::Entry::new("Oasis", &reference) {
-            Ok(entry) => entry,
-            Err(_) => return Ok(key),
-        };
-        if entry.set_password(&key).is_err() {
-            return Ok(key);
-        }
-        match entry.get_password() {
-            Ok(saved_key) if saved_key == key => {}
-            _ => return Ok(key),
-        }
-        Ok(reference)
-    })
-    .await
-    .map_err(|error| AppError::Config(format!("Credential task failed: {error}")))?
-}
-
-async fn delete_api_key(reference: String) -> Result<(), AppError> {
-    if !reference.starts_with("credential:") {
-        return Ok(());
-    }
-    tokio::task::spawn_blocking(move || {
-        let entry = keyring::Entry::new("Oasis", &reference)
-            .map_err(|error| AppError::Config(format!("Credential store unavailable: {error}")))?;
-        match entry.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(error) => Err(AppError::Config(format!(
-                "Cannot delete API credential: {error}"
-            ))),
-        }
-    })
-    .await
-    .map_err(|error| AppError::Config(format!("Credential task failed: {error}")))?
+    // API keys are intentionally stored in Oasis's local SQLite database.
+    // Provider responses redact this value before returning it to the frontend.
+    Ok(key)
 }
 
 // =============================================================================
@@ -174,10 +142,7 @@ pub async fn add_agent_provider(
     provider.api_key_ref = api_key_ref.clone();
     match state.agent_config_store.upsert_provider(&provider).await {
         Ok(stored) => Ok(redact_provider(stored)),
-        Err(error) => {
-            let _ = delete_api_key(api_key_ref).await;
-            Err(error)
-        }
+        Err(error) => Err(error),
     }
 }
 
@@ -196,7 +161,6 @@ pub async fn update_agent_provider(
         .ok_or_else(|| {
             AppError::NotFound(format!("Provider not found: {provider_profile_id}"))
         })?;
-    let original_origin = provider_origin(&provider.base_url)?;
     if let Some(value) = updates.get("name") {
         provider.name = value
             .as_str()
@@ -220,18 +184,11 @@ pub async fn update_agent_provider(
             ));
         }
     }
-    let replacement_api_key = updates
-        .get("api_key")
-        .or_else(|| updates.get("apiKey"))
-        .map(|value| {
-            value
-                .as_str()
-                .map(str::trim)
-                .map(str::to_string)
-                .ok_or_else(|| AppError::InvalidInput("API key must be text".to_string()))
-        })
-        .transpose()?
-        .filter(|api_key| !api_key.is_empty());
+    if updates.get("api_key").is_some() || updates.get("apiKey").is_some() {
+        return Err(AppError::InvalidInput(
+            "To change an API key, delete this provider and create it again".to_string(),
+        ));
+    }
     if let Some(value) = updates.get("test_model") {
         provider.test_model = if value.is_null() {
             None
@@ -257,33 +214,11 @@ pub async fn update_agent_provider(
         })?;
     }
     validate_provider(&mut provider)?;
-    let origin_changed = provider_origin(&provider.base_url)? != original_origin;
-    if origin_changed && replacement_api_key.is_none() && provider.api_key_ref != "local" {
-        return Err(AppError::InvalidInput(
-            "Changing the provider host requires entering the API key again".to_string(),
-        ));
-    }
-    let Some(api_key) = replacement_api_key else {
-        return state
-            .agent_config_store
-            .upsert_provider(&provider)
-            .await
-            .map(redact_provider);
-    };
-
-    let old_reference = provider.api_key_ref.clone();
-    let new_reference = persist_api_key(api_key).await?;
-    provider.api_key_ref = new_reference.clone();
-    match state.agent_config_store.upsert_provider(&provider).await {
-        Ok(stored) => {
-            let _ = delete_api_key(old_reference).await;
-            Ok(redact_provider(stored))
-        }
-        Err(error) => {
-            let _ = delete_api_key(new_reference).await;
-            Err(error)
-        }
-    }
+    state
+        .agent_config_store
+        .upsert_provider(&provider)
+        .await
+        .map(redact_provider)
 }
 
 #[cfg(test)]
@@ -333,7 +268,7 @@ pub async fn delete_agent_provider(
     state: State<'_, AppState>,
     provider_profile_id: i64,
 ) -> Result<(), AppError> {
-    state.agent_config_store.archive_provider(provider_profile_id).await
+    state.agent_config_store.delete_provider(provider_profile_id).await
 }
 
 #[tauri::command]

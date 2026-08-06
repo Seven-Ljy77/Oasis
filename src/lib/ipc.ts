@@ -181,8 +181,6 @@ export const addAgentProvider = (
   });
 
 export type AgentProviderUpdate = Partial<AgentProviderProfile> & {
-  api_key?: string;
-  apiKey?: string;
   test_model?: string | null;
 };
 
